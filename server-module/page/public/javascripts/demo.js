@@ -26013,10 +26013,9 @@ const io = require('socket.io-client')
 // let url = 'http://localhost:8001'
 //
 // demo5  demoでも一緒
-let url = 'http://192.168.10.14:8001'
-
-
-// let url = 'https://fromtone.herokuapp.com'
+// let url = 'http://192.168.10.14:8001'
+//
+let url = 'https://fromtone.herokuapp.com'
 
 
 let socket = io.connect(url)
