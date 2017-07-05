@@ -1,0 +1,5 @@
+{
+  "PORT": 8001,
+  "SERVER_URL": "https://excall.herokuapp.com",
+  "VOICE_TEXT_API": "d0vkda03h31rw8yb"
+}

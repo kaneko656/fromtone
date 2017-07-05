@@ -1,0 +1,24 @@
+/*
+	sass style.scss:style.css でcssに変換
+
+	ファイル変更で自動置き換え
+	sass --watch style:scss:style:css
+
+*/
+
+$width: 500px;
+$color: #aa443f;
+
+#maincontainer {
+	width: $width;
+	color: $color;
+}
+
+body {
+  padding: 50px;
+  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+}
+
+a {
+  color: #00B7FF;
+}

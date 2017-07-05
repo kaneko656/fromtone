@@ -1,0 +1,20 @@
+@charset "UTF-8";
+/*
+	sass style.scss:style.css でcssに変換
+
+	ファイル変更で自動置き換え
+	sass --watch style:scss:style:css
+
+*/
+#maincontainer {
+  width: 500px;
+  color: #aa443f; }
+
+body {
+  padding: 50px;
+  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif; }
+
+a {
+  color: #00B7FF; }
+
+/*# sourceMappingURL=style3.css.map */

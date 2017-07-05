@@ -1,0 +1,7 @@
+{
+"version": 3,
+"mappings": ";AAAA;;;;;;EAME;AAKF,cAAe;EACd,KAAK,EAJE,KAAK;EAKZ,KAAK,EAJE,OAAO;;AAOf,IAAK;EACH,OAAO,EAAE,IAAI;EACb,IAAI,EAAE,kDAAkD;;AAG1D,CAAE;EACA,KAAK,EAAE,OAAO",
+"sources": ["../../sass/style.scss"],
+"names": [],
+"file": "style3.css"
+}

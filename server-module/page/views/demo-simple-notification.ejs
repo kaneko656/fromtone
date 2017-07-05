@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="jp">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FromTone: Simple Notification</title>
+  <script type="text/javascript" src="lib/javascripts/demo.js" id="demo-argument" data-type="demo-simple-notification" data-value="<%= value %>" data-reset="<%= reset %>" data-user="<%= user %>"></script>
+  <link href="lib/dist/css/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="lib/dist/css/flat-ui.min.css" rel="stylesheet">
+</head>
+
+<body>
+
+  <!-- <body background="lib/image/uxga_3.jpg"> -->
+  <body>
+
+    <script src="lib/dist/js/vendor/jquery.min.js"></script>
+    <script src="lib/dist/js/flat-ui.min.js"></script>
+    <h3><%= value %></h3>
+    <h6 id="websocket_status"></h4>
+    <h6 id="ntp_status"></h4>
+    <div id="canvas_div"></div>
+    <div id="menu_button"></div>
+    <p id="loading_message">Loading...</p>
+    <div id="button_list"></div>
+  </body>
+
+</html>
