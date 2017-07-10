@@ -45,24 +45,27 @@ SwitchButton.prototype.create = function() {
      * dopplerButton
      */
 
-    let p2 = document.createElement('p')
-    let dopplerSwitch = true
-    let dopplerButton = document.createElement('button')
-    dopplerButton.setAttribute('class', 'btn btn-default')
-    dopplerButton.innerHTML = 'Doppler On -> Off'
-    p2.appendChild(dopplerButton)
-    my.element.appendChild(p2)
+     let h = document.createElement('h5')
+     h.innerHTML = 'Doppler'
+     let p2 = document.createElement('p')
+     let dopplerSwitch = true
+     let dopplerButton = document.createElement('button')
+     dopplerButton.setAttribute('class', 'btn btn-info')
+     dopplerButton.innerHTML = '<big>On</big><small> -> Off</small>'
+     p2.appendChild(h)
+     p2.appendChild(dopplerButton)
+     my.element.appendChild(p2)
 
-    dopplerButton.onclick = () => {
-        if (dopplerSwitch) {
-            dopplerButton.innerHTML = 'Doppler Off -> On'
-            dopplerSwitch = false
-        } else if (!dopplerSwitch) {
-            dopplerButton.innerHTML = 'Doppler On -> Off'
-            dopplerSwitch = true
-        }
-        my.callDoppler(dopplerSwitch)
-    }
+     dopplerButton.onclick = () => {
+         if (dopplerSwitch) {
+             dopplerButton.innerHTML = '<big>Off</big><small> -> On</small>'
+             dopplerSwitch = false
+         } else if (!dopplerSwitch) {
+             dopplerButton.innerHTML = '<big>On</big><small> -> Off</small>'
+             dopplerSwitch = true
+         }
+         my.callDoppler(dopplerSwitch)
+     }
 
     my.gyroButton = gyroButton
     my.dopplerButton = dopplerButton

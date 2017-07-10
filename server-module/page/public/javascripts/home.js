@@ -145,7 +145,7 @@ function init() {
             home.setLink(url + 'demo-task-notification', 'Task-Notification')
             home.setLink(url + 'demo-motivation', 'SyncMusic-surround')
             home.setLink(url + 'demo-chat', 'Chat')
-            home.setLink(url + 'demo-accel-sensor', 'Accel Sensor')
+            // home.setLink(url + 'demo-accel-sensor', 'Accel Sensor')
             home.setLink(url + 'demo-accel-notification', 'Accel-Notification')
             home.setLink(url + 'demo-doppler-notification', 'Doppler-Notification')
 

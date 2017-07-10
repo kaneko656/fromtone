@@ -125,18 +125,18 @@ exports.start = (element, context, socket, clientTime, config) => {
     })
 
     // panner - slider
-    let pannerSlider = Slider(element, 'panner', 'Panner Time')
-    pannerSlider.setList()
-    let p = document.createElement('p')
-    p.innerHTML = '音像移動（開始点　終了点）<br>←音の開始　　→音の終了'
-    element.appendChild(p)
-
-    // panner - distance
-    let distanceSlider = SliderSingle(element, 'distance', 'Panner Distance')
-    distanceSlider.setList()
-    let p_d = document.createElement('p')
-    p_d.innerHTML = '←近い　→遠い'
-    element.appendChild(p_d)
+    // let pannerSlider = Slider(element, 'panner', 'Panner Time')
+    // pannerSlider.setList()
+    // let p = document.createElement('p')
+    // p.innerHTML = '音像移動（開始点　終了点）<br>←音の開始　　→音の終了'
+    // element.appendChild(p)
+    //
+    // // panner - distance
+    // let distanceSlider = SliderSingle(element, 'distance', 'Panner Distance')
+    // distanceSlider.setList()
+    // let p_d = document.createElement('p')
+    // p_d.innerHTML = '←近い　→遠い'
+    // element.appendChild(p_d)
 
 
     let radioButton = RadioButton(element, 'tone', 'Tone Select')
@@ -459,8 +459,8 @@ exports.start = (element, context, socket, clientTime, config) => {
         let toUserList = toList.getSelectUser()
         let fromUserList = fromList.getSelectUser()
         let soundName = radioButton.getSelected()
-        let pannerValues = pannerSlider.getValues()
-        let pannerDistance = distanceSlider.getValue()
+        // let pannerValues = pannerSlider.getValues()
+        // let pannerDistance = distanceSlider.getValue()
         let doppler = dopplerSwitch
 
         console.log(toUserList)
@@ -472,8 +472,8 @@ exports.start = (element, context, socket, clientTime, config) => {
             from: fromUserList,
             to: toUserList,
             sound: soundName,
-            panner: pannerValues,
-            distance: pannerDistance,
+            // panner: pannerValues,
+            // distance: pannerDistance,
             doppler: doppler
         }
         console.log(body)

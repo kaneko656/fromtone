@@ -21962,24 +21962,27 @@ SwitchButton.prototype.create = function() {
      * dopplerButton
      */
 
-    let p2 = document.createElement('p')
-    let dopplerSwitch = true
-    let dopplerButton = document.createElement('button')
-    dopplerButton.setAttribute('class', 'btn btn-default')
-    dopplerButton.innerHTML = 'Doppler On -> Off'
-    p2.appendChild(dopplerButton)
-    my.element.appendChild(p2)
+     let h = document.createElement('h5')
+     h.innerHTML = 'Doppler'
+     let p2 = document.createElement('p')
+     let dopplerSwitch = true
+     let dopplerButton = document.createElement('button')
+     dopplerButton.setAttribute('class', 'btn btn-info')
+     dopplerButton.innerHTML = '<big>On</big><small> -> Off</small>'
+     p2.appendChild(h)
+     p2.appendChild(dopplerButton)
+     my.element.appendChild(p2)
 
-    dopplerButton.onclick = () => {
-        if (dopplerSwitch) {
-            dopplerButton.innerHTML = 'Doppler Off -> On'
-            dopplerSwitch = false
-        } else if (!dopplerSwitch) {
-            dopplerButton.innerHTML = 'Doppler On -> Off'
-            dopplerSwitch = true
-        }
-        my.callDoppler(dopplerSwitch)
-    }
+     dopplerButton.onclick = () => {
+         if (dopplerSwitch) {
+             dopplerButton.innerHTML = '<big>Off</big><small> -> On</small>'
+             dopplerSwitch = false
+         } else if (!dopplerSwitch) {
+             dopplerButton.innerHTML = '<big>On</big><small> -> Off</small>'
+             dopplerSwitch = true
+         }
+         my.callDoppler(dopplerSwitch)
+     }
 
     my.gyroButton = gyroButton
     my.dopplerButton = dopplerButton
@@ -22122,18 +22125,18 @@ exports.start = (element, context, socket, clientTime, config) => {
     })
 
     // panner - slider
-    let pannerSlider = Slider(element, 'panner', 'Panner Time')
-    pannerSlider.setList()
-    let p = document.createElement('p')
-    p.innerHTML = '音像移動（開始点　終了点）<br>←音の開始　　→音の終了'
-    element.appendChild(p)
-
-    // panner - distance
-    let distanceSlider = SliderSingle(element, 'distance', 'Panner Distance')
-    distanceSlider.setList()
-    let p_d = document.createElement('p')
-    p_d.innerHTML = '←近い　→遠い'
-    element.appendChild(p_d)
+    // let pannerSlider = Slider(element, 'panner', 'Panner Time')
+    // pannerSlider.setList()
+    // let p = document.createElement('p')
+    // p.innerHTML = '音像移動（開始点　終了点）<br>←音の開始　　→音の終了'
+    // element.appendChild(p)
+    //
+    // // panner - distance
+    // let distanceSlider = SliderSingle(element, 'distance', 'Panner Distance')
+    // distanceSlider.setList()
+    // let p_d = document.createElement('p')
+    // p_d.innerHTML = '←近い　→遠い'
+    // element.appendChild(p_d)
 
 
     let radioButton = RadioButton(element, 'tone', 'Tone Select')
@@ -22456,8 +22459,8 @@ exports.start = (element, context, socket, clientTime, config) => {
         let toUserList = toList.getSelectUser()
         let fromUserList = fromList.getSelectUser()
         let soundName = radioButton.getSelected()
-        let pannerValues = pannerSlider.getValues()
-        let pannerDistance = distanceSlider.getValue()
+        // let pannerValues = pannerSlider.getValues()
+        // let pannerDistance = distanceSlider.getValue()
         let doppler = dopplerSwitch
 
         console.log(toUserList)
@@ -22469,8 +22472,8 @@ exports.start = (element, context, socket, clientTime, config) => {
             from: fromUserList,
             to: toUserList,
             sound: soundName,
-            panner: pannerValues,
-            distance: pannerDistance,
+            // panner: pannerValues,
+            // distance: pannerDistance,
             doppler: doppler
         }
         console.log(body)
