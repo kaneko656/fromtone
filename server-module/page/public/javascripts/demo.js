@@ -21372,43 +21372,7 @@ module.exports = (onTick, callback, start = true) => {
     })
 }
 
-},{"cron":201}],146:[function(require,module,exports){
-
-module.exports = (element) => {
-    let button = {
-        start: null,
-        stop: null
-    }
-
-    let start = document.createElement('button')
-    start.setAttribute('class', 'button')
-    start.innerHTML = 'START'
-    element.appendChild(start)
-
-    let stop = document.createElement('button')
-    stop.setAttribute('class', 'button')
-    stop.innerHTML = 'STOP'
-    element.appendChild(stop)
-
-    button.start = start
-    button.stop = stop
-    return button
-}
-
-},{}],147:[function(require,module,exports){
-
-module.exports = (element) => {
-    var canvas = document.createElement('canvas')
-    let width = window.innerWidth - 120 > 500 ? window.innerWidth - 120 : 500
-    let height = window.innerHeight > 500 ? window.innerHeight : 500
-    let size = width < height ? width : height
-    canvas.setAttribute('width', size)
-    canvas.setAttribute('height', size)
-    element.appendChild(canvas)
-    return canvas
-}
-
-},{}],148:[function(require,module,exports){
+},{"cron":239}],146:[function(require,module,exports){
 module.exports = (canvas) => {
     return new Field(canvas)
 }
@@ -21446,8 +21410,8 @@ Field.prototype.setNote = function(note) {
     note.size = Math.round(this.w / 15)
     this.notes[name] = note
 
-    this.note = note
-    this.updatePannerPosition(this.note, this.speaker)
+    // this.note = note
+    this.updatePannerPosition(this.notes[name], this.speaker)
     this.render()
     let field = this
     this.notes[name].icon.onload = function() {
@@ -21465,8 +21429,10 @@ Field.prototype.updateNote = function(note) {
         nt.isMove = note.isMove
         nt.isOtherMove = note.isOtherMove
         this.updatePannerPosition(nt, this.speaker)
-        this.render()
+        console.log(name, 'update')
     }
+    this.render()
+
 }
 
 
@@ -21532,9 +21498,10 @@ Field.prototype.toStopStatus = function(name = 'default') {
 
 Field.prototype.render = function() {
     // Draw points onto the canvas element.
-    var ctx = this.canvas.getContext('2d');
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    var ctx = this.canvas.getContext('2d')
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
+    ctx.save()
     // grid
     let size = this.size
     let cnt = 0
@@ -21566,9 +21533,10 @@ Field.prototype.render = function() {
     for (let name in this.notes) {
         this.notes[name].draw(ctx)
     }
+    ctx.restore()
 }
 
-Field.prototype.started = function(callback){
+Field.prototype.started = function(callback) {
     this.callStart = callback
 }
 
@@ -21630,7 +21598,7 @@ Field.prototype.mouseMoved = function(x, y) {
             note.x = x
             note.y = y - 2
             this.sendNoteInfoToServer(note, false)
-        }
+          }
         this.updatePannerPosition(note, this.speaker)
 
     }
@@ -21681,6 +21649,7 @@ Field.prototype.sendNoteInfoToServer = function(note, release) {
     nt.icon = null
     nt.draw = null
     nt.isOver = null
+    nt.setParentNote = null
     nt.idMove = false
     nt.isOtherMove = release ? false : true
     nt.x = nt.x / this.w
@@ -21698,29 +21667,7 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{}],149:[function(require,module,exports){
-module.exports = (element) => {
-    let text = {
-        status: null,
-        log: null
-    }
-
-    let status = document.createElement('p')
-    status.innerHTML = 'press START!'
-    element.appendChild(status)
-
-    let log = document.createElement('p')
-    log.innerHTML = ''
-    element.appendChild(log)
-
-    text.status = status
-    text.log = log
-    return text
-}
-
-},{}],150:[function(require,module,exports){
-
-
+},{}],147:[function(require,module,exports){
 module.exports = (noteIcon) => {
     let callClick = () => {}
     let note = {
@@ -21731,11 +21678,16 @@ module.exports = (noteIcon) => {
         h: noteIcon.height,
         x: 0,
         y: 0,
+        canvasW: 1,
+        canvasH: 1,
         over: false,
         isMove: false,
         isOtherMove: false,
         isPlay: false,
         isSync: false,
+        isChild: false,
+        parentObject: null,
+        childPosition: null,
         isOver: (x, y) => {
             let dx = note.x - x
             let dy = note.y - y
@@ -21748,12 +21700,22 @@ module.exports = (noteIcon) => {
         click: () => {
             callClick(note.name)
         },
+        setParentNote: (parent, pos) => {
+            note.parentObject = parent
+            note.isChild = true
+            note.childPosition = pos
+        },
         draw: (ctx) => {
+            if (note.isChild) {
+                note.x = note.parentObject.x + note.childPosition.x * note.canvasW
+                note.y = note.parentObject.y + note.childPosition.y * note.canvasH
+            }
+
             let rate = note.size / note.w
             ctx.save()
             ctx.translate(note.x, note.y)
             // circle
-            if (note.over) {
+            if (note.over || note.isSync) {
 
                 ctx.fillStyle = note.isOtherMove ? 'rgba(150,0,0,0.3)' : 'rgba(0,100,100,0.3)'
                 ctx.beginPath()
@@ -21787,7 +21749,7 @@ module.exports = (noteIcon) => {
     return note
 }
 
-},{}],151:[function(require,module,exports){
+},{}],148:[function(require,module,exports){
 
 module.exports = (speakerIcon) => {
     let speaker = {
@@ -21865,45 +21827,342 @@ module.exports = (speakerIcon) => {
     return speaker
 }
 
+},{}],149:[function(require,module,exports){
+let isMove = false
+let timeout = 10000
+
+
+// gyro
+
+exports.moved = (text, callback = () => {}) => {
+    text.innerHTML = 'stable'
+
+    // DeviceOrientation Event
+    window.addEventListener("deviceorientation", deviceorientationHandler)
+
+    // ジャイロセンサーの値が変化
+    function deviceorientationHandler(event) {
+        // X軸
+        let x = event.beta
+        // Y軸
+        let y = event.gamma
+        // Z軸
+        let z = event.alpha
+
+        console.log('x',isNaN(x))
+        if (isNaN(x) || !x) {
+            text.innerHTML = 'Can not use Gyro Sensor on this device.'
+            callback(null, 'do not use')
+        }else{
+            // text.innerHTML = x.toFixed(4)
+            callback(x)
+        }
+
+    }
+
+
+
+    // window.addEventListener('devicemotion', (e) => {
+    //     let x = parseFloat(e.acceleration.x)
+    //     let y = parseFloat(e.acceleration.y)
+    //     let z = parseFloat(e.acceleration.z)
+    //     let gx = parseFloat(e.accelerationIncludingGravity.x)
+    //     let gy = parseFloat(e.accelerationIncludingGravity.y)
+    //     let gz = parseFloat(e.accelerationIncludingGravity.z)
+    //
+    //     if (isNaN(x)) {
+    //         text.innerHTML = 'Can not use Accel Sensor on this device.'
+    //     }
+    //     // text.innerHTML = 'gx: ' + gx + '　gy: ' + gy + '　gz: ' + gz + '<br>'
+    //     // text.innerHTML +='x: ' + x + '　y: ' + y + '　z: ' + z + '<br>'
+    //     // text.innerHTML += (x + y + z)
+    //     let sum = x + y + z
+    //     if (sum && sum > 2) {
+    //         text.innerHTML = 'Moved'
+    //         if (!isMove) {
+    //             isMove = true
+    //             callback()
+    //             setTimeout(() => {
+    //                 text.innerHTML = 'Stable'
+    //             }, timeout)
+    //             setTimeout(() => {
+    //                 isMove = false
+    //             }, timeout)
+    //         }
+    //
+    //     }
+    // })
+}
+
+},{}],150:[function(require,module,exports){
+module.exports = (element) => {
+    let text = {
+        status: null,
+        log: null
+    }
+
+    let status = document.createElement('p')
+    status.innerHTML = 'press START!'
+    element.appendChild(status)
+
+    let log = document.createElement('p')
+    log.innerHTML = ''
+    element.appendChild(log)
+
+    text.status = status
+    text.log = log
+    return text
+}
+
+},{}],151:[function(require,module,exports){
+module.exports = (element) => {
+    let s = new SwitchButton(element)
+    s.create()
+    return s
+}
+
+function SwitchButton(element) {
+    this.element = element
+    this.callGyro = () => {}
+    this.callDoppler = () => {}
+    this.gyroButton
+    this.dopplerButton
+}
+
+SwitchButton.prototype.create = function() {
+
+    let my = this
+
+    /**
+     * gyroButton
+     */
+
+     let gyroSwitch = true
+    let p1 = document.createElement('p')
+    let gyroButton = document.createElement('button')
+    gyroButton.setAttribute('class', 'btn btn-default')
+    gyroButton.innerHTML = 'Gyro On -> Off'
+    p1.appendChild(gyroButton)
+    my.element.appendChild(p1)
+
+    gyroButton.onclick = () => {
+        if (gyroSwitch) {
+            gyroButton.innerHTML = 'Gyro Off -> On'
+            gyroSwitch = false
+        } else if (!gyroSwitch) {
+            gyroButton.innerHTML = 'Gyro On -> Off'
+            gyroSwitch = true
+        }
+        my.callGyro(gyroSwitch)
+    }
+
+
+
+    /**
+     * dopplerButton
+     */
+
+    let p2 = document.createElement('p')
+    let dopplerSwitch = true
+    let dopplerButton = document.createElement('button')
+    dopplerButton.setAttribute('class', 'btn btn-default')
+    dopplerButton.innerHTML = 'Doppler On -> Off'
+    p2.appendChild(dopplerButton)
+    my.element.appendChild(p2)
+
+    dopplerButton.onclick = () => {
+        if (dopplerSwitch) {
+            dopplerButton.innerHTML = 'Doppler Off -> On'
+            dopplerSwitch = false
+        } else if (!dopplerSwitch) {
+            dopplerButton.innerHTML = 'Doppler On -> Off'
+            dopplerSwitch = true
+        }
+        my.callDoppler(dopplerSwitch)
+    }
+
+    my.gyroButton = gyroButton
+    my.dopplerButton = dopplerButton
+}
+
+
+SwitchButton.prototype.onGyroSwitch = function(callback = () => {}) {
+    this.callGyro = callback
+}
+
+SwitchButton.prototype.onDopplerSwitch = function(callback = () => {}) {
+    this.callDoppler = callback
+}
+
 },{}],152:[function(require,module,exports){
 let uuid = require('node-uuid')
-let job = require('./../Job/cron.js')
+// let job = require('./../Job/cron.js')
 
-let Canvas = require('./canvas.js')
-let Field = require('./field.js')
+// let Canvas = require('./canvas/canvas.js')
+let Field = require('./canvas/field.js')
+let NoteIcon = require('./canvas/icon-note.js')
+let SpeakerIcon = require('./canvas/icon-speaker.js')
 let SyncPlay = require('./sync-play.js')
-let NoteIcon = require('./icon-note.js')
-let SpeakerIcon = require('./icon-speaker.js')
-let Button = require('./button.js')
-let HtmlText = require('./html-text.js')
+let NotificationButton = require('./../demo-common/html/button-notification.js')
+let RadioButton = require('./../demo-common/html/radio-button.js')
+let Slider = require('./../demo-common/html/slider.js')
+let SliderSingle = require('./../demo-common/html/slider-single.js')
+let HtmlText = require('./html/html-text.js')
+let SelectList = require('./../demo-common/html/select-list.js')
+let gyro = require('./gyro.js')
+let SwitchButton = require('./html/switchButton.js')
 
-let socketDir = 'alarm_'
+// let Biquad = require('./biquad.js')
 
+let socketDir = 'demo_accel_notification_'
+let socketType = 'demo_accel_notification'
 
-exports.start = (element, context, socket, clientTime) => {
+let config = require('./../exCall-module/config')
+
+let homeButton = require('./../demo-common/html/homeButton.js')
+
+// let Voice = require('./createVoice.js')(config.VOICE_TEXT_API)
+// let Slack = require('./slack.js')
+let soundList = {
+    '３音': 'lib/sound/notification-common.mp3',
+    '和風メロディ': 'lib/sound/wafuringtone.mp3',
+    'ウィンドチャイム': 'lib/sound/windchime.mp3',
+    'music': 'lib/sound/clock3.mp3',
+    'voice': 'lib/sound/voice.mp3',
+    '太鼓': 'lib/sound/taiko.mp3',
+    'コーリング': 'lib/sound/emargency_calling.mp3',
+    'アラーム': 'lib/sound/clockbell.mp3',
+    '掃除機': 'lib/sound/cleaner.mp3',
+    '電子レンジ': 'lib/sound/microwave.mp3',
+    '扇風機': 'lib/sound/fan.mp3',
+    '洗濯機': 'lib/sound/washing.mp3',
+    'プリンタ': 'lib/sound/printer.mp3',
+    'ポッド注ぐ': 'lib/sound/pod.mp3',
+    '炒める': 'lib/sound/roasting.mp3',
+    '足音（走る）': 'lib/sound/dashing.mp3',
+    '足音（スリッパ）': 'lib/sound/walking.mp3',
+    '雨音': 'lib/sound/rain.mp3'
+}
+
+let soundNameList = []
+for (let name in soundList) {
+    soundNameList.push(name)
+}
+
+exports.start = (element, context, socket, clientTime, config) => {
+    element.style.margin = '30px'
+
+    console.log(config)
+
     let clientID = uuid.v4() // This is temporary. When websocket connected, this is replaced new id
 
-    let button = Button(element)
+
     let htmlText = HtmlText(element)
-    let canvas = Canvas(element)
-    let field = Field(canvas)
+    let fromList = SelectList(element, 'from', 'From')
+    let toList = SelectList(element, 'to', 'To')
 
-    // Icon
-    let speakerIcon = new Image(300, 300)
-    speakerIcon.src = 'lib/image/speaker.png'
-    field.setThisSpeaker(SpeakerIcon(speakerIcon))
+    let notificationButton = NotificationButton(element)
 
-    let noteIcon = new Image(300, 300)
-    noteIcon.src = 'lib/image/note.svg'
-    noteIcon = NoteIcon(noteIcon)
-    noteIcon.name = 'music'
-    noteIcon.x = 0.5
-    noteIcon.y = 0.5
-    field.setNote(noteIcon)
+    // gyro
+    let gyroSwitch = true
+    let sendTime = 0
+    let sendInterval = 20
+    let canUse = true
+    let gyroLog = document.createElement('p')
+    element.appendChild(gyroLog)
+    let gyroValue = -1
+    let callGyro = () => {}
+    gyro.moved(gyroLog, (value) => {
+        if (!value) {
+            switchButton.gyroButton.innerHTML = 'Can not use Gyro Sensor'
+            canUse = false
+        }
+        let tempGyroValue
+        if (value < -30) {
+            tempGyroValue = 0
+        } else if (value > 30) {
+            tempGyroValue = 1
+        } else {
+            tempGyroValue = (value + 30) / 60
+        }
+        if (gyroSwitch && Date.now() - sendTime > sendInterval) {
+            socket.emit(socketDir + 'gyro', {
+                type: socketType,
+                id: clientID,
+                user: config.user,
+                value: tempGyroValue
+            })
+            sendTime = Date.now()
+        }
+    })
 
-    let audioUrlList = {
-        'music': 'lib/sound/clock3.mp3'
-    }
+    socket.on(socketDir + 'gyro_value', (body) => {
+        gyroValue = body.value
+        gyroLog.innerHTML = gyroValue.toFixed(4)
+        callGyro(gyroValue)
+    })
+
+    /*
+     *  SwitchButton
+     */
+
+    let switchButton = SwitchButton(element)
+    switchButton.onGyroSwitch((toggle) => {
+        if (!canUse) {
+            switchButton.gyroButton.innerHTML = 'Can not use Gyro Sensor'
+            return
+        }
+        gyroSwitch = toggle
+    })
+
+
+    let dopplerSwitch = true
+    switchButton.onDopplerSwitch((toggle) => {
+        dopplerSwitch = toggle
+    })
+
+    // panner - slider
+    let pannerSlider = Slider(element, 'panner', 'Panner Time')
+    pannerSlider.setList()
+    let p = document.createElement('p')
+    p.innerHTML = '音像移動（開始点　終了点）<br>←音の開始　　→音の終了'
+    element.appendChild(p)
+
+    // panner - distance
+    let distanceSlider = SliderSingle(element, 'distance', 'Panner Distance')
+    distanceSlider.setList()
+    let p_d = document.createElement('p')
+    p_d.innerHTML = '←近い　→遠い'
+    element.appendChild(p_d)
+
+
+    let radioButton = RadioButton(element, 'tone', 'Tone Select')
+    radioButton.setList(soundNameList)
+    radioButton.onSelect((name) => {
+        console.log(name)
+        let name2 = radioButton.getSelected()
+        console.log(name == name2)
+    })
+
+    homeButton(element, config.user)
+    // let canvas = Canvas(element)
+    // let field = Field(canvas)
+
+    socket.on(socketDir + 'user_list', (list) => {
+        toList.setList(list)
+        fromList.setList(list)
+        fromList.check(config.user)
+    })
+
+    socket.on(socketDir + 'user_add', (user) => {
+        toList.addUser(user)
+        fromList.addUser(user)
+    })
+
+    socket.on(socketDir + 'user_remove', (user) => {
+        toList.removeUser(user)
+        fromList.removeUser(user)
+    })
 
     let syncPlay = SyncPlay(context)
     let syncNoteList = {}
@@ -21913,6 +22172,64 @@ exports.start = (element, context, socket, clientTime) => {
     // 人固定
     context.listener.setPosition(0, 0, -0.1)
 
+    let createSyncNote = (bufferName, time, offset, duration) => {
+        let music_offset = offset || 0
+        duration = duration || null
+        let correctionTime = clientTime.correctionServerTime(time)
+        let left = correctionTime - Date.now()
+
+        // htmlText.log.innerHTML = 'start playback after: ' + left.toFixed(4) + 'ms'
+
+        return syncPlay.createSyncNote(bufferName, correctionTime, music_offset, duration)
+    }
+
+    let setCommonSyncNote = (syncNote, noteName) => {
+        syncNote.started(() => {
+            console.log('syncPlay: start')
+            syncNoteList[noteName] = syncNote
+        })
+
+        syncNote.stoped(() => {
+            console.log('syncPlay: stop')
+            if (syncNoteList[noteName]) {
+                delete syncNoteList[noteName]
+            }
+        })
+
+        syncNote.finished(() => {
+            console.log('syncPlay: finish')
+            if (isPlaying && syncNoteList[noteName]) {
+                isPlaying = false
+                syncNoteList[noteName].stop()
+                // field.toStopStatus(noteName)
+                delete syncNoteList[noteName]
+
+                // htmlText.status.innerHTML = 'finish'
+            }
+        })
+
+        return syncNote
+    }
+
+    let createIndividualPanner = (name) => {
+        if (name == 'music') {
+            let gainNode = context.createGain()
+            gainNode.gain.value = 20.0
+            gainNode.connect(context.destination)
+            let panner = createPanner(true)
+            panner.connect(gainNode)
+            pannerList[name] = panner
+            return panner
+        } else {
+            let gainNode = context.createGain()
+            gainNode.gain.value = 20.0
+            gainNode.connect(context.destination)
+            let panner = createPanner(true)
+            panner.connect(gainNode)
+            pannerList[name] = panner
+            return panner
+        }
+    }
 
     /*
      * Evary EventLister are in this Method
@@ -21921,68 +22238,34 @@ exports.start = (element, context, socket, clientTime) => {
      * button
      */
 
-     // socket
+    // socket
 
-    syncPlay.loadBuffer(audioUrlList, () => {
-        socket.on(socketDir + 'play', (body) => {
-            console.log('syncPlay')
-            console.log(body)
-            let time = body.time
-            let music_offset = body.offset
-            let duration = body.duration
-            let correctionTime = clientTime.correctionServerTime(time)
-            let date = new Date(correctionTime)
-            let left = correctionTime - Date.now()
+    syncPlay.loadBuffer(soundList, () => {
 
-            let noteName = 'music'
-            let syncNote = syncPlay.createSyncNote(noteName, correctionTime, music_offset, duration)
-
-            let gainNode = context.createGain()
-            gainNode.gain.value = 2.0
-            gainNode.connect(context.destination)
-            let panner = createPanner(true)
-            panner.connect(gainNode)
-            pannerList['music'] = panner
-
-            syncNote.started(() => {
-                console.log('syncPlay: start')
-                syncNoteList[noteName] = syncNote
-            })
-
-            syncNote.stoped(() => {
-                console.log('syncPlay: stop')
-                if (syncNoteList[noteName]) {
-                    delete syncNoteList[noteName]
-                }
-            })
-
-            syncNote.finished(() => {
-                console.log('syncPlay: finish')
-                if (isPlaying && syncNoteList[noteName]) {
-                    isPlaying = false
-                    syncNoteList[noteName].stop()
-                    field.toStopStatus(noteName)
-                    delete syncNoteList[noteName]
-
-                    htmlText.status.innerHTML = 'finish'
-                }
-            })
-
-            syncPlay.play(panner, syncNote)
-            field.toPlayStatus('music')
-
-            htmlText.log.innerHTML = 'start playback after: ' + left.toFixed(4) + 'ms'
-        })
     })
+    // socket.on(socketDir + 'play', (body) => {
+    //     console.log('syncPlay')
+    //     console.log(body)
+    //     let notes = body.notes
+    //     notes.forEach((nt) => {
+    //         syncNote = createSyncNote(nt.bufferName, body.time, body.offset, body.duration)
+    //         syncNote = setCommonSyncNote(syncNote, nt.name)
+    //         let panner = createIndividualPanner(nt.name)
+    //         syncPlay.play(panner, syncNote)
+    //         field.toPlayStatus(nt.name)
+    //     })
+    // })
+
 
     socket.call.on('connect', () => {
         clientID = uuid.v4()
 
-        field.setClientID(clientID)
+        // field.setClientID(clientID)
 
         socket.emit(socketDir + 'register', {
-            type: 'syncmusic',
-            id: clientID
+            type: socketType,
+            id: clientID,
+            user: config.user
         })
 
         socket.on(socketDir + 'register', (body) => {
@@ -21990,133 +22273,208 @@ exports.start = (element, context, socket, clientTime) => {
                 clientName = body.name
             }
 
-            htmlText.log.innerHTML = 'username: ' + clientName
+            htmlText.status.innerHTML = 'user: ' + clientName
         })
 
-        socket.on(socketDir + 'surround_speaker', (speakerList) => {
-            if (field && field.setOtherSpeaker) {
-                field.setOtherSpeaker(SpeakerIcon, speakerList)
+
+        socket.on(socketDir + 'notification_common', (body) => {
+            console.log(body)
+            let from = body.from.indexOf(config.user) >= 0 ? true : false
+            let to = body.to.indexOf(config.user) >= 0 ? true : false
+            let doppler = body.doppler
+
+            let fromText = ''
+            body.from.forEach((n) => {
+                fromText += n + ' '
+            })
+            let toText = ''
+            body.to.forEach((n) => {
+                toText += n + ' '
+            })
+            htmlText.log.innerHTML = 'From: ' + fromText + '　To: ' + toText
+            if (!from && !to) {
+                return
             }
-        })
 
-        socket.on(socketDir + 'surround_note', (note) => {
-            if (field && field.setNote && field.note && note.id !== clientID) {
-                field.updateNote(note)
-            }
-        })
+            body.notes.forEach((nt) => {
 
-        socket.on(socketDir + 'surround_note_click', (body) => {
-            if (field && field.note && body.id == clientID) {
-                if (field.note.isSync) {
-                    field.note.isMove = true
-                } else {
-                    // release
-                    field.sendNoteInfoToServer(field.note, true)
+                let con = (t) => {
+                    htmlText.log.innerHTML = panner.positionY.value
+                    console.log(panner.positionY)
+
+                    setTimeout(() => {
+                        t += 100
+                        if (t < 3000) {
+                            con(t)
+                        }
+                    }, 100)
                 }
-            }
-        })
+                let linearRamp = (fromValue, toValue, time, callback, value, dif, passTime) => {
+                    value = value ? value : fromValue
+                    dif = dif ? dif : (toValue - fromValue) / (time / 10)
+                    passTime = passTime ? passTime : 0
+                    setTimeout(() => {
+                        callback(value)
+                        value += dif
+                        passTime += 10
+                        if (passTime < time) {
+                            linearRamp(fromValue, toValue, time, callback, value, dif, passTime)
+                        }
+                    }, 10)
+                }
 
-        field.sendSpeakerInfo((speaker) => {
-            socket.emit(socketDir + 'surround_speaker', {
-                id: clientID,
-                speaker: speaker
+                if (from || to) {
+                    syncNote = createSyncNote(nt.sound, nt.time, nt.offset, nt.duration)
+                    // let panner = createIndividualPanner(nt.name)
+
+                    let gainNode = context.createGain()
+                    gainNode.gain.value = 0.0
+                    gainNode.connect(context.destination)
+
+                    let dist = nt.distance || 30
+                    // panner.setPosition(0, 0, 0)
+
+                    syncNote.started((leftTime) => {
+
+                        let ct = syncPlay.getCurrentTime() + leftTime / 1000
+                        let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
+                        let start = startValue * syncNote.duration
+                        let endValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[1] / 100 : 0.8
+                        let end = endValue * syncNote.duration
+
+                        console.log('from', 'start', start, 'end', end, 'dist', dist)
+
+                        // override
+                        // gainNode  0(Mute) ~ 1(Default) ~
+                        // GyroValue 手前 1 奥 0
+
+                        let pMillis = -1
+                        let pValue = -1
+                        callGyro = (value) => {
+
+                            if (from) {
+                                gainNode.gain.value = value
+                            } else if (to) {
+                                gainNode.gain.value = 1 - value
+                            }
+                            // panner.setPosition(0, value * dist, 0)
+                            // console.log(gainNode.gain.value)
+
+                            if (pMillis == -1) {
+                                pMillis = Date.now()
+                                pValue = value
+                            } else {
+                                let millis = Date.now()
+                                let t = millis - pMillis
+                                let difV = value - pValue
+                                t = t == 0 ? 1 : t
+
+                                // m/ms
+                                // ２点間の距離を1mとする
+                                let vs = (difV / t)
+
+                                // km/h
+                                // vs = vs * 1000 * 60 * 60 / 1000
+                                vs = vs * 3600
+
+                                pMillis = millis
+                                pValue = value
+
+                                // fromを自分とすると
+                                // from 1 to 0
+                                // マイナス方向が離れる
+                                // v0 = 0 観測者は静止
+                                // V = 340
+                                let rate = 340 / (340 - vs)
+
+                                // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
+                                // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
+                                if (doppler) {
+                                    syncNote.source.playbackRate.value = rate
+                                    gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + rate.toFixed(4)
+                                } else {
+                                    syncNote.source.playbackRate.value = 1
+                                    gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', 1.0 '
+
+                                }
+                            }
+                            //
+                            // f' = f * ( (V - v0)/(V - vs) )
+                            // V = 音速 331.5 + 0.61t
+                            // v0 = 観測者の動く速度
+                            // vs = 音源の動く速度
+                            // 距離を１ｍとする
+
+                        }
+                        // example,  safari for ios
+                        // if (typeof panner.positionY == 'undefined') {
+                        //     setTimeout(() => {
+                        //         linearRamp(0, dist, end - start, (value) => {
+                        //             panner.setPosition(0, value, 0)
+                        //         })
+                        //     }, leftTime + start)
+                        // } else {
+                        //     panner.positionY.linearRampToValueAtTime(0, ct + start / 1000)
+                        //     panner.positionY.linearRampToValueAtTime(dist, ct + end / 1000)
+                        // }
+                    })
+                    syncPlay.play(gainNode, syncNote)
+
+                    syncNote.finished(() => {
+                        callGyro = () => {}
+                        notificationButton.notificationText.innerHTML = '　'
+                    })
+                }
+
             })
         })
 
-        field.sendNoteInfo((note) => {
-            socket.emit(socketDir + 'surround_note', {
-                id: clientID,
-                note: note,
-            })
-        })
 
-        field.pannerPosition((body) => {
-            let name = body.name
-            if (pannerList[name]) {
-                let p = body.position
-                pannerList[name].setPosition(p.x * 10, p.y *10, p.z)
-            }
-        })
-
-        noteIcon.clicked((name) => {
-            socket.emit(socketDir + 'surround_note_click', {
-                id: clientID,
-                name: name
-            })
-        })
     })
 
-    // canvas
-
-    canvas.addEventListener('mousemove', function(e) {
-        field.mouseMoved(e.offsetX, e.offsetY)
-    })
-
-    canvas.addEventListener('touchmove', function(e) {
-        e.preventDefault()
-        var rect = e.target.getBoundingClientRect()
-        var x = e.changedTouches[0].clientX - rect.left
-        var y = e.changedTouches[0].clientY - rect.top
-        field.mouseMoved(x, y)
-        return false
-    })
-
-    canvas.addEventListener('mousedown', function(e) {
-        field.mousePressed(e.offsetX, e.offsetY)
-    })
-
-    canvas.addEventListener('touchstart', function(e) {
-        e.preventDefault()
-        var rect = e.target.getBoundingClientRect()
-        var x = e.changedTouches[0].clientX - rect.left
-        var y = e.changedTouches[0].clientY - rect.top
-        field.mousePressed(x, y)
-        return false
-    })
-
-    canvas.addEventListener('mouseup', function(e) {
-        field.mouseReleased(e.offsetX, e.offsetY)
-    })
-
-    canvas.addEventListener('touchend', function(e) {
-        e.preventDefault()
-        var rect = e.target.getBoundingClientRect()
-        var x = e.changedTouches[0].clientX - rect.left
-        var y = e.changedTouches[0].clientY - rect.top
-        field.mouseReleased(x, y)
-        return false
-    })
 
     // button
 
-    button.start.onclick = () => {
-        if (!isPlaying) {
-            isPlaying = true
+    notificationButton.test.onclick = () => {
 
-            // ios対策
-            context.createBufferSource().start(0)
+        console.log('Test Play')
 
-            socket.emit(socketDir + 'play', {
-                type: 'syncmusic',
-                id: clientID,
-                duration: syncPlay.buffer['music'].duration * 1000
-            })
+        // ios対策
+        context.createBufferSource().start(0)
 
-            htmlText.status.innerHTML = 'playing music！'
-        }
+        let soundName = radioButton.getSelected()
 
+        let note = syncPlay.createSyncNote(soundName, Date.now())
+        syncPlay.play(context.destination, note)
+
+        // htmlText.status.innerHTML = 'volume on'
     }
 
-    button.stop.onclick = () => {
-        if (isPlaying) {
-            isPlaying = false
-            if (syncNoteList['music']) {
-                syncNoteList['music'].stop()
-                field.toStopStatus('music')
-            }
+    notificationButton.notification.onclick = () => {
+        context.createBufferSource().start(0)
+        notificationButton.notificationText.innerHTML = '♪'
+        let toUserList = toList.getSelectUser()
+        let fromUserList = fromList.getSelectUser()
+        let soundName = radioButton.getSelected()
+        let pannerValues = pannerSlider.getValues()
+        let pannerDistance = distanceSlider.getValue()
+        let doppler = dopplerSwitch
 
-            htmlText.status.innerHTML = 'stop・・・'
+        console.log(toUserList)
+        console.log(fromUserList)
+        let body = {
+            id: clientID,
+            type: socketType,
+            user: config.user,
+            from: fromUserList,
+            to: toUserList,
+            sound: soundName,
+            panner: pannerValues,
+            distance: pannerDistance,
+            doppler: doppler
         }
+        console.log(body)
+        socket.emit(socketDir + 'notification_common', body)
     }
 }
 
@@ -22138,7 +22496,8 @@ let createPanner = (side = 'from') => {
     // 最大距離
     panner.maxDistance = 10000
 
-    panner.panningModel = 'HRTF'
+    panner.panningModel = 'equalpower'
+    // panner.panningModel = 'HRTF'
 
     // x: 左右
     // y: 上下  +が上
@@ -22153,7 +22512,7 @@ let createPanner = (side = 'from') => {
     return panner
 }
 
-},{"./../Job/cron.js":145,"./button.js":146,"./canvas.js":147,"./field.js":148,"./html-text.js":149,"./icon-note.js":150,"./icon-speaker.js":151,"./sync-play.js":153,"node-uuid":226}],153:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":177,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./../demo-common/html/select-list.js":180,"./../demo-common/html/slider-single.js":181,"./../demo-common/html/slider.js":182,"./../exCall-module/config":224,"./canvas/field.js":146,"./canvas/icon-note.js":147,"./canvas/icon-speaker.js":148,"./gyro.js":149,"./html/html-text.js":150,"./html/switchButton.js":151,"./sync-play.js":153,"node-uuid":264}],153:[function(require,module,exports){
 module.exports = (context) => {
     return new SyncPlay(context)
 }
@@ -22175,6 +22534,15 @@ SyncPlay.prototype.setAudioList = function(audioUrlList) {
     this.audioUrlList = audioUrlList
 }
 
+SyncPlay.prototype.setOscillator = function(oscillator) {
+    this.oscillator = oscillator
+}
+
+SyncPlay.prototype.getCurrentTime = function() {
+    return this.context.currentTime
+}
+
+
 SyncPlay.prototype.loadBuffer = function(audioUrlList, callback = () => {}) {
     audioUrlList = audioUrlList || this.audioUrlList
     load(audioUrlList, (bufferList) => {
@@ -22183,25 +22551,41 @@ SyncPlay.prototype.loadBuffer = function(audioUrlList, callback = () => {}) {
     })
 }
 
-SyncPlay.prototype.createSyncNote = function(sourceName, startDate, offset, duration) {
+SyncPlay.prototype.createSyncNote = function(sourceName, startDate, offset, duration, oscillator) {
+    let leftTime = startDate - Date.now()
+
     let call_start = []
     let call_finish = []
     let call_stop = []
+    let syncPlay = this
     let syncNote = {
         sourceName: sourceName,
         startDate: startDate, // UTC millis
         startTime: 0, //  time of context(ms)   Rewrite the value in this method
-        offset: offset, // (ms)
+        offset: offset || 0, // (ms)
         duration: duration, //  (ms) If undefined, rewrite the value in this method
         buffer: null, // Rewrite the value in this method
         source: null, // Rewrite the value in this method
         isPlaying: false,
+        oscillator: oscillator || null,
         start: () => {
-            syncNote.source.start(syncNote.startTime / 1000, syncNote.offset / 1000, syncNote.duration / 1000)
-            syncNote.isPlaying = true
-            syncNote.fireStart()
+            if(!syncNote.buffer){
+                return
+            }
+            if (syncNote.oscillator) {
+                syncNote.oscillator.connect(syncNote.source)
+                syncNote.oscillator.start(syncNote.startTime / 1000, syncNote.offset / 1000, syncNote.duration / 1000)
+            } else {
+                syncNote.source.start(syncNote.startTime / 1000, syncNote.offset / 1000, syncNote.duration / 1000)
+            }
+            let leftStartTime = syncNote.startTime - syncPlay.context.currentTime * 1000
+            leftStartTime = leftStartTime < 0 ? 0 : leftStartTime
 
-            let leftTime = syncNote.duration - syncNote.offset
+            let leftTime = leftStartTime + syncNote.duration - syncNote.offset
+
+            syncNote.isPlaying = true
+            syncNote.fireStart(leftStartTime)
+
             setTimeout(() => {
                 syncNote.isPlaying = false
                 syncNote.fireFinish()
@@ -22216,9 +22600,9 @@ SyncPlay.prototype.createSyncNote = function(sourceName, startDate, offset, dura
                 syncNote.fireStop()
             }
         },
-        fireStart: () => {
+        fireStart: (leftTime) => {
             call_start.forEach((c) => {
-                c()
+                c(leftTime)
             })
         },
         fireFinish: () => {
@@ -22244,14 +22628,16 @@ SyncPlay.prototype.createSyncNote = function(sourceName, startDate, offset, dura
 
     // set buffer & source
     let source = context.createBufferSource()
-    let buffer = this.buffer[sourceName]
+    let buffer = this.buffer[sourceName] || null
+    if(!buffer){
+        console.log('error this.buffer[sourceName] sync-play.js')
+    }
     source.buffer = buffer
     syncNote.buffer = buffer
     syncNote.source = source
 
     // set startTime
     let ct = this.context.currentTime * 1000 // sec -> ms
-    let leftTime = syncNote.startDate - Date.now()
     syncNote.startTime = ct + leftTime
 
     // If undefined, set duration
@@ -22262,8 +22648,7 @@ SyncPlay.prototype.createSyncNote = function(sourceName, startDate, offset, dura
     return syncNote
 }
 
-
-SyncPlay.prototype.play = (destination, syncNote) => {
+SyncPlay.prototype.preConnect = function(destination, syncNote) {
     // to array
     if (!Array.isArray(syncNote)) {
         let temp = syncNote
@@ -22278,10 +22663,36 @@ SyncPlay.prototype.play = (destination, syncNote) => {
     })
 }
 
-SyncPlay.prototype.pannerPosition = (dx, dy) => {
-    if (panner && panner.setPosition) {
-        panner.setPosition(dx * 10, dy * 10, 0)
+SyncPlay.prototype.speedPlay = function(syncNote) {
+    // to array
+    syncNote.start()
+}
+
+
+SyncPlay.prototype.play = function(destination, syncNote) {
+    // to array
+    if (!Array.isArray(syncNote)) {
+        let temp = syncNote
+        syncNote = []
+        syncNote.push(temp)
     }
+
+    // play
+    syncNote.forEach((note) => {
+        note.connect(destination)
+        note.start()
+    })
+}
+
+
+SyncPlay.prototype.addBuffer = function(name, buffer, callback = () => {}) {
+    let syncPlay = this
+    context.decodeAudioData(buffer, function(decodedBuffer) {
+        syncPlay.buffer[name] = decodedBuffer
+        callback()
+    }, (err) => {
+        console.log(err)
+    })
 }
 
 
@@ -22325,575 +22736,6 @@ let loadSound = (url, callback = () => {}) => {
 }
 
 },{}],154:[function(require,module,exports){
-module.exports = (element) => {
-    let button = {
-        test: null,
-        notification: null,
-        notificationText: null
-    }
-
-    let notification = document.createElement('button')
-    notification.setAttribute('class', 'btn btn-hg btn-primary')
-    notification.innerHTML = 'Notification'
-    let notificationText = document.createElement('h5')
-    notificationText.innerHTML = '　'
-
-    let p = document.createElement('p')
-    p.setAttribute('class', 'mbl')
-    let p2 = document.createElement('p')
-    p2.innerHTML = '<br>iosは一度ボタンを押さないと音がなりません<br>'
-
-    let test = document.createElement('button')
-    test.setAttribute('class', 'btn btn-default')
-    test.innerHTML = 'Test: この端末だけで鳴らす'
-
-
-    button.test = test
-    // button.stop = stop
-    button.notification = notification
-    button.notificationText = notificationText
-
-
-    // p.appendChild(stop)
-    p.appendChild(notification)
-    p.appendChild(notificationText)
-    p.appendChild(p2)
-    p.appendChild(test)
-    element.appendChild(p)
-
-    return button
-}
-
-},{}],155:[function(require,module,exports){
-// <button class="btn btn-default">Default</button>
-module.exports = (element, user) => {
-    let p = document.createElement('p')
-    p.setAttribute('class', 'mbl')
-    p.innerHTML = '<br>'
-
-    let button = document.createElement('button')
-    button.setAttribute('class', 'btn btn-default')
-    button.innerHTML = 'Homeに戻る'
-
-    button.onclick = () => {
-        let href = window.location.href
-        let http = 'http://'
-        if (href.indexOf('http://') >= 0) {
-            href = href.slice(7)
-        }
-        if (href.indexOf('https://') >= 0) {
-            href = href.slice(8)
-            http = 'https://'
-        }
-        let query_idx = href.indexOf('/')
-        if (query_idx >= 1) {
-            href = href.slice(0, query_idx)
-        }
-        let query = user ? '?user=' + user : ''
-        location.href = http + href + query
-    }
-
-    p.appendChild(button)
-    element.appendChild(p)
-
-
-}
-
-},{}],156:[function(require,module,exports){
-module.exports = (element, id, text) => {
-    return new RadioButton(element, id, text)
-}
-
-function RadioButton(element, id, text) {
-    this.div = null
-    this.selectStatus = {}
-    this.id = id || ''
-    this.onSelectCall = () => {}
-
-    this.init(element, text)
-}
-
-RadioButton.prototype.init = function(element, text) {
-    this.div = document.createElement('div')
-    let h = document.createElement('h5')
-    h.innerHTML = text || ''
-
-    element.appendChild(h)
-    element.appendChild(this.div)
-}
-
-
-RadioButton.prototype.setList = function(nameList) {
-    let div = this.div
-    let selectStatus = this.selectStatus
-    let id = this.id
-
-    let radio = {
-        start: null,
-        stop: null
-    }
-
-    nameList.forEach((name, i) => {
-
-        let label = document.createElement('label')
-        label.setAttribute('class', 'radio')
-        label.setAttribute('for', 'radio' + id + i)
-        label.setAttribute('data-name', name)
-
-        let input = document.createElement('input')
-        input.setAttribute('type', 'radio')
-        input.setAttribute('name', id)
-        // input.setAttribute('class', 'radio')
-        input.setAttribute('value', name)
-        input.setAttribute('id', 'radio' + id + i)
-        input.setAttribute('data-id', id)
-        input.setAttribute('data-toggle', 'radio')
-        if (i == 0) {
-            input.setAttribute('checked', 'checked')
-            selectStatus[name] = true
-        } else {
-            // input.setAttribute('disabled', '')
-            selectStatus[name] = false
-        }
-        label.innerHTML = name
-        label.appendChild(input)
-        div.appendChild(label)
-    })
-
-    // element.appendChild(div)
-
-    $(':radio').radiocheck()
-
-    let Radio = this
-    $(':radio').on('change.radiocheck', function(e) {
-        let dataID = e.target.getAttribute('data-id')
-        if (id == dataID) {
-            for (let name in selectStatus) {
-                if (name == e.target.value) {
-                    selectStatus[name] = true
-                } else {
-                    selectStatus[name] = false
-                }
-            }
-            Radio.onSelectCall(e.target.value)
-        }
-    })
-
-    return radio
-}
-
-RadioButton.prototype.onSelect = function(callback = () => {}) {
-    this.onSelectCall = callback
-}
-
-RadioButton.prototype.getSelected = function() {
-    for (let name in this.selectStatus) {
-        if (this.selectStatus[name]) {
-            return name
-        }
-    }
-    return ''
-}
-
-},{}],157:[function(require,module,exports){
-// let div = null
-//
-// let selectStatus = {}
-// let number = 0
-
-module.exports = (element, id, text) => {
-    return new SelectList(element, id, text)
-}
-
-function SelectList(element, id, text) {
-    this.div = null
-    this.selectStatus = {}
-    this.userList = {}
-    this.number = 0
-    this.id = id
-    this.init(element, text)
-    this.changeCall = () => {}
-}
-
-SelectList.prototype.init = function(element, text) {
-    this.div = document.createElement('div')
-    let h = document.createElement('h5')
-    h.innerHTML = text || ''
-
-    element.appendChild(h)
-    element.appendChild(this.div)
-}
-
-SelectList.prototype.selectUser = function() {
-    let list = []
-    for (let name in this.selectStatus) {
-        if (this.selectStatus[name]) {
-            list.push(name)
-        }
-    }
-    return list
-}
-
-SelectList.prototype.getSelectUser = function() {
-    return this.selectUser()
-}
-
-SelectList.prototype.getUserList = function() {
-    let list = []
-    for (let name in this.userList) {
-        if (this.userList[name]) {
-            list.push(name)
-        }
-    }
-    return list
-}
-
-SelectList.prototype.onChange = function(callback = () => {}) {
-    this.changeCall = callback
-}
-
-SelectList.prototype.setList = function(nameList) {
-    let id = this.id
-    let sl = this
-
-    nameList.forEach((name) => {
-        if (name in sl.selectStatus) {
-            return
-        }
-
-        let label = document.createElement('label')
-        label.setAttribute('class', 'checkbox')
-        label.setAttribute('for', 'checkbox' + id + sl.number)
-        label.setAttribute('data-name', name)
-
-        let input = document.createElement('input')
-        input.setAttribute('type', 'checkbox')
-        input.setAttribute('value', name)
-        input.setAttribute('data-id', id)
-        input.setAttribute('class', 'checkbox')
-        input.setAttribute('id', 'checkbox' + id + sl.number)
-        input.setAttribute('data-toggle', 'checkbox')
-        label.innerHTML = name
-        label.appendChild(input)
-        sl.div.appendChild(label)
-
-        sl.selectStatus[name] = false
-        sl.userList[name] = true
-        sl.number += 1
-    })
-
-    $(':checkbox').radiocheck()
-
-    $(':checkbox').on('change.radiocheck', function(e) {
-        // e.target.value
-        let dataID = e.target.getAttribute('data-id')
-        if (id == dataID && sl.selectStatus[e.target.value] != e.target.checked) {
-            sl.selectStatus[e.target.value] = e.target.checked
-            sl.changeCall()
-        }
-    })
-}
-
-SelectList.prototype.addUser = function(nameList) {
-    let id = this.id
-    let sl = this
-    if (!Array.isArray(nameList) && nameList) {
-        let temp = nameList
-        nameList = []
-        nameList.push(temp)
-    }
-
-    nameList.forEach((name, i) => {
-        if (name in sl.selectStatus) {
-            sl.enable(name)
-            return
-        }
-        let label = document.createElement('label')
-        label.setAttribute('class', 'checkbox')
-        label.setAttribute('for', 'checkbox' + id + sl.number)
-        label.setAttribute('data-name', name)
-
-        let input = document.createElement('input')
-        input.setAttribute('type', 'checkbox')
-        input.setAttribute('value', name)
-        input.setAttribute('data-id', id)
-        input.setAttribute('class', 'checkbox')
-        input.setAttribute('id', 'checkbox' + id + sl.number)
-        input.setAttribute('data-toggle', 'checkbox')
-        label.innerHTML = name
-        label.appendChild(input)
-        sl.div.appendChild(label)
-
-        sl.selectStatus[name] = false
-        sl.userList[name] = true
-        sl.number += 1
-    })
-
-    $(':checkbox').radiocheck()
-
-    $(':checkbox').on('change.radiocheck', function(e) {
-        let dataID = e.target.getAttribute('data-id')
-        if (id == dataID && sl.selectStatus[e.target.value] != e.target.checked) {
-            sl.selectStatus[e.target.value] = e.target.checked
-            sl.changeCall()
-        }
-    })
-}
-
-SelectList.prototype.removeUser = function(nameList) {
-    let sl = this
-    if (!Array.isArray(nameList) && nameList) {
-        let temp = nameList
-        nameList = []
-        nameList.push(temp)
-    }
-    nameList.forEach((targetName) => {
-        sl.disable(targetName)
-        sl.userList[targetName] = false
-    })
-}
-
-SelectList.prototype.disable = function(targetName) {
-    let children = this.div.children || []
-    for (var i = 0; i < children.length; i++) {
-        let name = children[i].getAttribute('data-name')
-        if (targetName === name) {
-            this.selectStatus[name] = false
-            let htmlFor = children[i].htmlFor
-            $('#' + htmlFor).radiocheck('indeterminate')
-            $('#' + htmlFor).radiocheck('disable')
-            return
-        }
-    }
-}
-
-SelectList.prototype.enable = function(targetName) {
-    let children = this.div.children || []
-    for (var i = 0; i < children.length; i++) {
-        let name = children[i].getAttribute('data-name')
-        if (targetName === name) {
-            this.selectStatus[name] = false
-            let htmlFor = children[i].htmlFor
-            $('#' + htmlFor).radiocheck('enable')
-            $('#' + htmlFor).radiocheck('determinate')
-            return
-        }
-    }
-}
-
-SelectList.prototype.check = function(targetName) {
-    let children = this.div.children || []
-    for (var i = 0; i < children.length; i++) {
-        let name = children[i].getAttribute('data-name')
-        if (targetName === name) {
-            this.selectStatus[name] = true
-            let htmlFor = children[i].htmlFor
-            $('#' + htmlFor).radiocheck('check')
-            return
-        }
-    }
-}
-
-// let getRadio = (targetName) => {
-//     let children = div.children || []
-//     for (var i = 0; i < children.length; i++) {
-//         let name = children[i].getAttribute('data-name')
-//         console.log(name)
-//         if (targetName === name) {
-//             let htmlFor = children[i].htmlFor
-//             return $('#' + htmlFor)
-//         }
-//     }
-//     return null
-// }
-
-},{}],158:[function(require,module,exports){
-// <div id="slider"></div>
-
-
-module.exports = (element, id, text) => {
-    return new Slider(element, id, text)
-}
-
-function Slider(element, id, text) {
-    this.div = null
-    this.value = {}
-    this.id = id || ''
-    this.onChangeCall = () => {}
-
-    this.init(element, text)
-}
-
-Slider.prototype.init = function(element, text) {
-    this.div = document.createElement('div')
-    this.div.setAttribute('id', 'slider' + this.id)
-    let h = document.createElement('h5')
-    h.innerHTML = text || ''
-
-    element.appendChild(h)
-    element.appendChild(this.div)
-}
-
-Slider.prototype.setList = function(nameList) {
-    var slider = $('#slider' + this.id)
-    if (slider.length > 0) {
-        slider.slider({
-            animate: 'fast',
-            min: 1,
-            max: 100,
-            value: 30,
-            orientation: 'horizontal'
-            // range: true
-        })
-        // }).addSliderSegments($slider.slider("option").max);
-    }
-}
-
-
-Slider.prototype.getValue = function() {
-    var slider = $('#slider' + this.id).slider('value')
-    return slider
-}
-
-},{}],159:[function(require,module,exports){
-// <div id="slider"></div>
-
-
-module.exports = (element, id, text) => {
-    return new Slider(element, id, text)
-}
-
-function Slider(element, id, text) {
-    this.div = null
-    this.value = {}
-    this.id = id || ''
-    this.onChangeCall = () => {}
-
-    this.init(element, text)
-}
-
-Slider.prototype.init = function(element, text) {
-    this.div = document.createElement('div')
-    this.div.setAttribute('id', 'slider' + this.id)
-    let h = document.createElement('h5')
-    h.innerHTML = text || ''
-
-    element.appendChild(h)
-    element.appendChild(this.div)
-}
-
-Slider.prototype.setList = function(nameList) {
-    var slider = $('#slider' + this.id)
-    if (slider.length > 0) {
-        slider.slider({
-            animate: 'fast',
-            min: 1,
-            max: 100,
-            values: [20, 60],
-            orientation: 'horizontal',
-            range: true
-        })
-        // }).addSliderSegments($slider.slider("option").max);
-    }
-}
-
-
-Slider.prototype.getValues = function() {
-    var slider = $('#slider' + this.id).slider('values')
-    return slider
-}
-
-},{}],160:[function(require,module,exports){
-// <input type="checkbox" checked data-toggle="switch" name="default-switch" id="switch-01" />
-
-// data-on-color
-//  primary
-//  info
-//  success
-//  warning
-//  danger
-
-// <input type="checkbox" checked data-toggle="switch" name="info-square-switch" data-on-color="success" id="switch-05" />
-
-module.exports = (element, id, text) => {
-    return new Switch(element, id, text)
-}
-
-function Switch(element, id, text) {
-    this.div = null
-    this.id = id || ''
-
-    this.init(element, text)
-}
-
-Switch.prototype.init = function(element, text) {
-    this.div = document.createElement('div')
-    // this.div.setAttribute('id', 'switch' + this.id)
-    // this.div.setAttribute('id', 'switch' + this.id)
-    let sw = document.createElement('input')
-    sw.setAttribute('type', 'checkbox')
-    sw.setAttribute('checked', '')
-    sw.setAttribute('class', 'checkbox')
-    sw.setAttribute('data-toggle', 'switch')
-    sw.setAttribute('name', 'default-switch')
-    // sw.setAttribute('data-on-color', 'success')
-    sw.setAttribute('id', 'switch' + this.id)
-
-    let h = document.createElement('h6')
-    h.innerHTML = text || ''
-
-    this.div.appendChild(sw)
-    element.appendChild(h)
-    element.appendChild(this.div)
-
-    $(':checkbox').radiocheck()
-}
-
-// Slider.prototype.set = function() {
-//     var slider = $('#slider' + this.id)
-// }
-
-
-Switch.prototype.getValues = function() {
-    var switchCheck = $('#switch' + this.id).slider('checked')
-    return switchCheck
-}
-
-},{}],161:[function(require,module,exports){
-exports.userNameCheck = (user, callback = () => {}) => {
-    if (!user || typeof user != 'string' || user == 'unknown') {
-        module.exports.userNameInput(callback)
-    }else{
-        callback(user)
-    }
-}
-
-exports.userNameInput = (callback = () => {}, caution = '') => {
-
-    // 入力ダイアログを表示 ＋ 入力内容を user に代入
-    // let user = window.prompt('ユーザー名を入力してください．slackでの名前を推奨（連携できます）' + caution, '')
-    let user = window.prompt('ユーザー名を入力してください．' + caution, '')
-
-    if (typeof user == 'string' && user.trim().length >= 1) {
-        let href = window.location.href
-        let query_idx = href.indexOf('?')
-        if(query_idx >= 1){
-            href = href.slice(0, query_idx)
-        }
-        location.href = href + '?user=' + user
-        callback(user)
-    } else if (user != "" && user != null) {
-        caution = '\n入力しないと進めません'
-        module.exports.userNameInput(callback, caution)
-    } else {
-        caution = '\n入力しないと進めません'
-        callback('unknown')
-        // module.exports.userNameInput(callback, caution)
-    }
-
-}
-
-},{}],162:[function(require,module,exports){
 exports.create = (context, destination) => {
 
     // Create the instance of OscillatorNode
@@ -22935,7 +22777,7 @@ exports.create = (context, destination) => {
     return bass
 }
 
-},{}],163:[function(require,module,exports){
+},{}],155:[function(require,module,exports){
 
 module.exports = (element) => {
     let button = {
@@ -22965,7 +22807,7 @@ module.exports = (element) => {
     return button
 }
 
-},{}],164:[function(require,module,exports){
+},{}],156:[function(require,module,exports){
 
 module.exports = (element) => {
     var canvas = document.createElement('canvas')
@@ -22978,7 +22820,7 @@ module.exports = (element) => {
     return canvas
 }
 
-},{}],165:[function(require,module,exports){
+},{}],157:[function(require,module,exports){
 module.exports = (canvas) => {
     return new Field(canvas)
 }
@@ -23273,7 +23115,7 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{}],166:[function(require,module,exports){
+},{}],158:[function(require,module,exports){
 module.exports = (element) => {
     let text = {
         status: null,
@@ -23293,7 +23135,973 @@ module.exports = (element) => {
     return text
 }
 
-},{}],167:[function(require,module,exports){
+},{}],159:[function(require,module,exports){
+arguments[4][147][0].apply(exports,arguments)
+},{"dup":147}],160:[function(require,module,exports){
+arguments[4][148][0].apply(exports,arguments)
+},{"dup":148}],161:[function(require,module,exports){
+let uuid = require('node-uuid')
+let job = require('./../Job/cron.js')
+
+let Canvas = require('./canvas.js')
+let Field = require('./field.js')
+let SyncPlay = require('./sync-play.js')
+let NoteIcon = require('./icon-note.js')
+let SpeakerIcon = require('./icon-speaker.js')
+let Button = require('./button.js')
+let HtmlText = require('./html-text.js')
+
+let Biquad = require('./biquad.js')
+
+let socketDir = 'demo_accel_sensor_'
+let socketType = 'demo_accel_sensor'
+
+let homeButton = require('./../demo-common/html/homeButton.js')
+
+let RadioButton = require('./../demo-common/html/radio-button.js')
+
+let audioUrlList = {
+    'music': 'lib/sound/clock3.mp3',
+    '３音': 'lib/sound/notification-common.mp3',
+    '和風メロディ': 'lib/sound/wafuringtone.mp3',
+    'ウィンドチャイム': 'lib/sound/windchime.mp3',
+    '太鼓': 'lib/sound/taiko.mp3',
+    'コーリング': 'lib/sound/emargency_calling.mp3',
+    'アラーム': 'lib/sound/clockbell.mp3',
+    '掃除機': 'lib/sound/cleaner.mp3',
+    '電子レンジ': 'lib/sound/microwave.mp3',
+    '扇風機': 'lib/sound/fan.mp3',
+    '洗濯機': 'lib/sound/washing.mp3',
+    'プリンタ': 'lib/sound/printer.mp3',
+    'ポッド注ぐ': 'lib/sound/pod.mp3',
+    '炒める': 'lib/sound/roasting.mp3',
+    '足音（走る）': 'lib/sound/dashing.mp3',
+    '足音（スリッパ）': 'lib/sound/walking.mp3',
+    '雨音': 'lib/sound/rain.mp3'
+}
+
+let soundList = []
+for (let name in audioUrlList) {
+    soundList.push(name)
+}
+
+
+exports.start = (element, context, socket, clientTime, user) => {
+    let clientID = uuid.v4() // This is temporary. When websocket connected, this is replaced new id
+
+
+    let htmlText = HtmlText(element)
+    let canvas = Canvas(element)
+    let field = Field(canvas)
+    let button = Button(element)
+    let noteIconList = []
+
+    // Sound Select
+    let soundRadioButton = RadioButton(element, 'sound', 'Sound Select')
+    soundRadioButton.setList(soundList)
+    // soundRadioButton.onSelect((name)=>{
+    //   console.log(name)
+    // })
+
+    // Icon
+    let speakerIcon = new Image(300, 300)
+    speakerIcon.src = 'lib/image/speaker.png'
+    field.setThisSpeaker(SpeakerIcon(speakerIcon))
+
+    let noteIconImage = new Image(300, 300)
+    noteIconImage.src = 'lib/image/note.svg'
+    noteIcon = NoteIcon(noteIconImage)
+    noteIcon.name = 'music'
+    noteIcon.x = 0.5
+    noteIcon.y = 0.5
+    noteIcon.canvasW = field.w
+    noteIcon.canvasH = field.h
+
+    // let noteNoiseIcon = NoteIcon(noteIconImage)
+    // noteNoiseIcon.name = 'music_noise'
+    // noteNoiseIcon.x = 0.4
+    // noteNoiseIcon.y = 0.4
+    // noteNoiseIcon.canvasW = field.w
+    // noteNoiseIcon.canvasH = field.h
+    // noteNoiseIcon.setParentNote(noteIcon, {
+    //     x: -0.2,
+    //     y: 0
+    // })
+
+    field.setNote(noteIcon)
+    // field.setNote(noteNoiseIcon)
+    noteIconList.push(noteIcon)
+    // noteIconList.push(noteNoiseIcon)
+
+    homeButton(element, user)
+
+
+
+
+    let syncPlay = SyncPlay(context)
+    let syncNoteList = {}
+    let pannerList = null
+    let isPlaying = false
+
+    let allowPlay = true
+    let isStop = false
+    let tempPannerPosition = {}
+
+    // 人固定
+    context.listener.setPosition(0, 0, -0.1)
+
+    let createSyncNote = (body, bufferName, oscillator) => {
+        let time = body.time
+        let music_offset = body.offset
+        let duration = body.duration
+        let correctionTime = clientTime.correctionServerTime(time)
+        let date = new Date(correctionTime)
+        let left = correctionTime - Date.now()
+
+        htmlText.log.innerHTML = 'start playback after: ' + left.toFixed(4) + 'ms'
+
+        return syncPlay.createSyncNote(bufferName, correctionTime, music_offset, duration, oscillator)
+    }
+
+    let setCommonSyncNote = (syncNote, noteName) => {
+        syncNote.started(() => {
+            console.log('syncPlay: start')
+            syncNoteList[noteName] = syncNote
+        })
+
+        syncNote.stoped(() => {
+            console.log('syncPlay: stop')
+            if (syncNoteList[noteName]) {
+                delete syncNoteList[noteName]
+            }
+        })
+
+        syncNote.finished(() => {
+            console.log('syncPlay: finish')
+            if (!isStop) {
+                allowPlay = true
+            }
+            if (noteName in syncNoteList) {
+                isPlaying = false
+                syncNoteList[noteName].stop()
+                field.toStopStatus(noteName)
+                delete syncNoteList[noteName]
+                htmlText.status.innerHTML = 'finish'
+            }
+        })
+
+        return syncNote
+    }
+
+    let createIndividualPanner = (name) => {
+        // if (name == 'music') {
+        let gainNode = context.createGain()
+        gainNode.gain.value = 6.0
+        gainNode.connect(context.destination)
+        let panner = createPanner(true)
+        console.log(panner)
+        panner.connect(gainNode)
+        pannerList = panner
+        return panner
+        // }
+        // if (name == 'music_noise') {
+        //     let gainNode = context.createGain()
+        //     gainNode.gain.value = 5.0
+        //     gainNode.connect(context.destination)
+        //     let biquad = Biquad.create(context, gainNode)
+        //     let panner = createPanner(true)
+        //     panner.connect(biquad)
+        //     pannerList[name] = panner
+        //     return panner
+        // } else {
+        //     let gainNode = context.createGain()
+        //     gainNode.gain.value = 5.0
+        //     gainNode.connect(context.destination)
+        //     let panner = createPanner(true)
+        //     console.log(panner)
+        //     panner.connect(gainNode)
+        //     pannerList[name] = panner
+        //     return panner
+        // }
+    }
+
+    /*
+     * Evary EventLister are in this Method
+     * socket
+     * canvas
+     * button
+     */
+
+    // socket
+
+    syncPlay.loadBuffer(audioUrlList, () => {
+        socket.on(socketDir + 'play', (body) => {
+            if (!allowPlay) {
+                return
+            }
+            allowPlay = false
+            isStop = false
+
+            htmlText.status.innerHTML = 'Playing'
+            console.log('syncPlay')
+            console.log(body)
+            let notes = body.notes
+            notes.forEach((nt) => {
+                // let oscillator = null
+                // if (nt.name == 'music_noise') {
+                //     oscillator = BiquidOscillator.create(context, context.destination)
+                // }
+                syncNote = createSyncNote(body, nt.bufferName)
+                syncNote = setCommonSyncNote(syncNote, nt.name)
+                let panner = createIndividualPanner(nt.name)
+
+                htmlText.log.innerHTML = 'x: 0 y:0 z:0'
+                if ('x' in tempPannerPosition) {
+                    htmlText.log.innerHTML = 'x:' + tempPannerPosition.x.toFixed(2) + '　y:' + tempPannerPosition.y.toFixed(2)　 + '　z:' + tempPannerPosition.z.toFixed(2)
+                    panner.setPosition(tempPannerPosition.x, tempPannerPosition.y, tempPannerPosition.z)
+                }
+
+                syncPlay.play(panner, syncNote)
+                field.toPlayStatus(nt.name)
+                console.log(nt.name)
+
+                syncNote.finished(() => {
+
+                })
+            })
+        })
+
+        socket.on(socketDir + 'stop', (body) => {
+            for (let name in syncNoteList) {
+                syncNoteList[name].stop()
+                field.toStopStatus(name)
+            }
+            allowPlay = true
+            isStop = true
+
+            htmlText.status.innerHTML = 'Stop・・・'
+        })
+    })
+
+    // noteIcon
+
+    noteIconList.forEach((icon) => {
+        icon.clicked((name) => {
+            console.log('click', name)
+            socket.emit(socketDir + 'surround_note_click', {
+                type: socketType,
+                id: clientID,
+                name: name
+            })
+        })
+    })
+
+
+    socket.call.on('connect', () => {
+        clientID = uuid.v4()
+
+        field.setClientID(clientID)
+
+        socket.emit(socketDir + 'register', {
+            type: socketType,
+            id: clientID
+        })
+
+        socket.on(socketDir + 'register', (body) => {
+            if (body.id === clientID && body.name) {
+                clientName = body.name
+            }
+
+            htmlText.log.innerHTML = 'user: ' + user
+        })
+
+        socket.on(socketDir + 'surround_speaker', (speakerList) => {
+            field.setOtherSpeaker(SpeakerIcon, speakerList)
+        })
+
+        socket.on(socketDir + 'surround_note', (note) => {
+            console.log(note)
+            if (note.id !== clientID) {
+                field.updateNote(note)
+            }
+        })
+
+        socket.on(socketDir + 'surround_note_click', (body) => {
+            let name = body.name || 'default'
+            if (body.id == clientID) {
+                if (field.notes[name].isSync) {
+                    field.notes[name].isMove = true
+                } else {
+                    // release
+                    // field.sendNoteInfoToServer(field.notes[name], true)
+                }
+            }
+        })
+
+        field.sendSpeakerInfo((speaker) => {
+            socket.emit(socketDir + 'surround_speaker', {
+                type: socketType,
+                id: clientID,
+                speaker: speaker
+            })
+        })
+
+        field.sendNoteInfo((note) => {
+            socket.emit(socketDir + 'surround_note', {
+                type: socketType,
+                id: clientID,
+                note: note,
+            })
+        })
+
+        field.pannerPosition((body) => {
+            let name = body.name
+            let p = body.position
+            tempPannerPosition = {
+                x: p.x * 20,
+                y: p.y * 20,
+                z: p.z
+            }
+            if (pannerList) {
+                htmlText.log.innerHTML = 'x:' + tempPannerPosition.x.toFixed(2) + '　y:' + tempPannerPosition.y.toFixed(2)　 + '　z:' + tempPannerPosition.z.toFixed(2)
+
+                console.log(pannerList.positionX, pannerList.positionY, pannerList.positionZ)
+                pannerList.setPosition(p.x * 20, p.y * 20, p.z)
+            }
+        })
+
+    })
+
+    // canvas
+
+    canvas.addEventListener('mousemove', function(e) {
+        field.mouseMoved(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault()
+        var rect = e.target.getBoundingClientRect()
+        var x = e.changedTouches[0].clientX - rect.left
+        var y = e.changedTouches[0].clientY - rect.top
+        field.mouseMoved(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mousedown', function(e) {
+        field.mousePressed(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault()
+        var rect = e.target.getBoundingClientRect()
+        var x = e.changedTouches[0].clientX - rect.left
+        var y = e.changedTouches[0].clientY - rect.top
+        field.mousePressed(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mouseup', function(e) {
+        field.mouseReleased(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault()
+        var rect = e.target.getBoundingClientRect()
+        var x = e.changedTouches[0].clientX - rect.left
+        var y = e.changedTouches[0].clientY - rect.top
+        field.mouseReleased(x, y)
+        return false
+    })
+
+    // button
+
+    button.start.onclick = () => {
+
+        // ios対策
+        context.createBufferSource().start(0)
+
+        let name = soundRadioButton.getSelected()
+        socket.emit(socketDir + 'play', {
+            type: socketType,
+            id: clientID,
+            // duration: syncPlay.buffer['music'].duration * 1000,
+            notes: [{
+                bufferName: name,
+                name: name
+                // duration: syncPlay.buffer['music'].duration * 1000
+            }]
+        })
+
+        htmlText.status.innerHTML = 'Playing'
+    }
+
+    button.stop.onclick = () => {
+        // for (let name in syncNoteList) {
+        //     syncNoteList[name].stop()
+        //     field.toStopStatus(name)
+        // }
+        //
+        // htmlText.status.innerHTML = 'stop・・・'
+        socket.emit(socketDir + 'stop', {})
+
+    }
+
+    button.test.onclick = () => {
+
+        // ios対策
+        context.createBufferSource().start(0)
+
+        let syncNote = syncPlay.createSyncNote('３音', Date.now(), 0)
+        syncPlay.play(context.destination, syncNote)
+    }
+}
+
+
+let createPanner = () => {
+    var panner = context.createPanner()
+
+    // 指向性  Gainは減衰率  InterAngleは減衰しない範囲
+    panner.coneOuterGain = 0.1
+    panner.coneOuterAngle = 180
+    panner.coneInnerAngle = 30
+
+    // "linear" "inverse" "exponential"
+    panner.distanceModel = 'exponential'
+
+    // 基準距離
+    panner.refDistance = 1.0
+
+    // 最大距離
+    panner.maxDistance = 10000
+
+    panner.panningModel = 'HRTF'
+
+    // x: 左右
+    // y: 上下  +が上
+    // z: 奥と手前  +が手前
+
+    // 音源　向かい合っている
+    // 音源の向き
+    // 音源の位置
+    panner.setPosition(0, 0, 0)
+    panner.setOrientation(0, 0, 1)
+
+    return panner
+}
+
+},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./biquad.js":154,"./button.js":155,"./canvas.js":156,"./field.js":157,"./html-text.js":158,"./icon-note.js":159,"./icon-speaker.js":160,"./sync-play.js":162,"node-uuid":264}],162:[function(require,module,exports){
+module.exports = (context) => {
+    return new SyncPlay(context)
+}
+
+function SyncPlay(context, clientTime) {
+    this.context = context
+    this.buffer = {}
+    this.source = {}
+    this.panner = {}
+    this.audioUrlList = {}
+}
+
+
+/**
+ * @param {Object.<string, string>} audioUrlList - key: audioName value: audioUrl
+ */
+
+SyncPlay.prototype.setAudioList = function(audioUrlList) {
+    this.audioUrlList = audioUrlList
+}
+
+SyncPlay.prototype.setOscillator = function(oscillator) {
+    this.oscillator = oscillator
+}
+
+
+SyncPlay.prototype.loadBuffer = function(audioUrlList, callback = () => {}) {
+    audioUrlList = audioUrlList || this.audioUrlList
+    load(audioUrlList, (bufferList) => {
+        this.buffer = bufferList
+        callback()
+    })
+}
+
+SyncPlay.prototype.createSyncNote = function(sourceName, startDate, offset, duration, oscillator) {
+    let call_start = []
+    let call_finish = []
+    let call_stop = []
+    let syncNote = {
+        sourceName: sourceName,
+        startDate: startDate, // UTC millis
+        startTime: 0, //  time of context(ms)   Rewrite the value in this method
+        offset: offset, // (ms)
+        duration: duration, //  (ms) If undefined, rewrite the value in this method
+        buffer: null, // Rewrite the value in this method
+        source: null, // Rewrite the value in this method
+        isPlaying: false,
+        oscillator: oscillator || null,
+        start: () => {
+            if (syncNote.oscillator) {
+                syncNote.oscillator.connect(syncNote.source)
+                syncNote.oscillator.start(syncNote.startTime / 1000, syncNote.offset / 1000, syncNote.duration / 1000)
+            } else {
+                syncNote.source.start(syncNote.startTime / 1000, syncNote.offset / 1000, syncNote.duration / 1000)
+            }
+            syncNote.isPlaying = true
+            syncNote.fireStart()
+
+            let leftTime = syncNote.duration - syncNote.offset
+            setTimeout(() => {
+                syncNote.isPlaying = false
+                syncNote.fireFinish()
+            }, leftTime)
+        },
+        connect: (destination) => {
+            syncNote.source.connect(destination)
+        },
+        stop: () => {
+            if (syncNote.isPlaying) {
+                syncNote.source.stop()
+                syncNote.fireStop()
+            }
+        },
+        fireStart: () => {
+            call_start.forEach((c) => {
+                c()
+            })
+        },
+        fireFinish: () => {
+            call_finish.forEach((c) => {
+                c()
+            })
+        },
+        fireStop: () => {
+            call_stop.forEach((c) => {
+                c()
+            })
+        },
+        started: (callback = () => {}) => {
+            call_start.push(callback)
+        },
+        finished: (callback = () => {}) => {
+            call_finish.push(callback)
+        },
+        stoped: (callback = () => {}) => {
+            call_stop.push(callback)
+        }
+    }
+
+    // set buffer & source
+    let source = context.createBufferSource()
+    let buffer = this.buffer[sourceName]
+    source.buffer = buffer
+    syncNote.buffer = buffer
+    syncNote.source = source
+
+    // set startTime
+    let ct = this.context.currentTime * 1000 // sec -> ms
+    let leftTime = syncNote.startDate - Date.now()
+    syncNote.startTime = ct + leftTime
+
+    // If undefined, set duration
+    if (!syncNote.duration) {
+        syncNote.duration = syncNote.buffer.duration * 1000 // sec -> ms
+    }
+
+    return syncNote
+}
+
+
+SyncPlay.prototype.play = (destination, syncNote) => {
+    // to array
+    if (!Array.isArray(syncNote)) {
+        let temp = syncNote
+        syncNote = []
+        syncNote.push(temp)
+    }
+
+    // play
+    syncNote.forEach((note) => {
+        note.connect(destination)
+        note.start()
+    })
+}
+
+SyncPlay.prototype.pannerPosition = (dx, dy) => {
+    if (panner && panner.setPosition) {
+        panner.setPosition(dx * 10, dy * 10, 0)
+    }
+}
+
+
+
+/**
+ * load Audio File
+ * load() -> loadSound()
+ * -> return
+ * @param {string[]|string} urlList -
+ * @return {Object[]} - buffer[]
+ */
+
+let load = (urlList, callback = () => {}) => {
+    let bufferList = {}
+    let cnt = 0
+    let length = Object.keys(urlList).length
+    for (let key in urlList) {
+        loadSound(urlList[key], (buf) => {
+            bufferList[key] = buf
+            cnt++
+            if (cnt == length) {
+                callback(bufferList)
+            }
+        })
+    }
+}
+
+let loadSound = (url, callback = () => {}) => {
+    let request = new XMLHttpRequest()
+    request.open('GET', url, true)
+    request.responseType = 'arraybuffer'
+    request.onload = function() {
+        console.log('load')
+        context.decodeAudioData(request.response, function(buffer) {
+            callback(buffer)
+        }, (err) => {
+            console.log(err)
+        })
+    }
+    request.send()
+}
+
+},{}],163:[function(require,module,exports){
+
+module.exports = (element) => {
+    let button = {
+        start: null,
+        stop: null
+    }
+
+    let start = document.createElement('button')
+    start.setAttribute('class', 'button')
+    start.innerHTML = 'START'
+    element.appendChild(start)
+
+    let stop = document.createElement('button')
+    stop.setAttribute('class', 'button')
+    stop.innerHTML = 'STOP'
+    element.appendChild(stop)
+
+    button.start = start
+    button.stop = stop
+    return button
+}
+
+},{}],164:[function(require,module,exports){
+
+module.exports = (element) => {
+    var canvas = document.createElement('canvas')
+    let width = window.innerWidth - 120 > 500 ? window.innerWidth - 120 : 500
+    let height = window.innerHeight > 500 ? window.innerHeight : 500
+    let size = width < height ? width : height
+    canvas.setAttribute('width', size)
+    canvas.setAttribute('height', size)
+    element.appendChild(canvas)
+    return canvas
+}
+
+},{}],165:[function(require,module,exports){
+module.exports = (canvas) => {
+    return new Field(canvas)
+}
+
+
+function Field(canvas) {
+    this.canvas = canvas
+    this.clientID = ''
+    this.center = {
+        x: canvas.width / 2,
+        y: canvas.height / 2
+    }
+    this.w = canvas.width
+    this.h = canvas.height
+    this.size = this.w / 2
+
+    this.otherSpeakers = []
+    this.notes = {}
+
+    this.callStart = () => {}
+    this.callSendSpeakerInfo = () => {}
+    this.callSendNoteInfo = () => {}
+    this.callUpdatePannerPosition = () => {}
+}
+
+Field.prototype.setClientID = function(clientID) {
+    this.clientID = clientID
+}
+
+
+Field.prototype.setNote = function(note) {
+    let name = note.name
+    note.x = note.x * this.w
+    note.y = note.y * this.h
+    note.size = Math.round(this.w / 15)
+    this.notes[name] = note
+
+    this.note = note
+    this.updatePannerPosition(this.note, this.speaker)
+    this.render()
+    let field = this
+    this.notes[name].icon.onload = function() {
+        field.render()
+    }
+}
+
+Field.prototype.updateNote = function(note) {
+    let name = note.name
+    if (this.notes[name]) {
+        let nt = this.notes[name]
+        nt.x = note.x * this.w
+        nt.y = note.y * this.h
+        nt.over = note.over
+        nt.isMove = note.isMove
+        nt.isOtherMove = note.isOtherMove
+        this.updatePannerPosition(nt, this.speaker)
+        this.render()
+    }
+}
+
+
+Field.prototype.setThisSpeaker = function(speaker) {
+    this.speaker = speaker
+    this.speaker.x = this.center.x
+    this.speaker.y = this.center.y
+    this.speaker.size = Math.round(this.w / 15)
+    let field = this
+    this.speaker.icon.onload = function() {
+        field.render()
+        field.sendSpeakerInfoToServer(field.speaker)
+    }
+}
+
+Field.prototype.setOtherSpeaker = function(SpeakerIcon, speakers) {
+    let speakerArray = []
+    if (typeof speakers == 'object') {
+        for (let id in speakers) {
+            if (id === this.clientID) {
+                continue
+            }
+            let sp = speakers[id]
+            let speaker = SpeakerIcon(this.speaker.icon)
+            speaker.x = sp.x * this.w
+            speaker.y = sp.y * this.h
+            speaker.size = Math.round(this.w / 15)
+            speaker.over = sp.over
+            speaker.isMove = sp.isMove
+            speaker.isThis = false
+            speaker.isPlay = sp.isPlay
+            speakerArray.push(speaker)
+        }
+    }
+    this.otherSpeakers = speakerArray
+    this.render()
+}
+
+Field.prototype.toPlayStatus = function(name = 'default') {
+    if (this.notes[name]) {
+        this.notes[name].isPlay = true
+        // this.updatePannerPosition(this.notes[name], this.speaker)
+    }
+    if (this.speaker) {
+        this.speaker.isPlay = true
+        this.sendSpeakerInfoToServer(this.speaker)
+    }
+    this.render()
+}
+
+Field.prototype.toStopStatus = function(name = 'default') {
+    if (this.notes[name]) {
+        this.notes[name].isPlay = false
+    }
+    if (this.speaker) {
+        this.speaker.isPlay = false
+        this.sendSpeakerInfoToServer(this.speaker)
+    }
+    this.render()
+}
+
+
+
+Field.prototype.render = function() {
+    // Draw points onto the canvas element.
+    var ctx = this.canvas.getContext('2d');
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // grid
+    let size = this.size
+    let cnt = 0
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)'
+    for (let r = 0; r <= size; r += size / 4) {
+        let alpha = 0.5 - cnt * 0.1
+        ctx.strokeStyle = 'rgba(0,0,0,' + alpha + ')'
+        cnt++
+        ctx.beginPath()
+        ctx.arc(this.center.x, this.center.y, r, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.strokeStyle = 'rgba(0,0,0,' + alpha + ')'
+
+        this.line(ctx, 0, this.center.y - r, this.w, this.center.y - r)
+        if (cnt > 1) {
+            this.line(ctx, 0, this.center.y + r, this.w, this.center.y + r)
+            this.line(ctx, this.center.x - r, 0, this.center.x - r, this.h)
+        }
+        this.line(ctx, this.center.x + r, 0, this.center.x + r, this.h)
+    }
+
+    this.speaker.draw(ctx)
+    if (this.otherSpeakers) {
+        this.otherSpeakers.forEach((sp) => {
+            sp.draw(ctx)
+        })
+    }
+    // this.note.draw(ctx)
+    for (let name in this.notes) {
+        this.notes[name].draw(ctx)
+    }
+}
+
+Field.prototype.started = function(callback){
+    this.callStart = callback
+}
+
+
+Field.prototype.mousePressed = function(x, y) {
+    if (this.speaker.isOver(x, y)) {
+        this.speaker.isMove = true
+        this.speaker.over = true
+        this.speaker.x = x
+        this.speaker.y = y
+    } else {
+        for (let name in this.notes) {
+            let note = this.notes[name]
+            if (!note.isOtherMove && note.isOver(x, y)) {
+                note.isSync = true
+                note.click()
+                break
+            }
+        }
+    }
+    // this.updatePannerPosition(this.note, this.speaker)
+    this.render()
+}
+
+
+Field.prototype.mouseReleased = function(x, y) {
+    if (this.speaker.isMove) {
+        this.speaker.x = x
+        this.speaker.y = y
+        this.speaker.isMove = false
+        this.speaker.over = false
+    }
+    for (let name in this.notes) {
+        let note = this.notes[name]
+        if (!note.isOtherMove && note.isMove) {
+            note.x = x
+            note.y = y
+            note.isMove = false
+            note.over = false
+            note.isSync = false
+            this.sendNoteInfoToServer(note, true)
+        }
+        this.updatePannerPosition(note, this.speaker)
+    }
+    this.sendSpeakerInfoToServer(this.speaker)
+    this.render()
+}
+
+Field.prototype.mouseMoved = function(x, y) {
+    if (this.speaker.isMove) {
+        this.speaker.x = x
+        this.speaker.y = y - 2
+        this.sendSpeakerInfoToServer(this.speaker)
+    }
+    for (let name in this.notes) {
+        let note = this.notes[name]
+        if (!note.isOtherMove && note.isMove) {
+            note.over = true
+            note.x = x
+            note.y = y - 2
+            this.sendNoteInfoToServer(note, false)
+        }
+        this.updatePannerPosition(note, this.speaker)
+
+    }
+    this.render()
+}
+
+Field.prototype.pannerPosition = function(callback) {
+    this.callUpdatePannerPosition = callback
+}
+
+Field.prototype.updatePannerPosition = function(note, speaker) {
+    // 音源が原点
+    let x = note.x - speaker.x
+    let y = note.y - speaker.y
+    let dx = x / this.size
+    let dy = y / this.size
+    let body = {
+        name: note.name,
+        position: {
+            x: dx,
+            y: dy,
+            z: 0
+        }
+    }
+    this.callUpdatePannerPosition(body)
+}
+
+Field.prototype.sendSpeakerInfo = function(callback) {
+    this.sendSpeakerInfo = callback
+}
+
+Field.prototype.sendSpeakerInfoToServer = function(speaker) {
+    let sp = Object.assign({}, speaker)
+    sp.icon = null
+    sp.draw = null
+    sp.isOver = null
+    sp.x = sp.x / this.w
+    sp.y = sp.y / this.h
+    this.sendSpeakerInfo(sp)
+}
+
+Field.prototype.sendNoteInfo = function(callback) {
+    this.sendNoteInfo = callback
+}
+
+Field.prototype.sendNoteInfoToServer = function(note, release) {
+    let nt = Object.assign({}, note)
+    nt.icon = null
+    nt.draw = null
+    nt.isOver = null
+    nt.idMove = false
+    nt.isOtherMove = release ? false : true
+    nt.x = nt.x / this.w
+    nt.y = nt.y / this.h
+    nt.id = this.clientID
+    nt.release = release
+    this.sendNoteInfo(nt)
+}
+
+
+Field.prototype.line = (ctx, x1, y1, x2, y2) => {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+}
+
+},{}],166:[function(require,module,exports){
+arguments[4][150][0].apply(exports,arguments)
+},{"dup":150}],167:[function(require,module,exports){
+
+
 module.exports = (noteIcon) => {
     let callClick = () => {}
     let note = {
@@ -23304,16 +24112,11 @@ module.exports = (noteIcon) => {
         h: noteIcon.height,
         x: 0,
         y: 0,
-        canvasW: 1,
-        canvasH: 1,
         over: false,
         isMove: false,
         isOtherMove: false,
         isPlay: false,
         isSync: false,
-        isChild: false,
-        parentObject: null,
-        childPosition: null,
         isOver: (x, y) => {
             let dx = note.x - x
             let dy = note.y - y
@@ -23326,22 +24129,12 @@ module.exports = (noteIcon) => {
         click: () => {
             callClick(note.name)
         },
-        setParentNote: (parent, pos) => {
-            note.parentObject = parent
-            note.isChild = true
-            note.childPosition = pos
-        },
         draw: (ctx) => {
-            if (note.isChild) {
-                note.x = note.parentObject.x + note.childPosition.x * note.canvasW
-                note.y = note.parentObject.y + note.childPosition.y * note.canvasH
-            }
-
             let rate = note.size / note.w
             ctx.save()
             ctx.translate(note.x, note.y)
             // circle
-            if (note.over || note.isSync) {
+            if (note.over) {
 
                 ctx.fillStyle = note.isOtherMove ? 'rgba(150,0,0,0.3)' : 'rgba(0,100,100,0.3)'
                 ctx.beginPath()
@@ -23376,8 +24169,3198 @@ module.exports = (noteIcon) => {
 }
 
 },{}],168:[function(require,module,exports){
+arguments[4][148][0].apply(exports,arguments)
+},{"dup":148}],169:[function(require,module,exports){
+let uuid = require('node-uuid')
+let job = require('./../Job/cron.js')
+
+let Canvas = require('./canvas.js')
+let Field = require('./field.js')
+let SyncPlay = require('./sync-play.js')
+let NoteIcon = require('./icon-note.js')
+let SpeakerIcon = require('./icon-speaker.js')
+let Button = require('./button.js')
+let HtmlText = require('./html-text.js')
+
+let socketDir = 'alarm_'
+
+
+exports.start = (element, context, socket, clientTime) => {
+    let clientID = uuid.v4() // This is temporary. When websocket connected, this is replaced new id
+
+    let button = Button(element)
+    let htmlText = HtmlText(element)
+    let canvas = Canvas(element)
+    let field = Field(canvas)
+
+    // Icon
+    let speakerIcon = new Image(300, 300)
+    speakerIcon.src = 'lib/image/speaker.png'
+    field.setThisSpeaker(SpeakerIcon(speakerIcon))
+
+    let noteIcon = new Image(300, 300)
+    noteIcon.src = 'lib/image/note.svg'
+    noteIcon = NoteIcon(noteIcon)
+    noteIcon.name = 'music'
+    noteIcon.x = 0.5
+    noteIcon.y = 0.5
+    field.setNote(noteIcon)
+
+    let audioUrlList = {
+        'music': 'lib/sound/clock3.mp3'
+    }
+
+    let syncPlay = SyncPlay(context)
+    let syncNoteList = {}
+    let pannerList = {}
+    let isPlaying = false
+
+    // 人固定
+    context.listener.setPosition(0, 0, -0.1)
+
+
+    /*
+     * Evary EventLister are in this Method
+     * socket
+     * canvas
+     * button
+     */
+
+     // socket
+
+    syncPlay.loadBuffer(audioUrlList, () => {
+        socket.on(socketDir + 'play', (body) => {
+            console.log('syncPlay')
+            console.log(body)
+            let time = body.time
+            let music_offset = body.offset
+            let duration = body.duration
+            let correctionTime = clientTime.correctionServerTime(time)
+            let date = new Date(correctionTime)
+            let left = correctionTime - Date.now()
+
+            let noteName = 'music'
+            let syncNote = syncPlay.createSyncNote(noteName, correctionTime, music_offset, duration)
+
+            let gainNode = context.createGain()
+            gainNode.gain.value = 2.0
+            gainNode.connect(context.destination)
+            let panner = createPanner(true)
+            panner.connect(gainNode)
+            pannerList['music'] = panner
+
+            syncNote.started(() => {
+                console.log('syncPlay: start')
+                syncNoteList[noteName] = syncNote
+            })
+
+            syncNote.stoped(() => {
+                console.log('syncPlay: stop')
+                if (syncNoteList[noteName]) {
+                    delete syncNoteList[noteName]
+                }
+            })
+
+            syncNote.finished(() => {
+                console.log('syncPlay: finish')
+                if (isPlaying && syncNoteList[noteName]) {
+                    isPlaying = false
+                    syncNoteList[noteName].stop()
+                    field.toStopStatus(noteName)
+                    delete syncNoteList[noteName]
+
+                    htmlText.status.innerHTML = 'finish'
+                }
+            })
+
+            syncPlay.play(panner, syncNote)
+            field.toPlayStatus('music')
+
+            htmlText.log.innerHTML = 'start playback after: ' + left.toFixed(4) + 'ms'
+        })
+    })
+
+    socket.call.on('connect', () => {
+        clientID = uuid.v4()
+
+        field.setClientID(clientID)
+
+        socket.emit(socketDir + 'register', {
+            type: 'syncmusic',
+            id: clientID
+        })
+
+        socket.on(socketDir + 'register', (body) => {
+            if (body.id === clientID && body.name) {
+                clientName = body.name
+            }
+
+            htmlText.log.innerHTML = 'username: ' + clientName
+        })
+
+        socket.on(socketDir + 'surround_speaker', (speakerList) => {
+            if (field && field.setOtherSpeaker) {
+                field.setOtherSpeaker(SpeakerIcon, speakerList)
+            }
+        })
+
+        socket.on(socketDir + 'surround_note', (note) => {
+            if (field && field.setNote && field.note && note.id !== clientID) {
+                field.updateNote(note)
+            }
+        })
+
+        socket.on(socketDir + 'surround_note_click', (body) => {
+            if (field && field.note && body.id == clientID) {
+                if (field.note.isSync) {
+                    field.note.isMove = true
+                } else {
+                    // release
+                    field.sendNoteInfoToServer(field.note, true)
+                }
+            }
+        })
+
+        field.sendSpeakerInfo((speaker) => {
+            socket.emit(socketDir + 'surround_speaker', {
+                id: clientID,
+                speaker: speaker
+            })
+        })
+
+        field.sendNoteInfo((note) => {
+            socket.emit(socketDir + 'surround_note', {
+                id: clientID,
+                note: note,
+            })
+        })
+
+        field.pannerPosition((body) => {
+            let name = body.name
+            if (pannerList[name]) {
+                let p = body.position
+                pannerList[name].setPosition(p.x * 10, p.y *10, p.z)
+            }
+        })
+
+        noteIcon.clicked((name) => {
+            socket.emit(socketDir + 'surround_note_click', {
+                id: clientID,
+                name: name
+            })
+        })
+    })
+
+    // canvas
+
+    canvas.addEventListener('mousemove', function(e) {
+        field.mouseMoved(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault()
+        var rect = e.target.getBoundingClientRect()
+        var x = e.changedTouches[0].clientX - rect.left
+        var y = e.changedTouches[0].clientY - rect.top
+        field.mouseMoved(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mousedown', function(e) {
+        field.mousePressed(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault()
+        var rect = e.target.getBoundingClientRect()
+        var x = e.changedTouches[0].clientX - rect.left
+        var y = e.changedTouches[0].clientY - rect.top
+        field.mousePressed(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mouseup', function(e) {
+        field.mouseReleased(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault()
+        var rect = e.target.getBoundingClientRect()
+        var x = e.changedTouches[0].clientX - rect.left
+        var y = e.changedTouches[0].clientY - rect.top
+        field.mouseReleased(x, y)
+        return false
+    })
+
+    // button
+
+    button.start.onclick = () => {
+        if (!isPlaying) {
+            isPlaying = true
+
+            // ios対策
+            context.createBufferSource().start(0)
+
+            socket.emit(socketDir + 'play', {
+                type: 'syncmusic',
+                id: clientID,
+                duration: syncPlay.buffer['music'].duration * 1000
+            })
+
+            htmlText.status.innerHTML = 'playing music！'
+        }
+
+    }
+
+    button.stop.onclick = () => {
+        if (isPlaying) {
+            isPlaying = false
+            if (syncNoteList['music']) {
+                syncNoteList['music'].stop()
+                field.toStopStatus('music')
+            }
+
+            htmlText.status.innerHTML = 'stop・・・'
+        }
+    }
+}
+
+
+let createPanner = (side = 'from') => {
+    var panner = context.createPanner()
+
+    // 指向性  Gainは減衰率  InterAngleは減衰しない範囲
+    panner.coneOuterGain = 0.1
+    panner.coneOuterAngle = 180
+    panner.coneInnerAngle = 30
+
+    // "linear" "inverse" "exponential"
+    panner.distanceModel = 'exponential'
+
+    // 基準距離
+    panner.refDistance = 1.0
+
+    // 最大距離
+    panner.maxDistance = 10000
+
+    panner.panningModel = 'HRTF'
+
+    // x: 左右
+    // y: 上下  +が上
+    // z: 奥と手前  +が手前
+
+    // 音源　向かい合っている
+    // 音源の向き
+    // 音源の位置
+    panner.setPosition(0, 0, 0)
+    panner.setOrientation(0, 0, 1)
+
+    return panner
+}
+
+},{"./../Job/cron.js":145,"./button.js":163,"./canvas.js":164,"./field.js":165,"./html-text.js":166,"./icon-note.js":167,"./icon-speaker.js":168,"./sync-play.js":170,"node-uuid":264}],170:[function(require,module,exports){
+module.exports = (context) => {
+    return new SyncPlay(context)
+}
+
+function SyncPlay(context, clientTime) {
+    this.context = context
+    this.buffer = {}
+    this.source = {}
+    this.panner = {}
+    this.audioUrlList = {}
+}
+
+
+/**
+ * @param {Object.<string, string>} audioUrlList - key: audioName value: audioUrl
+ */
+
+SyncPlay.prototype.setAudioList = function(audioUrlList) {
+    this.audioUrlList = audioUrlList
+}
+
+SyncPlay.prototype.loadBuffer = function(audioUrlList, callback = () => {}) {
+    audioUrlList = audioUrlList || this.audioUrlList
+    load(audioUrlList, (bufferList) => {
+        this.buffer = bufferList
+        callback()
+    })
+}
+
+SyncPlay.prototype.createSyncNote = function(sourceName, startDate, offset, duration) {
+    let call_start = []
+    let call_finish = []
+    let call_stop = []
+    let syncNote = {
+        sourceName: sourceName,
+        startDate: startDate, // UTC millis
+        startTime: 0, //  time of context(ms)   Rewrite the value in this method
+        offset: offset, // (ms)
+        duration: duration, //  (ms) If undefined, rewrite the value in this method
+        buffer: null, // Rewrite the value in this method
+        source: null, // Rewrite the value in this method
+        isPlaying: false,
+        start: () => {
+            syncNote.source.start(syncNote.startTime / 1000, syncNote.offset / 1000, syncNote.duration / 1000)
+            syncNote.isPlaying = true
+            syncNote.fireStart()
+
+            let leftTime = syncNote.duration - syncNote.offset
+            setTimeout(() => {
+                syncNote.isPlaying = false
+                syncNote.fireFinish()
+            }, leftTime)
+        },
+        connect: (destination) => {
+            syncNote.source.connect(destination)
+        },
+        stop: () => {
+            if (syncNote.isPlaying) {
+                syncNote.source.stop()
+                syncNote.fireStop()
+            }
+        },
+        fireStart: () => {
+            call_start.forEach((c) => {
+                c()
+            })
+        },
+        fireFinish: () => {
+            call_finish.forEach((c) => {
+                c()
+            })
+        },
+        fireStop: () => {
+            call_stop.forEach((c) => {
+                c()
+            })
+        },
+        started: (callback = () => {}) => {
+            call_start.push(callback)
+        },
+        finished: (callback = () => {}) => {
+            call_finish.push(callback)
+        },
+        stoped: (callback = () => {}) => {
+            call_stop.push(callback)
+        }
+    }
+
+    // set buffer & source
+    let source = context.createBufferSource()
+    let buffer = this.buffer[sourceName]
+    source.buffer = buffer
+    syncNote.buffer = buffer
+    syncNote.source = source
+
+    // set startTime
+    let ct = this.context.currentTime * 1000 // sec -> ms
+    let leftTime = syncNote.startDate - Date.now()
+    syncNote.startTime = ct + leftTime
+
+    // If undefined, set duration
+    if (!syncNote.duration) {
+        syncNote.duration = syncNote.buffer.duration * 1000 // sec -> ms
+    }
+
+    return syncNote
+}
+
+
+SyncPlay.prototype.play = (destination, syncNote) => {
+    // to array
+    if (!Array.isArray(syncNote)) {
+        let temp = syncNote
+        syncNote = []
+        syncNote.push(temp)
+    }
+
+    // play
+    syncNote.forEach((note) => {
+        note.connect(destination)
+        note.start()
+    })
+}
+
+SyncPlay.prototype.pannerPosition = (dx, dy) => {
+    if (panner && panner.setPosition) {
+        panner.setPosition(dx * 10, dy * 10, 0)
+    }
+}
+
+
+
+/**
+ * load Audio File
+ * load() -> loadSound()
+ * -> return
+ * @param {string[]|string} urlList -
+ * @return {Object[]} - buffer[]
+ */
+
+let load = (urlList, callback = () => {}) => {
+    let bufferList = {}
+    let cnt = 0
+    let length = Object.keys(urlList).length
+    for (let key in urlList) {
+        loadSound(urlList[key], (buf) => {
+            bufferList[key] = buf
+            cnt++
+            if (cnt == length) {
+                callback(bufferList)
+            }
+        })
+    }
+}
+
+let loadSound = (url, callback = () => {}) => {
+    let request = new XMLHttpRequest()
+    request.open('GET', url, true)
+    request.responseType = 'arraybuffer'
+    request.onload = function() {
+        console.log('load')
+        context.decodeAudioData(request.response, function(buffer) {
+            callback(buffer)
+        }, (err) => {
+            console.log(err)
+        })
+    }
+    request.send()
+}
+
+},{}],171:[function(require,module,exports){
+module.exports = (canvas) => {
+    return new Field(canvas)
+}
+
+
+function Field(canvas) {
+    this.canvas = canvas
+    this.clientID = ''
+    this.center = {
+        x: canvas.width / 2,
+        y: canvas.height / 2
+    }
+    this.w = canvas.width
+    this.h = canvas.height
+    this.size = this.w / 2
+
+    this.otherSpeakers = []
+    this.notes = {}
+
+    this.callStart = () => {}
+    this.callSendSpeakerInfo = () => {}
+    this.callSendNoteInfo = () => {}
+    this.callUpdatePannerPosition = () => {}
+}
+
+Field.prototype.setClientID = function(clientID) {
+    this.clientID = clientID
+}
+
+
+Field.prototype.setNote = function(note) {
+    let name = note.name
+    note.x = note.x * this.w
+    note.y = note.y * this.h
+    note.size = Math.round(this.w / 15)
+    this.notes[name] = note
+
+    // this.note = note
+    this.updatePannerPosition(this.notes[name], this.speaker)
+    this.render()
+    let field = this
+    this.notes[name].icon.onload = function() {
+        field.render()
+    }
+}
+
+Field.prototype.updateNote = function(note) {
+    let name = note.name
+    if (this.notes[name]) {
+        let nt = this.notes[name]
+        nt.x = note.x * this.w
+        nt.y = note.y * this.h
+        nt.over = note.over
+        nt.isMove = note.isMove
+        nt.isOtherMove = note.isOtherMove
+        this.updatePannerPosition(nt, this.speaker)
+        console.log(name, 'update')
+    }
+    this.render()
+
+}
+
+
+Field.prototype.setThisSpeaker = function(speaker) {
+    this.speaker = speaker
+    this.speaker.x = this.center.x
+    this.speaker.y = this.center.y
+    this.speaker.size = Math.round(this.w / 15)
+    let field = this
+    this.speaker.icon.onload = function() {
+        field.render()
+        field.sendSpeakerInfoToServer(field.speaker)
+    }
+}
+
+Field.prototype.setOtherSpeaker = function(SpeakerIcon, speakers) {
+    let speakerArray = []
+    if (typeof speakers == 'object') {
+        for (let id in speakers) {
+            if (id === this.clientID) {
+                continue
+            }
+            let sp = speakers[id]
+            let speaker = SpeakerIcon(this.speaker.icon)
+            speaker.x = sp.x * this.w
+            speaker.y = sp.y * this.h
+            speaker.size = Math.round(this.w / 15)
+            speaker.over = sp.over
+            speaker.isMove = sp.isMove
+            speaker.isThis = false
+            speaker.isPlay = sp.isPlay
+            speakerArray.push(speaker)
+        }
+    }
+    this.otherSpeakers = speakerArray
+    this.render()
+}
+
+Field.prototype.toPlayStatus = function(name = 'default') {
+    if (this.notes[name]) {
+        this.notes[name].isPlay = true
+        // this.updatePannerPosition(this.notes[name], this.speaker)
+    }
+    if (this.speaker) {
+        this.speaker.isPlay = true
+        this.sendSpeakerInfoToServer(this.speaker)
+    }
+    this.render()
+}
+
+Field.prototype.toStopStatus = function(name = 'default') {
+    if (this.notes[name]) {
+        this.notes[name].isPlay = false
+    }
+    if (this.speaker) {
+        this.speaker.isPlay = false
+        this.sendSpeakerInfoToServer(this.speaker)
+    }
+    this.render()
+}
+
+
+
+Field.prototype.render = function() {
+    // Draw points onto the canvas element.
+    var ctx = this.canvas.getContext('2d');
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    ctx.save()
+    // grid
+    let size = this.size
+    let cnt = 0
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)'
+    for (let r = 0; r <= size; r += size / 4) {
+        let alpha = 0.5 - cnt * 0.1
+        ctx.strokeStyle = 'rgba(0,0,0,' + alpha + ')'
+        cnt++
+        ctx.beginPath()
+        ctx.arc(this.center.x, this.center.y, r, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.strokeStyle = 'rgba(0,0,0,' + alpha + ')'
+
+        this.line(ctx, 0, this.center.y - r, this.w, this.center.y - r)
+        if (cnt > 1) {
+            this.line(ctx, 0, this.center.y + r, this.w, this.center.y + r)
+            this.line(ctx, this.center.x - r, 0, this.center.x - r, this.h)
+        }
+        this.line(ctx, this.center.x + r, 0, this.center.x + r, this.h)
+    }
+
+    this.speaker.draw(ctx)
+    if (this.otherSpeakers) {
+        this.otherSpeakers.forEach((sp) => {
+            sp.draw(ctx)
+        })
+    }
+    // this.note.draw(ctx)
+    for (let name in this.notes) {
+        this.notes[name].draw(ctx)
+    }
+    ctx.restore()
+}
+
+Field.prototype.started = function(callback) {
+    this.callStart = callback
+}
+
+
+Field.prototype.mousePressed = function(x, y) {
+    if (this.speaker.isOver(x, y)) {
+        this.speaker.isMove = true
+        this.speaker.over = true
+        this.speaker.x = x
+        this.speaker.y = y
+    } else {
+        for (let name in this.notes) {
+            let note = this.notes[name]
+            if (!note.isOtherMove && note.isOver(x, y)) {
+                note.isSync = true
+                note.click()
+                break
+            }
+        }
+    }
+    // this.updatePannerPosition(this.note, this.speaker)
+    this.render()
+}
+
+
+Field.prototype.mouseReleased = function(x, y) {
+    if (this.speaker.isMove) {
+        this.speaker.x = x
+        this.speaker.y = y
+        this.speaker.isMove = false
+        this.speaker.over = false
+    }
+    for (let name in this.notes) {
+        let note = this.notes[name]
+        if (!note.isOtherMove && note.isMove) {
+            note.x = x
+            note.y = y
+            note.isMove = false
+            note.over = false
+            note.isSync = false
+            this.sendNoteInfoToServer(note, true)
+        }
+        this.updatePannerPosition(note, this.speaker)
+    }
+    this.sendSpeakerInfoToServer(this.speaker)
+    this.render()
+}
+
+Field.prototype.mouseMoved = function(x, y) {
+    if (this.speaker.isMove) {
+        this.speaker.x = x
+        this.speaker.y = y - 2
+        this.sendSpeakerInfoToServer(this.speaker)
+    }
+    for (let name in this.notes) {
+        let note = this.notes[name]
+        if (!note.isOtherMove && note.isMove) {
+            note.over = true
+            note.x = x
+            note.y = y - 2
+            this.sendNoteInfoToServer(note, false)
+          }
+        this.updatePannerPosition(note, this.speaker)
+
+    }
+    this.render()
+}
+
+Field.prototype.pannerPosition = function(callback) {
+    this.callUpdatePannerPosition = callback
+}
+
+Field.prototype.updatePannerPosition = function(note, speaker) {
+    // 音源が原点
+    let x = note.x - speaker.x
+    let y = note.y - speaker.y
+    let dx = x / this.size
+    let dy = y / this.size
+    let body = {
+        name: note.name,
+        position: {
+            x: dx,
+            y: dy,
+            z: 0
+        }
+    }
+    this.callUpdatePannerPosition(body)
+}
+
+Field.prototype.sendSpeakerInfo = function(callback) {
+    this.sendSpeakerInfo = callback
+}
+
+Field.prototype.sendSpeakerInfoToServer = function(speaker) {
+    let sp = Object.assign({}, speaker)
+    sp.icon = null
+    sp.draw = null
+    sp.isOver = null
+    sp.x = sp.x / this.w
+    sp.y = sp.y / this.h
+    this.sendSpeakerInfo(sp)
+}
+
+Field.prototype.sendNoteInfo = function(callback) {
+    this.sendNoteInfo = callback
+}
+
+Field.prototype.sendNoteInfoToServer = function(note, release) {
+    let nt = Object.assign({}, note)
+    nt.icon = null
+    nt.draw = null
+    nt.isOver = null
+    nt.setParentNote = null
+    nt.idMove = false
+    nt.isOtherMove = release ? false : true
+    nt.x = nt.x / this.w
+    nt.y = nt.y / this.h
+    nt.id = this.clientID
+    nt.release = release
+    this.sendNoteInfo(nt)
+}
+
+
+Field.prototype.line = (ctx, x1, y1, x2, y2) => {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+}
+
+},{}],172:[function(require,module,exports){
+arguments[4][147][0].apply(exports,arguments)
+},{"dup":147}],173:[function(require,module,exports){
+arguments[4][148][0].apply(exports,arguments)
+},{"dup":148}],174:[function(require,module,exports){
+arguments[4][150][0].apply(exports,arguments)
+},{"dup":150}],175:[function(require,module,exports){
+let uuid = require('node-uuid')
+// let job = require('./../Job/cron.js')
+
+// let Canvas = require('./canvas/canvas.js')
+let Field = require('./canvas/field.js')
+let NoteIcon = require('./canvas/icon-note.js')
+let SpeakerIcon = require('./canvas/icon-speaker.js')
+let SyncPlay = require('./sync-play.js')
+let NotificationButton = require('./../demo-common/html/button-notification.js')
+let RadioButton = require('./../demo-common/html/radio-button.js')
+let Slider = require('./../demo-common/html/slider.js')
+let SliderSingle = require('./../demo-common/html/slider-single.js')
+let HtmlText = require('./html/html-text.js')
+let SelectList = require('./../demo-common/html/select-list.js')
+
+// let Biquad = require('./biquad.js')
+
+let socketDir = 'demo_chat_'
+let socketType = 'demo_chat'
+
+let config = require('./../exCall-module/config')
+
+let homeButton = require('./../demo-common/html/homeButton.js')
+
+// let Voice = require('./createVoice.js')(config.VOICE_TEXT_API)
+// let Slack = require('./slack.js')
+let soundList = {
+    '３音': 'lib/sound/notification-common.mp3',
+    '和風メロディ': 'lib/sound/wafuringtone.mp3',
+    'ウィンドチャイム': 'lib/sound/windchime.mp3',
+    '太鼓': 'lib/sound/taiko.mp3',
+    'コーリング': 'lib/sound/emargency_calling.mp3',
+    'アラーム': 'lib/sound/clockbell.mp3',
+    '掃除機': 'lib/sound/cleaner.mp3',
+    '電子レンジ': 'lib/sound/microwave.mp3',
+    '扇風機': 'lib/sound/fan.mp3',
+    '洗濯機': 'lib/sound/washing.mp3',
+    'プリンタ': 'lib/sound/printer.mp3',
+    'ポッド注ぐ': 'lib/sound/pod.mp3',
+    '炒める': 'lib/sound/roasting.mp3',
+    '足音（走る）': 'lib/sound/dashing.mp3',
+    '足音（スリッパ）': 'lib/sound/walking.mp3',
+    '雨音': 'lib/sound/rain.mp3'
+}
+
+let soundNameList = []
+for (let name in soundList) {
+    soundNameList.push(name)
+}
+
+exports.start = (element, context, socket, clientTime, config) => {
+    element.style.margin = '30px'
+
+    console.log(config)
+
+    let clientID = uuid.v4() // This is temporary. When websocket connected, this is replaced new id
+
+
+    let htmlText = HtmlText(element)
+    let fromList = SelectList(element, 'from', 'From')
+    let toList = SelectList(element, 'to', 'To')
+
+    let notificationButton = NotificationButton(element)
+
+    // panner - slider
+    let pannerSlider = Slider(element, 'panner', 'Panner Time')
+    pannerSlider.setList()
+    let p = document.createElement('p')
+    p.innerHTML = '音像移動（開始点　終了点）<br>←音の開始　　→音の終了'
+    element.appendChild(p)
+
+    // panner - distance
+    let distanceSlider = SliderSingle(element, 'distance', 'Panner Distance')
+    distanceSlider.setList()
+    let p_d = document.createElement('p')
+    p_d.innerHTML = '←近い　→遠い'
+    element.appendChild(p_d)
+
+
+    let radioButton = RadioButton(element, 'tone', 'Tone Select')
+    radioButton.setList(soundNameList)
+    radioButton.onSelect((name) => {
+        console.log(name)
+        let name2 = radioButton.getSelected()
+        console.log(name == name2)
+    })
+
+    homeButton(element, config.user)
+    // let canvas = Canvas(element)
+    // let field = Field(canvas)
+
+    socket.on(socketDir + 'user_list', (list) => {
+        toList.setList(list)
+        fromList.setList(list)
+        fromList.check(config.user)
+    })
+
+    socket.on(socketDir + 'user_add', (user) => {
+        toList.addUser(user)
+        fromList.addUser(user)
+    })
+
+    socket.on(socketDir + 'user_remove', (user) => {
+        toList.removeUser(user)
+        fromList.removeUser(user)
+    })
+
+    let syncPlay = SyncPlay(context)
+    let syncNoteList = {}
+    let pannerList = {}
+    let isPlaying = false
+
+    // 人固定
+    context.listener.setPosition(0, 0, -0.1)
+
+    let createSyncNote = (bufferName, time, offset, duration) => {
+        let music_offset = offset || 0
+        duration = duration || null
+        let correctionTime = clientTime.correctionServerTime(time)
+        let left = correctionTime - Date.now()
+
+        // htmlText.log.innerHTML = 'start playback after: ' + left.toFixed(4) + 'ms'
+
+        return syncPlay.createSyncNote(bufferName, correctionTime, music_offset, duration)
+    }
+
+    let setCommonSyncNote = (syncNote, noteName) => {
+        syncNote.started(() => {
+            console.log('syncPlay: start')
+            syncNoteList[noteName] = syncNote
+        })
+
+        syncNote.stoped(() => {
+            console.log('syncPlay: stop')
+            if (syncNoteList[noteName]) {
+                delete syncNoteList[noteName]
+            }
+        })
+
+        syncNote.finished(() => {
+            console.log('syncPlay: finish')
+            if (isPlaying && syncNoteList[noteName]) {
+                isPlaying = false
+                syncNoteList[noteName].stop()
+                // field.toStopStatus(noteName)
+                delete syncNoteList[noteName]
+
+                // htmlText.status.innerHTML = 'finish'
+            }
+        })
+
+        return syncNote
+    }
+
+    let createIndividualPanner = (name) => {
+        let gainNode = context.createGain()
+        gainNode.gain.value = 20.0
+        gainNode.connect(context.destination)
+        let panner = createPanner(true)
+        panner.connect(gainNode)
+        pannerList[name] = panner
+        return panner
+    }
+
+    /*
+     * Evary EventLister are in this Method
+     * socket
+     * canvas
+     * button
+     */
+
+    // socket
+
+    syncPlay.loadBuffer(soundList, () => {
+
+    })
+
+    socket.call.on('connect', () => {
+        clientID = uuid.v4()
+
+        // field.setClientID(clientID)
+
+        socket.emit(socketDir + 'register', {
+            type: socketType,
+            id: clientID,
+            user: config.user
+        })
+
+        socket.on(socketDir + 'register', (body) => {
+            if (body.id === clientID && body.name) {
+                clientName = body.name
+            }
+
+            htmlText.status.innerHTML = 'user: ' + clientName
+        })
+
+
+        socket.on(socketDir + 'notification_common', (body) => {
+            console.log(body)
+            let from = body.from.indexOf(config.user) >= 0 ? true : false
+            let to = body.to.indexOf(config.user) >= 0 ? true : false
+
+            let fromText = ''
+            body.from.forEach((n) => {
+                fromText += n + ' '
+            })
+            let toText = ''
+            body.to.forEach((n) => {
+                toText += n + ' '
+            })
+            htmlText.log.innerHTML = 'From: ' + fromText + '　To: ' + toText
+            if (!from && !to) {
+                return
+            }
+
+            body.notes.forEach((nt) => {
+
+                let con = (t) => {
+                    htmlText.log.innerHTML = panner.positionY.value
+                    console.log(panner.positionY)
+
+                    setTimeout(() => {
+                        t += 100
+                        if (t < 3000) {
+                            con(t)
+                        }
+                    }, 100)
+                }
+                let linearRamp = (fromValue, toValue, time, callback, value, dif, passTime) => {
+                    value = value ? value : fromValue
+                    dif = dif ? dif : (toValue - fromValue) / (time / 10)
+                    passTime = passTime ? passTime : 0
+                    setTimeout(() => {
+                        callback(value)
+                        value += dif
+                        passTime += 10
+                        if (passTime < time) {
+                            linearRamp(fromValue, toValue, time, callback, value, dif, passTime)
+                        }
+                    }, 10)
+                }
+
+                if (from) {
+                    syncNote = createSyncNote(nt.sound, nt.time, nt.offset, nt.duration)
+                    let panner = createIndividualPanner(nt.name)
+
+                    let dist = nt.distance || 30
+                    panner.setPosition(0, 0, 0)
+
+                    syncNote.started((leftTime) => {
+
+                        let ct = syncPlay.getCurrentTime() + leftTime / 1000
+                        let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
+                        let start = startValue * syncNote.duration
+                        let endValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[1] / 100 : 0.8
+                        let end = endValue * syncNote.duration
+
+                        console.log('from', 'start', start, 'end', end, 'dist', dist)
+
+                        // example,  safari for ios
+                        if (typeof panner.positionY == 'undefined') {
+                            setTimeout(() => {
+                                linearRamp(0, dist, end - start, (value) => {
+                                    panner.setPosition(0, value, 0)
+                                })
+                            }, leftTime + start)
+                        } else {
+                            panner.positionY.linearRampToValueAtTime(0, ct + start / 1000)
+                            panner.positionY.linearRampToValueAtTime(dist, ct + end / 1000)
+                        }
+                    })
+                    syncPlay.play(panner, syncNote)
+
+                    syncNote.finished(() => {
+                        notificationButton.notificationText.innerHTML = '　'
+                    })
+                }
+
+                if (to) {
+                    syncNote = createSyncNote(nt.sound, nt.time, nt.offset, nt.duration)
+                    let panner = createIndividualPanner(nt.name)
+
+                    let dist = nt.distance || 30
+                    panner.setPosition(0, dist, 0)
+
+                    syncNote.started((leftTime) => {
+
+                        let ct = syncPlay.getCurrentTime() + leftTime / 1000
+                        let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
+                        let start = startValue * syncNote.duration
+                        let endValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[1] / 100 : 0.8
+                        let end = endValue * syncNote.duration
+
+                        console.log('from', 'start', start, 'end', end, 'dist', dist)
+
+                        if (typeof panner.positionY == 'undefined') {
+                            setTimeout(() => {
+                                linearRamp(dist, 0, end - start, (value) => {
+                                    panner.setPosition(0, value, 0)
+                                })
+                            }, leftTime + start)
+                        } else {
+                            panner.positionY.linearRampToValueAtTime(dist, ct + start / 1000)
+                            panner.positionY.linearRampToValueAtTime(0, ct + end / 1000)
+                        }
+                    })
+                    syncPlay.play(panner, syncNote)
+
+                    syncNote.finished(() => {
+                        notificationButton.notificationText.innerHTML = '　'
+                    })
+                }
+            })
+        })
+
+
+    })
+
+
+    // button
+
+    notificationButton.test.onclick = () => {
+
+        console.log('Test Play')
+
+        // ios対策
+        context.createBufferSource().start(0)
+
+        let soundName = radioButton.getSelected()
+
+        let note = syncPlay.createSyncNote(soundName, Date.now())
+        syncPlay.play(context.destination, note)
+
+        // htmlText.status.innerHTML = 'volume on'
+    }
+
+    notificationButton.notification.onclick = () => {
+        context.createBufferSource().start(0)
+        notificationButton.notificationText.innerHTML = '♪'
+        let toUserList = toList.getSelectUser()
+        let fromUserList = fromList.getSelectUser()
+        let soundName = radioButton.getSelected()
+        let pannerValues = pannerSlider.getValues()
+        let pannerDistance = distanceSlider.getValue()
+
+        console.log(toUserList)
+        console.log(fromUserList)
+        let body = {
+            id: clientID,
+            type: socketType,
+            user: config.user,
+            from: fromUserList,
+            to: toUserList,
+            sound: soundName,
+            panner: pannerValues,
+            distance: pannerDistance
+        }
+        console.log(body)
+        socket.emit(socketDir + 'notification_common', body)
+    }
+}
+
+
+let createPanner = (side = 'from') => {
+    var panner = context.createPanner()
+
+    // 指向性  Gainは減衰率  InterAngleは減衰しない範囲
+    panner.coneOuterGain = 0.1
+    panner.coneOuterAngle = 180
+    panner.coneInnerAngle = 30
+
+    // "linear" "inverse" "exponential"
+    panner.distanceModel = 'exponential'
+
+    // 基準距離
+    panner.refDistance = 1.0
+
+    // 最大距離
+    panner.maxDistance = 10000
+
+    panner.panningModel = 'equalpower'
+    // panner.panningModel = 'HRTF'
+
+    // x: 左右
+    // y: 上下  +が上
+    // z: 奥と手前  +が手前
+
+    // 音源　向かい合っている
+    // 音源の向き
+    // 音源の位置
+    panner.setPosition(0, 0, 0)
+    panner.setOrientation(0, 0, 1)
+
+    return panner
+}
+
+},{"./../demo-common/html/button-notification.js":177,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./../demo-common/html/select-list.js":180,"./../demo-common/html/slider-single.js":181,"./../demo-common/html/slider.js":182,"./../exCall-module/config":224,"./canvas/field.js":171,"./canvas/icon-note.js":172,"./canvas/icon-speaker.js":173,"./html/html-text.js":174,"./sync-play.js":176,"node-uuid":264}],176:[function(require,module,exports){
+arguments[4][153][0].apply(exports,arguments)
+},{"dup":153}],177:[function(require,module,exports){
+module.exports = (element) => {
+    let button = {
+        test: null,
+        notification: null,
+        notificationText: null
+    }
+
+    let notification = document.createElement('button')
+    notification.setAttribute('class', 'btn btn-hg btn-primary')
+    notification.innerHTML = 'Notification'
+    let notificationText = document.createElement('h5')
+    notificationText.innerHTML = '　'
+
+    let p = document.createElement('p')
+    p.setAttribute('class', 'mbl')
+    let p2 = document.createElement('p')
+    p2.innerHTML = '<br>iosは一度ボタンを押さないと音がなりません<br>'
+
+    let test = document.createElement('button')
+    test.setAttribute('class', 'btn btn-default')
+    test.innerHTML = 'Test: この端末だけで鳴らす'
+
+
+    button.test = test
+    // button.stop = stop
+    button.notification = notification
+    button.notificationText = notificationText
+
+
+    // p.appendChild(stop)
+    p.appendChild(notification)
+    p.appendChild(notificationText)
+    p.appendChild(p2)
+    p.appendChild(test)
+    element.appendChild(p)
+
+    return button
+}
+
+},{}],178:[function(require,module,exports){
+// <button class="btn btn-default">Default</button>
+module.exports = (element, user) => {
+    let p = document.createElement('p')
+    p.setAttribute('class', 'mbl')
+    p.innerHTML = '<br>'
+
+    let button = document.createElement('button')
+    button.setAttribute('class', 'btn btn-default')
+    button.innerHTML = 'Homeに戻る'
+
+    button.onclick = () => {
+        let href = window.location.href
+        let http = 'http://'
+        if (href.indexOf('http://') >= 0) {
+            href = href.slice(7)
+        }
+        if (href.indexOf('https://') >= 0) {
+            href = href.slice(8)
+            http = 'https://'
+        }
+        let query_idx = href.indexOf('/')
+        if (query_idx >= 1) {
+            href = href.slice(0, query_idx)
+        }
+        let query = user ? '?user=' + user : ''
+        location.href = http + href + query
+    }
+
+    p.appendChild(button)
+    element.appendChild(p)
+
+
+}
+
+},{}],179:[function(require,module,exports){
+module.exports = (element, id, text) => {
+    return new RadioButton(element, id, text)
+}
+
+function RadioButton(element, id, text) {
+    this.div = null
+    this.selectStatus = {}
+    this.id = id || ''
+    this.onSelectCall = () => {}
+
+    this.init(element, text)
+}
+
+RadioButton.prototype.init = function(element, text) {
+    this.div = document.createElement('div')
+    let h = document.createElement('h5')
+    h.innerHTML = text || ''
+
+    element.appendChild(h)
+    element.appendChild(this.div)
+}
+
+
+RadioButton.prototype.setList = function(nameList) {
+    let div = this.div
+    let selectStatus = this.selectStatus
+    let id = this.id
+
+    let radio = {
+        start: null,
+        stop: null
+    }
+
+    nameList.forEach((name, i) => {
+
+        let label = document.createElement('label')
+        label.setAttribute('class', 'radio')
+        label.setAttribute('for', 'radio' + id + i)
+        label.setAttribute('data-name', name)
+
+        let input = document.createElement('input')
+        input.setAttribute('type', 'radio')
+        input.setAttribute('name', id)
+        // input.setAttribute('class', 'radio')
+        input.setAttribute('value', name)
+        input.setAttribute('id', 'radio' + id + i)
+        input.setAttribute('data-id', id)
+        input.setAttribute('data-toggle', 'radio')
+        if (i == 0) {
+            input.setAttribute('checked', 'checked')
+            selectStatus[name] = true
+        } else {
+            // input.setAttribute('disabled', '')
+            selectStatus[name] = false
+        }
+        label.innerHTML = name
+        label.appendChild(input)
+        div.appendChild(label)
+    })
+
+    // element.appendChild(div)
+
+    $(':radio').radiocheck()
+
+    let Radio = this
+    $(':radio').on('change.radiocheck', function(e) {
+        let dataID = e.target.getAttribute('data-id')
+        if (id == dataID) {
+            for (let name in selectStatus) {
+                if (name == e.target.value) {
+                    selectStatus[name] = true
+                } else {
+                    selectStatus[name] = false
+                }
+            }
+            Radio.onSelectCall(e.target.value)
+        }
+    })
+
+    return radio
+}
+
+RadioButton.prototype.onSelect = function(callback = () => {}) {
+    this.onSelectCall = callback
+}
+
+RadioButton.prototype.getSelected = function() {
+    for (let name in this.selectStatus) {
+        if (this.selectStatus[name]) {
+            return name
+        }
+    }
+    return ''
+}
+
+},{}],180:[function(require,module,exports){
+// let div = null
+//
+// let selectStatus = {}
+// let number = 0
+
+module.exports = (element, id, text) => {
+    return new SelectList(element, id, text)
+}
+
+function SelectList(element, id, text) {
+    this.div = null
+    this.selectStatus = {}
+    this.userList = {}
+    this.number = 0
+    this.id = id
+    this.init(element, text)
+    this.changeCall = () => {}
+}
+
+SelectList.prototype.init = function(element, text) {
+    this.div = document.createElement('div')
+    let h = document.createElement('h5')
+    h.innerHTML = text || ''
+
+    element.appendChild(h)
+    element.appendChild(this.div)
+}
+
+SelectList.prototype.selectUser = function() {
+    let list = []
+    for (let name in this.selectStatus) {
+        if (this.selectStatus[name]) {
+            list.push(name)
+        }
+    }
+    return list
+}
+
+SelectList.prototype.getSelectUser = function() {
+    return this.selectUser()
+}
+
+SelectList.prototype.getUserList = function() {
+    let list = []
+    for (let name in this.userList) {
+        if (this.userList[name]) {
+            list.push(name)
+        }
+    }
+    return list
+}
+
+SelectList.prototype.onChange = function(callback = () => {}) {
+    this.changeCall = callback
+}
+
+SelectList.prototype.setList = function(nameList) {
+    let id = this.id
+    let sl = this
+
+    nameList.forEach((name) => {
+        if (name in sl.selectStatus) {
+            return
+        }
+
+        let label = document.createElement('label')
+        label.setAttribute('class', 'checkbox')
+        label.setAttribute('for', 'checkbox' + id + sl.number)
+        label.setAttribute('data-name', name)
+
+        let input = document.createElement('input')
+        input.setAttribute('type', 'checkbox')
+        input.setAttribute('value', name)
+        input.setAttribute('data-id', id)
+        input.setAttribute('class', 'checkbox')
+        input.setAttribute('id', 'checkbox' + id + sl.number)
+        input.setAttribute('data-toggle', 'checkbox')
+        label.innerHTML = name
+        label.appendChild(input)
+        sl.div.appendChild(label)
+
+        sl.selectStatus[name] = false
+        sl.userList[name] = true
+        sl.number += 1
+    })
+
+    $(':checkbox').radiocheck()
+
+    $(':checkbox').on('change.radiocheck', function(e) {
+        // e.target.value
+        let dataID = e.target.getAttribute('data-id')
+        if (id == dataID && sl.selectStatus[e.target.value] != e.target.checked) {
+            sl.selectStatus[e.target.value] = e.target.checked
+            sl.changeCall()
+        }
+    })
+}
+
+SelectList.prototype.addUser = function(nameList) {
+    let id = this.id
+    let sl = this
+    if (!Array.isArray(nameList) && nameList) {
+        let temp = nameList
+        nameList = []
+        nameList.push(temp)
+    }
+
+    nameList.forEach((name, i) => {
+        if (name in sl.selectStatus) {
+            sl.enable(name)
+            return
+        }
+        let label = document.createElement('label')
+        label.setAttribute('class', 'checkbox')
+        label.setAttribute('for', 'checkbox' + id + sl.number)
+        label.setAttribute('data-name', name)
+
+        let input = document.createElement('input')
+        input.setAttribute('type', 'checkbox')
+        input.setAttribute('value', name)
+        input.setAttribute('data-id', id)
+        input.setAttribute('class', 'checkbox')
+        input.setAttribute('id', 'checkbox' + id + sl.number)
+        input.setAttribute('data-toggle', 'checkbox')
+        label.innerHTML = name
+        label.appendChild(input)
+        sl.div.appendChild(label)
+
+        sl.selectStatus[name] = false
+        sl.userList[name] = true
+        sl.number += 1
+    })
+
+    $(':checkbox').radiocheck()
+
+    $(':checkbox').on('change.radiocheck', function(e) {
+        let dataID = e.target.getAttribute('data-id')
+        if (id == dataID && sl.selectStatus[e.target.value] != e.target.checked) {
+            sl.selectStatus[e.target.value] = e.target.checked
+            sl.changeCall()
+        }
+    })
+}
+
+SelectList.prototype.removeUser = function(nameList) {
+    let sl = this
+    if (!Array.isArray(nameList) && nameList) {
+        let temp = nameList
+        nameList = []
+        nameList.push(temp)
+    }
+    nameList.forEach((targetName) => {
+        sl.disable(targetName)
+        sl.userList[targetName] = false
+    })
+}
+
+SelectList.prototype.disable = function(targetName) {
+    let children = this.div.children || []
+    for (var i = 0; i < children.length; i++) {
+        let name = children[i].getAttribute('data-name')
+        if (targetName === name) {
+            this.selectStatus[name] = false
+            let htmlFor = children[i].htmlFor
+            $('#' + htmlFor).radiocheck('indeterminate')
+            $('#' + htmlFor).radiocheck('disable')
+            return
+        }
+    }
+}
+
+SelectList.prototype.enable = function(targetName) {
+    let children = this.div.children || []
+    for (var i = 0; i < children.length; i++) {
+        let name = children[i].getAttribute('data-name')
+        if (targetName === name) {
+            this.selectStatus[name] = false
+            let htmlFor = children[i].htmlFor
+            $('#' + htmlFor).radiocheck('enable')
+            $('#' + htmlFor).radiocheck('determinate')
+            return
+        }
+    }
+}
+
+SelectList.prototype.check = function(targetName) {
+    let children = this.div.children || []
+    for (var i = 0; i < children.length; i++) {
+        let name = children[i].getAttribute('data-name')
+        if (targetName === name) {
+            this.selectStatus[name] = true
+            let htmlFor = children[i].htmlFor
+            $('#' + htmlFor).radiocheck('check')
+            return
+        }
+    }
+}
+
+// let getRadio = (targetName) => {
+//     let children = div.children || []
+//     for (var i = 0; i < children.length; i++) {
+//         let name = children[i].getAttribute('data-name')
+//         console.log(name)
+//         if (targetName === name) {
+//             let htmlFor = children[i].htmlFor
+//             return $('#' + htmlFor)
+//         }
+//     }
+//     return null
+// }
+
+},{}],181:[function(require,module,exports){
+// <div id="slider"></div>
+
+
+module.exports = (element, id, text) => {
+    return new Slider(element, id, text)
+}
+
+function Slider(element, id, text) {
+    this.div = null
+    this.value = {}
+    this.id = id || ''
+    this.onChangeCall = () => {}
+
+    this.init(element, text)
+}
+
+Slider.prototype.init = function(element, text) {
+    this.div = document.createElement('div')
+    this.div.setAttribute('id', 'slider' + this.id)
+    let h = document.createElement('h5')
+    h.innerHTML = text || ''
+
+    element.appendChild(h)
+    element.appendChild(this.div)
+}
+
+Slider.prototype.setList = function(nameList) {
+    var slider = $('#slider' + this.id)
+    if (slider.length > 0) {
+        slider.slider({
+            animate: 'fast',
+            min: 1,
+            max: 100,
+            value: 30,
+            orientation: 'horizontal'
+            // range: true
+        })
+        // }).addSliderSegments($slider.slider("option").max);
+    }
+}
+
+
+Slider.prototype.getValue = function() {
+    var slider = $('#slider' + this.id).slider('value')
+    return slider
+}
+
+},{}],182:[function(require,module,exports){
+// <div id="slider"></div>
+
+
+module.exports = (element, id, text) => {
+    return new Slider(element, id, text)
+}
+
+function Slider(element, id, text) {
+    this.div = null
+    this.value = {}
+    this.id = id || ''
+    this.onChangeCall = () => {}
+
+    this.init(element, text)
+}
+
+Slider.prototype.init = function(element, text) {
+    this.div = document.createElement('div')
+    this.div.setAttribute('id', 'slider' + this.id)
+    let h = document.createElement('h5')
+    h.innerHTML = text || ''
+
+    element.appendChild(h)
+    element.appendChild(this.div)
+}
+
+Slider.prototype.setList = function(nameList) {
+    var slider = $('#slider' + this.id)
+    if (slider.length > 0) {
+        slider.slider({
+            animate: 'fast',
+            min: 1,
+            max: 100,
+            values: [20, 60],
+            orientation: 'horizontal',
+            range: true
+        })
+        // }).addSliderSegments($slider.slider("option").max);
+    }
+}
+
+
+Slider.prototype.getValues = function() {
+    var slider = $('#slider' + this.id).slider('values')
+    return slider
+}
+
+},{}],183:[function(require,module,exports){
+// <input type="checkbox" checked data-toggle="switch" name="default-switch" id="switch-01" />
+
+// data-on-color
+//  primary
+//  info
+//  success
+//  warning
+//  danger
+
+// <input type="checkbox" checked data-toggle="switch" name="info-square-switch" data-on-color="success" id="switch-05" />
+
+module.exports = (element, id, text) => {
+    return new Switch(element, id, text)
+}
+
+function Switch(element, id, text) {
+    this.div = null
+    this.id = id || ''
+
+    this.init(element, text)
+}
+
+Switch.prototype.init = function(element, text) {
+    this.div = document.createElement('div')
+    // this.div.setAttribute('id', 'switch' + this.id)
+    // this.div.setAttribute('id', 'switch' + this.id)
+    let sw = document.createElement('input')
+    sw.setAttribute('type', 'checkbox')
+    sw.setAttribute('checked', '')
+    sw.setAttribute('class', 'checkbox')
+    sw.setAttribute('data-toggle', 'switch')
+    sw.setAttribute('name', 'default-switch')
+    // sw.setAttribute('data-on-color', 'success')
+    sw.setAttribute('id', 'switch' + this.id)
+
+    let h = document.createElement('h6')
+    h.innerHTML = text || ''
+
+    this.div.appendChild(sw)
+    element.appendChild(h)
+    element.appendChild(this.div)
+
+    $(':checkbox').radiocheck()
+}
+
+// Slider.prototype.set = function() {
+//     var slider = $('#slider' + this.id)
+// }
+
+
+Switch.prototype.getValues = function() {
+    var switchCheck = $('#switch' + this.id).slider('checked')
+    return switchCheck
+}
+
+},{}],184:[function(require,module,exports){
+exports.userNameCheck = (user, callback = () => {}) => {
+    if (!user || typeof user != 'string' || user == 'unknown') {
+        module.exports.userNameInput(callback)
+    }else{
+        callback(user)
+    }
+}
+
+exports.userNameInput = (callback = () => {}, caution = '') => {
+
+    // 入力ダイアログを表示 ＋ 入力内容を user に代入
+    // let user = window.prompt('ユーザー名を入力してください．slackでの名前を推奨（連携できます）' + caution, '')
+    let user = window.prompt('ユーザー名を入力してください．' + caution, '')
+
+    if (typeof user == 'string' && user.trim().length >= 1) {
+        let href = window.location.href
+        let query_idx = href.indexOf('?')
+        if(query_idx >= 1){
+            href = href.slice(0, query_idx)
+        }
+        location.href = href + '?user=' + user
+        callback(user)
+    } else if (user != "" && user != null) {
+        caution = '\n入力しないと進めません'
+        module.exports.userNameInput(callback, caution)
+    } else {
+        caution = '\n入力しないと進めません'
+        callback('unknown')
+        // module.exports.userNameInput(callback, caution)
+    }
+
+}
+
+},{}],185:[function(require,module,exports){
+arguments[4][146][0].apply(exports,arguments)
+},{"dup":146}],186:[function(require,module,exports){
+arguments[4][147][0].apply(exports,arguments)
+},{"dup":147}],187:[function(require,module,exports){
+arguments[4][148][0].apply(exports,arguments)
+},{"dup":148}],188:[function(require,module,exports){
+
+module.exports = (element, width, height) => {
+    var canvas = document.createElement('canvas')
+    // let size = width < height ? width : height
+    canvas.setAttribute('width', width)
+    canvas.setAttribute('height', height)
+    element.appendChild(canvas)
+    return canvas
+}
+
+},{}],189:[function(require,module,exports){
+let value = {}
+let call = {}
+exports.set = (name, v) => {
+    value[name] = v
+    if (typeof call[name] == 'function') {
+        call[name](v)
+    }
+}
+
+exports.get = (name) => {
+    return value[name]
+}
+
+exports.on = (name, callback) => {
+    call[name] = callback
+}
+
+},{}],190:[function(require,module,exports){
+module.exports = (p) => {
+    return new Bezier(p)
+}
+
+function Bezier(p) {
+    this.callMovedHead = () => {}
+    this.callMovedTail = () => {}
+
+    // x,y anchorx,y anchorx,y x,y
+    // length 8
+    this.p = p
+    this.innerPoint = []
+    this.innerAccuracy = 0.1
+    this.innerAccuracyTimes = 5
+    if (Array.isArray(p) && p.length == 4) {
+        let a1 = this.divPoint(p, 0.2)
+        let a2 = this.divPoint(p, 0.8)
+        p.splice(2, 0, a1.x, a1.y, a2.x, a2.y)
+    }
+    if (!Array.isArray(p) || p.length != 8) {
+        console.log('Bezier 引数は配列（x,yが４つ）')
+        return
+    }
+    this.setInnerPoint()
+    this.minX = p[0] < p[6] ? p[0] : p[6]
+    this.maxX = p[0] > p[6] ? p[0] : p[6]
+
+    this.edgePointR = 5
+
+    this.bezierLineColor = 'rgba(0,0,0,1.0)'
+    this.bezierEdgeColor = 'rgba(100,100,100,1.0)'
+    this.anchorLineColor = 'rgba(0,0,255,1.0)'
+    this.anchorEdgeColor = 'rgba(150,150,255,1.0)'
+}
+
+
+Bezier.prototype.render = function(ctx, isSelect) {
+    let p = this.p
+    ctx.beginPath()
+    ctx.strokeStyle = this.bezierLineColor
+    ctx.moveTo(p[0], p[1])
+    ctx.bezierCurveTo(p[2], p[3], p[4], p[5], p[6], p[7])
+    ctx.stroke()
+
+    // 補助線
+    if (isSelect) {
+        ctx.strokeStyle = this.anchorLineColor
+        this.line(ctx, p[0], p[1], p[2], p[3])
+        this.line(ctx, p[4], p[5], p[6], p[7])
+    }
+
+    // 両端
+    let r = this.edgePointR
+    ctx.beginPath()
+    ctx.fillStyle = this.bezierEdgeColor
+    ctx.arc(p[0], p[1], r, 0, Math.PI * 2)
+    ctx.arc(p[6], p[7], r, 0, Math.PI * 2)
+    ctx.fill()
+
+    // アンカー端
+    if (isSelect) {
+        ctx.beginPath()
+        ctx.fillStyle = this.anchorEdgeColor
+        ctx.arc(p[2], p[3], r, 0, Math.PI * 2)
+        ctx.arc(p[4], p[5], r, 0, Math.PI * 2)
+        ctx.fill()
+    }
+}
+
+Bezier.prototype.line = (ctx, x1, y1, x2, y2) => {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+}
+
+Bezier.prototype.getBezierPoint = function(t) {
+    let mt = 1 - t
+    let p = this.p
+    let mt3 = mt * mt * mt
+    let mt2 = mt * mt
+    let t3 = t * t * t
+    let t2 = t * t
+    let x = mt3 * p[0] + 3 * mt2 * t * p[2] + 3 * mt * t2 * p[4] + t3 * p[6]
+    let y = mt3 * p[1] + 3 * mt2 * t * p[3] + 3 * mt * t2 * p[5] + t3 * p[7]
+    return {
+        x: x,
+        y: y,
+        t: t
+    }
+}
+
+Bezier.prototype.separate = function(t) {
+    let p = this.p
+    // http://d.hatena.ne.jp/shspage/20140625/1403702735
+    let sep = this.getBezierPoint(t)
+
+    let d1 = this.divPoint([p[0], p[1], p[2], p[3]], t)
+    let d2 = this.divPoint([p[4], p[5], p[6], p[7]], t)
+    let d3 = this.divPoint([p[2], p[3], p[4], p[5]], t)
+
+    let r1 = this.divPoint([d1.x, d1.y, d3.x, d3.y], t)
+    let r2 = this.divPoint([d3.x, d3.y, d2.x, d2.y], t)
+
+    let sepBezier = []
+    sepBezier[0] = new Bezier([p[0], p[1], d1.x, d1.y, r1.x, r1.y, sep.x, sep.y])
+    sepBezier[1] = new Bezier([sep.x, sep.y, r2.x, r2.y, d2.x, d2.y, p[6], p[7]])
+    return sepBezier
+}
+
+Bezier.prototype.divPoint = function(p4, t) {
+    let mt = 1 - t
+    let x = mt * p4[0] + t * p4[2]
+    let y = mt * p4[1] + t * p4[3]
+    return {
+        x: x,
+        y: y,
+        t: t
+    }
+}
+
+Bezier.prototype.move = function(pN, x, y, notCall) {
+    if (pN >= 0 && pN <= 3) {
+        let p = this.p
+        let dx = x - p[pN * 2]
+        let dy = y - p[pN * 2 + 1]
+        p[pN * 2] = x
+        p[pN * 2 + 1] = y
+        let obj = {
+            x: x,
+            y: y
+        }
+        if (pN == 0) {
+            p[2] += dx
+            p[3] += dy
+            this.setInnerPoint()
+            if (!notCall) {
+                this.callMovedHead(obj)
+            }
+        } else if (pN == 3) {
+            p[4] += dx
+            p[5] += dy
+            this.setInnerPoint()
+            if (!notCall) {
+                this.callMovedTail(obj)
+            }
+        } else {
+            this.setInnerPoint()
+        }
+    }
+}
+
+Bezier.prototype.onPoint = function(x, y, optionR) {
+    let p = this.p
+    let r = optionR || this.edgePointR
+    r = r * r
+    for (let i = 0; i < 4; i++) {
+        let px = p[i * 2]
+        let py = p[i * 2 + 1]
+        let d = (px - x) * (px - x) + (py - y) * (py - y)
+        if (d < r) {
+            return {
+                pointID: i,
+                x: px,
+                y: py
+            }
+        }
+    }
+    return null
+}
+
+Bezier.prototype.nearPoint = function(x, y) {
+    let p = this.p
+    let t = performance.now()
+    let minD = -1
+    let nearP = null
+    this.innerPoint.forEach((point) => {
+        let d = (point.x - x) * (point.x - x) + (point.y - y) * (point.y - y)
+        if (minD == -1 || d < minD) {
+            minD = d
+            nearP = point
+            nearP.d = Math.sqrt(d)
+        }
+    })
+    for (let i = 1; i < this.innerAccuracyTimes; i++) {
+        let a = Math.pow(this.innerAccuracy, i)
+        let ip = []
+        let min = nearP.t - a / 2 > 0 ? nearP.t - a / 2 : 0
+        let max = nearP.t + a / 2 < 1 ? nearP.t + a / 2 : 1
+        min -= a/10
+        max += a/10
+        for (let t = min; t <= max; t += a * this.innerAccuracy) {
+            let p = this.getBezierPoint(t)
+            ip.push(p)
+        }
+        ip.forEach((point) => {
+            let d = (point.x - x) * (point.x - x) + (point.y - y) * (point.y - y)
+            if (minD == -1 || d < minD) {
+                minD = d
+                nearP = point
+                nearP.d = Math.sqrt(d)
+            }
+        })
+    }
+    return nearP
+}
+
+Bezier.prototype.getValue = function(x) {
+    let p = this.p
+    let minD = -1
+    let nearP = null
+    this.innerPoint.forEach((point) => {
+        let d = Math.abs(point.x - x)
+        if (minD == -1 || d < minD) {
+            minD = d
+            nearP = point
+            nearP.d = d
+        }
+    })
+    for (let i = 1; i < this.innerAccuracyTimes; i++) {
+        let a = Math.pow(this.innerAccuracy, i)
+        let ip = []
+        let min = nearP.t - a / 2 > 0 ? nearP.t - a / 2 : 0
+        let max = nearP.t + a / 2 < 1 ? nearP.t + a / 2 : 1
+        min -= a/10
+        max += a/10
+        for (let t = min; t <= max; t += a * this.innerAccuracy) {
+            let p = this.getBezierPoint(t)
+            ip.push(p)
+        }
+        ip.forEach((point) => {
+            let d = Math.abs(point.x - x)
+            if (minD == -1 || d < minD) {
+                minD = d
+                nearP = point
+                nearP.d = d
+            }
+        })
+    }
+    return nearP
+}
+
+Bezier.prototype.setInnerPoint = function() {
+    let p = this.p
+    this.minX = p[0] < p[6] ? p[0] : p[6]
+    this.maxX = p[0] > p[6] ? p[0] : p[6]
+    this.innerPoint = []
+    for (let t = 0; t <= 1; t += this.innerAccuracy) {
+        let p = this.getBezierPoint(t)
+        this.innerPoint.push(p)
+    }
+}
+
+Bezier.prototype.inW = function(x) {
+    if (x > this.minX && x < this.maxX) {
+        let t = (x - this.minX) / (this.maxX - this.minX)
+        return {
+            t: (x - this.minX) / (this.maxX - this.minX),
+
+        }
+    } else {
+        return null
+    }
+}
+
+
+
+Bezier.prototype.tCoe = function() {
+    let p = this.p
+    let xt3 = 3 * p[2] + p[6] - 3 * p[4] - p[0]
+    let xt2 = 3 * (p[0] - 2 * p[2] + p[4])
+    let xt1 = 3 * (p[2] - p[0])
+    let xt = p[0]
+
+    let yt3 = 3 * p[3] + p[7] - 3 * p[5] - p[1]
+    let yt2 = 3 * (p[1] - 2 * p[3] + p[5])
+    let yt1 = 3 * (p[3] - p[1])
+    let yt = p[1]
+
+    return {
+        x: {
+            3: xt3,
+            2: xt2,
+            1: xt1,
+            0: xt
+        },
+        y: {
+            3: yt3,
+            2: yt2,
+            1: yt1,
+            0: yt
+        }
+    }
+}
+
+},{}],191:[function(require,module,exports){
+let connect = require('./../connect.js')
+let Bezier = require('./bezier.js')
+
+module.exports = (canvas) => {
+    return new Field(canvas)
+}
+
+
+function Field(canvas) {
+    this.canvas = canvas
+    this.clientID = ''
+    this.w = canvas.width
+    this.h = canvas.height
+
+    this.renderObject = {}
+    this.tempRenderObject = []
+
+    this.selectBezier = -1
+    this.selectBezierPoint = -1
+
+    this.callStart = () => {}
+    this.callSendSpeakerInfo = () => {}
+    this.callSendNoteInfo = () => {}
+    this.callUpdatePannerPosition = () => {}
+
+    let p = []
+    let w = this.w
+    let h = this.h
+
+    this.bezier = []
+    let b = Bezier([50, h / 2, w - 50, h / 2])
+    this.bezier.push(b)
+
+    // this.bezier = b.separate(0.3)
+
+    let field = this
+    // canvas
+    canvas.addEventListener('mousemove', function(e) {
+        field.mouseMoved(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        field.mouseMoved(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mousedown', function(e) {
+        field.mousePressed(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        field.mousePressed(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mouseup', function(e) {
+        field.mouseReleased(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        field.mouseReleased(x, y)
+        return false
+    })
+}
+
+
+
+Field.prototype.render = function() {
+    // Draw points onto the canvas element.
+    let selectBezier = this.selectBezier
+    let h = this.h
+    let ctx = this.canvas.getContext('2d')
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+
+    ctx.save()
+    // grid
+    for (let r = 0; r <= 10; r += 1) {
+        ctx.strokeStyle = 'rgba(0,0,0,0.1)'
+        let ww = (this.w-100)/10
+        this.line(ctx, 50 + r*ww, 0, 50+r*ww, this.h)
+    }
+    this.bezier.forEach((b, i) => {
+        let isSelect = (i == selectBezier)
+        if (isSelect) {
+            ctx.beginPath()
+            ctx.fillStyle = 'rgba(255,150,150, 0.1)'
+            ctx.rect(b.minX, 0, b.maxX - b.minX, h)
+            ctx.fill()
+        }
+        b.render(ctx, isSelect)
+    })
+
+    let a = this.getValue(10)
+    a.forEach((p) => {
+        ctx.beginPath()
+        ctx.strokeStyle = 'rgba(0,0,0,0.1)'
+        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2)
+        ctx.stroke()
+    })
+
+    this.tempRenderObject.forEach((obj) => {
+        ctx.beginPath()
+        if (obj.fillStyle) {
+            ctx.fillStyle = obj.fillStyle
+        }
+        if (obj.strokeStyle) {
+            ctx.strokeStyle = obj.strokeStyle
+        }
+        if (obj.type == 'ellipse') {
+            ctx.arc(obj.x, obj.y, obj.r, 0, Math.PI * 2)
+        }
+        if (obj.fillStyle) {
+            ctx.fill()
+        }
+        if (obj.strokeStyle) {
+            ctx.stroke()
+        }
+    })
+    this.tempRenderObject = []
+    // this.bezier.render(ctx)
+    ctx.restore()
+}
+
+
+
+Field.prototype.mousePressed = function(x, y) {
+    let tempSelectBezier = this.selectBezier
+    let tempSelectBezierPoint = this.selectBezierPoint
+    this.selectBezier = -1
+    this.selectBezierPoint = -1
+    let my = this
+
+    let mode = connect.get('toolMode')
+
+    if (mode == 'pointMove') {
+        let select = false
+        this.bezier.forEach((b, i) => {
+            let inW = b.inW(x)
+            if (inW || i == tempSelectBezier) {
+                let onP = b.onPoint(x, y, 7)
+                if (onP && !select) {
+                    my.selectBezier = i
+                    my.selectBezierPoint = onP.pointID
+                    onP.r = 7
+                    onP.type = 'ellipse'
+                    onP.fillStyle = 'rgba(50,50,255,0.5)'
+                    my.tempRenderObject.push(onP)
+                    select = true
+                } else if (inW && !select) {
+                    my.selectBezier = i
+                }
+            }
+        })
+    }
+
+    if (mode == 'separate') {
+        this.bezier.forEach((b, i) => {
+            let inW = b.inW(x)
+            if (inW) {
+                my.selectBezier = i
+                let p = b.nearPoint(x, y)
+                if (p.d <= 10) {
+                    my.separate(i, p.t)
+                }
+            }
+        })
+    }
+    this.render()
+}
+
+
+Field.prototype.mouseReleased = function(x, y) {
+    console.log(this.getValue(10))
+    this.selectBezierPoint = -1
+    this.render()
+
+}
+
+Field.prototype.mouseMoved = function(x, y) {
+    let my = this
+    let selectBezier = this.selectBezier
+    let selectBezierPoint = this.selectBezierPoint
+    let mode = connect.get('toolMode')
+
+    if (mode == 'pointMove' && selectBezier >= 0) {
+        let b = this.bezier[selectBezier]
+        b.move(selectBezierPoint, x, y)
+        let onP = b.onPoint(x, y, 10)
+        if (onP) {
+            onP.r = 7
+            onP.type = 'ellipse'
+            onP.fillStyle = 'rgba(50,50,255,0.5)'
+            my.tempRenderObject.push(onP)
+        }
+        if (selectBezierPoint >= 0) {
+            let b = this.bezier[selectBezier]
+            b.move(selectBezierPoint, x, y)
+        }
+        this.render()
+    }
+
+
+    if (mode == 'separate') {
+        this.bezier.forEach((b, i) => {
+            let inW = b.inW(x)
+            if (inW) {
+                let p = b.nearPoint(x, y)
+                if (p.d <= 10) {
+                    p.r = 5
+                    p.type = 'ellipse'
+                    p.fillStyle = 'rgba(250,150,155,1.0)'
+                    my.tempRenderObject.push(p)
+                }
+            }
+        })
+        this.render()
+    }
+}
+
+
+Field.prototype.separate = function(i, t) {
+    let sepB = this.bezier[i].separate(t)
+    this.bezier.splice(i, 1, sepB[0], sepB[1])
+
+    let my = this
+    let link = (idx) => {
+        if (idx < 0 || idx >= my.bezier.length - 1) {
+            return
+        }
+        my.bezier[idx].callMovedTail = (e) => {
+            let notCall = true
+            my.bezier[idx + 1].move(0, e.x, e.y, notCall)
+        }
+        my.bezier[idx + 1].callMovedHead = (e) => {
+            let notCall = true
+            my.bezier[idx].move(3, e.x, e.y, notCall)
+        }
+    }
+    link(i - 1)
+    link(i)
+    link(i + 1)
+}
+
+Field.prototype.getValue = function(divNum) {
+    let minX = this.bezier[0].minX
+    let maxX = this.bezier[this.bezier.length - 1].maxX
+    let t = (maxX - minX) / divNum
+    let divX = minX
+    let value = []
+    this.bezier.forEach((b, i) => {
+        let mx = b.maxX
+        for (divX; divX <= mx; divX += t) {
+            value.push(b.getValue(divX))
+        }
+    })
+    return value
+}
+
+Field.prototype.line = (ctx, x1, y1, x2, y2) => {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+}
+
+},{"./../connect.js":189,"./bezier.js":190}],192:[function(require,module,exports){
+let Canvas = require('./canvas.js')
+let editer
+let tool
+let element
+let Field = require('./editer/field.js')
+let ToolField = require('./tool/toolField.js')
+
+exports.init = (_element) => {
+    element = _element
+    let width = window.innerWidth - 60 > 500 ? window.innerWidth - 60 : 500
+    let eleEditer = document.createElement('editer')
+    let eleTool = document.createElement('tool')
+    eleEditer.style.margin = '30px'
+    eleTool.style.margin = '30px'
+    element.appendChild(eleEditer)
+    element.appendChild(eleTool)
+    let editerCanvas = Canvas(eleEditer, width, 300)
+    let toolCanvas = Canvas(eleTool, width, 50)
+    field = Field(editerCanvas)
+    tool = ToolField(toolCanvas)
+    field.render()
+    tool.render()
+}
+
+},{"./canvas.js":188,"./editer/field.js":191,"./tool/toolField.js":194}],193:[function(require,module,exports){
+
+
+module.exports = (x, y, w, h) => {
+    return new Tool(x, y, w, h)
+}
+
+function Tool(x, y, w, h) {
+    this.x = x
+    this.y = y
+    this.w = w
+    this.h = h
+    this.id = ''
+    this.callRender = () => {}
+}
+
+Tool.prototype.render = function(ctx) {
+    this.callRender(ctx, this)
+}
+
+Tool.prototype.setID = function(id) {
+    this.id = id
+}
+
+Tool.prototype.onOver = function(x, y) {
+    if (x >= this.x && x <= this.x + this.w &&
+        y >= this.y && y <= this.y + this.h) {
+        return {
+            id: this.id
+        }
+    }
+    return null
+}
+
+Tool.prototype.line = (ctx, x1, y1, x2, y2) => {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+}
+
+},{}],194:[function(require,module,exports){
+let connect = require('./../connect.js')
+let Tool = require('./tool.js')
+
+module.exports = (canvas) => {
+    return new Field(canvas)
+}
+
+function Field(canvas) {
+    this.canvas = canvas
+    this.clientID = ''
+    this.w = canvas.width
+    this.h = canvas.height
+
+    this.tool = []
+    this.selectToolNum = -1
+    this.selectToolMode = ''
+
+    let tw = this.h
+    let th = this.h
+    let moveTool = Tool(30, 0, tw, th)
+    let plusTool = Tool(30 + tw * 1.1, 0, tw, th)
+
+    moveTool.setID('pointMove')
+    plusTool.setID('separate')
+
+    let my = this
+    moveTool.callRender = (ctx, tool) => {
+        let toolMode = my.selectToolMode
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.strokeStyle = 'rgba(0,0,100,0.5)'
+        ctx.fillStyle = 'rgba(0,0,100,0.15)'
+        ctx.rect(tool.x, tool.y, tool.w, tool.h)
+        ctx.stroke()
+        if (tool.id == toolMode) {
+            ctx.fill()
+        }
+
+        let cx = tool.x + tool.w / 2
+        let cy = tool.y + tool.h / 2
+        let r = tool.w / 5
+
+        ctx.beginPath()
+        ctx.strokeStyle = 'rgba(150,150,150,1)'
+        ctx.arc(cx - r * 1.5, cy, r / 2, 0, Math.PI * 2)
+        ctx.stroke()
+
+        ctx.beginPath()
+        ctx.fillStyle = 'rgba(50,50,50,1)'
+        ctx.arc(cx + r * 1.5, cy, r / 2, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.strokeStyle = 'rgba(50,50,50,1)'
+        tool.line(ctx, cx - r / 2, cy, cx + r / 2, cy)
+        tool.line(ctx, cx + r / 2, cy, cx + r / 2 - r / 3, cy - r / 3)
+        tool.line(ctx, cx + r / 2, cy, cx + r / 2 - r / 3, cy + r / 3)
+
+        ctx.restore()
+    }
+
+    plusTool.callRender = (ctx, tool) => {
+        let toolMode = my.selectToolMode
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.strokeStyle = 'rgba(0,0,100,0.5)'
+        ctx.fillStyle = 'rgba(0,0,100,0.15)'
+        ctx.rect(tool.x, tool.y, tool.w, tool.h)
+        ctx.stroke()
+        if (tool.id == toolMode) {
+            ctx.fill()
+        }
+
+        let cx = tool.x + tool.w / 2
+        let cy = tool.y + tool.h / 2
+        ctx.translate(cx, cy)
+        ctx.scale(2, 2)
+        ctx.textAlign = "center"
+        ctx.textBaseline = "middle"
+        ctx.fillStyle = 'rgba(0,0,0,1.0)'
+        ctx.fillText('＋', 0, 0, tool.w / 2)
+        ctx.restore()
+    }
+    this.tool.push(moveTool)
+    this.tool.push(plusTool)
+
+    let field = this
+    // canvas
+    canvas.addEventListener('mousemove', function(e) {
+        field.mouseMoved(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        field.mouseMoved(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mousedown', function(e) {
+        field.mousePressed(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        field.mousePressed(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mouseup', function(e) {
+        field.mouseReleased(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        field.mouseReleased(x, y)
+        return false
+    })
+
+
+}
+
+Field.prototype.render = function() {
+    // Draw points onto the canvas element.
+    let h = this.h
+    let ctx = this.canvas.getContext('2d')
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+
+    ctx.save()
+
+    this.tool.forEach((t) => {
+        t.render(ctx)
+    })
+    ctx.restore()
+}
+
+
+Field.prototype.mousePressed = function(x, y) {
+    let my = this
+    this.tool.forEach((t, i) => {
+        let onID = t.onOver(x, y)
+        if (onID) {
+            console.log(onID)
+            my.selectToolNum = i
+            my.selectToolMode = onID.id
+            connect.set('toolMode', onID.id)
+        }
+    })
+    this.render()
+}
+
+
+Field.prototype.mouseReleased = function(x, y) {
+    this.render()
+
+}
+
+Field.prototype.mouseMoved = function(x, y) {
+
+    this.render()
+}
+
+Field.prototype.line = (ctx, x1, y1, x2, y2) => {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+}
+
+},{"./../connect.js":189,"./tool.js":193}],195:[function(require,module,exports){
+let isMove = false
+let timeout = 10000
+
+
+// gyro
+
+exports.moved = (text, callback = () => {}) => {
+    text.innerHTML = 'stable'
+
+    // DeviceOrientation Event
+    window.addEventListener("deviceorientation", deviceorientationHandler)
+
+    // ジャイロセンサーの値が変化
+    function deviceorientationHandler(event) {
+        // X軸
+        let x = event.beta
+        // Y軸
+        let y = event.gamma
+        // Z軸
+        let z = event.alpha
+
+        console.log('x',isNaN(x))
+        if (isNaN(x) || !x) {
+            text.innerHTML = 'Can not use Gyro Sensor on this device.'
+        }else{
+            // text.innerHTML = x.toFixed(4)
+            callback(x)
+        }
+
+    }
+
+
+
+    // window.addEventListener('devicemotion', (e) => {
+    //     let x = parseFloat(e.acceleration.x)
+    //     let y = parseFloat(e.acceleration.y)
+    //     let z = parseFloat(e.acceleration.z)
+    //     let gx = parseFloat(e.accelerationIncludingGravity.x)
+    //     let gy = parseFloat(e.accelerationIncludingGravity.y)
+    //     let gz = parseFloat(e.accelerationIncludingGravity.z)
+    //
+    //     if (isNaN(x)) {
+    //         text.innerHTML = 'Can not use Accel Sensor on this device.'
+    //     }
+    //     // text.innerHTML = 'gx: ' + gx + '　gy: ' + gy + '　gz: ' + gz + '<br>'
+    //     // text.innerHTML +='x: ' + x + '　y: ' + y + '　z: ' + z + '<br>'
+    //     // text.innerHTML += (x + y + z)
+    //     let sum = x + y + z
+    //     if (sum && sum > 2) {
+    //         text.innerHTML = 'Moved'
+    //         if (!isMove) {
+    //             isMove = true
+    //             callback()
+    //             setTimeout(() => {
+    //                 text.innerHTML = 'Stable'
+    //             }, timeout)
+    //             setTimeout(() => {
+    //                 isMove = false
+    //             }, timeout)
+    //         }
+    //
+    //     }
+    // })
+}
+
+},{}],196:[function(require,module,exports){
+arguments[4][150][0].apply(exports,arguments)
+},{"dup":150}],197:[function(require,module,exports){
 arguments[4][151][0].apply(exports,arguments)
-},{"dup":151}],169:[function(require,module,exports){
+},{"dup":151}],198:[function(require,module,exports){
+let uuid = require('node-uuid')
+// let job = require('./../Job/cron.js')
+
+// let Canvas = require('./canvas/canvas.js')
+let Field = require('./canvas/field.js')
+let NoteIcon = require('./canvas/icon-note.js')
+let SpeakerIcon = require('./canvas/icon-speaker.js')
+let SyncPlay = require('./sync-play.js')
+let NotificationButton = require('./../demo-common/html/button-notification.js')
+let RadioButton = require('./../demo-common/html/radio-button.js')
+let Slider = require('./../demo-common/html/slider.js')
+let SliderSingle = require('./../demo-common/html/slider-single.js')
+let HtmlText = require('./html/html-text.js')
+let SelectList = require('./../demo-common/html/select-list.js')
+let gyro = require('./gyro.js')
+let SwitchButton = require('./html/switchButton.js')
+let graph = require('./graph/index.js')
+
+// let Biquad = require('./biquad.js')
+
+let socketDir = 'demo_accel_notification_'
+let socketType = 'demo_accel_notification'
+
+let config = require('./../exCall-module/config')
+
+let homeButton = require('./../demo-common/html/homeButton.js')
+
+// let Voice = require('./createVoice.js')(config.VOICE_TEXT_API)
+// let Slack = require('./slack.js')
+let soundList = {
+    '３音': 'lib/sound/notification-common.mp3',
+    '和風メロディ': 'lib/sound/wafuringtone.mp3',
+    'ウィンドチャイム': 'lib/sound/windchime.mp3',
+    'music': 'lib/sound/clock3.mp3',
+    'voice': 'lib/sound/voice.mp3',
+    '太鼓': 'lib/sound/taiko.mp3',
+    'コーリング': 'lib/sound/emargency_calling.mp3',
+    'アラーム': 'lib/sound/clockbell.mp3',
+    '掃除機': 'lib/sound/cleaner.mp3',
+    '電子レンジ': 'lib/sound/microwave.mp3',
+    '扇風機': 'lib/sound/fan.mp3',
+    '洗濯機': 'lib/sound/washing.mp3',
+    'プリンタ': 'lib/sound/printer.mp3',
+    'ポッド注ぐ': 'lib/sound/pod.mp3',
+    '炒める': 'lib/sound/roasting.mp3',
+    '足音（走る）': 'lib/sound/dashing.mp3',
+    '足音（スリッパ）': 'lib/sound/walking.mp3',
+    '雨音': 'lib/sound/rain.mp3'
+}
+
+let soundNameList = []
+for (let name in soundList) {
+    soundNameList.push(name)
+}
+
+exports.start = (element, context, socket, clientTime, config) => {
+    element.style.margin = '30px'
+
+    console.log(config)
+
+    let clientID = uuid.v4() // This is temporary. When websocket connected, this is replaced new id
+
+
+    let htmlText = HtmlText(element)
+    let fromList = SelectList(element, 'from', 'From')
+    let toList = SelectList(element, 'to', 'To')
+
+    let notificationButton = NotificationButton(element)
+
+    // gyro
+    let gyroSwitch = true
+    let sendTime = 0
+    let sendInterval = 100
+    let canUse = true
+    let gyroLog = document.createElement('p')
+    element.appendChild(gyroLog)
+    let gyroValue = -1
+    let callGyro = () => {}
+    gyro.moved(gyroLog, (value) => {
+        if (!value) {
+            switchButton.gyroButton.innerHTML = 'Can not use Gyro Sensor'
+            canUse = false
+        }
+        let tempGyroValue
+        if (value < -30) {
+            tempGyroValue = 0
+        } else if (value > 30) {
+            tempGyroValue = 1
+        } else {
+            tempGyroValue = (value + 30) / 60
+        }
+        if (gyroSwitch && Date.now() - sendTime > sendInterval) {
+            socket.emit(socketDir + 'gyro', {
+                type: socketType,
+                id: clientID,
+                user: config.user,
+                value: tempGyroValue
+            })
+            sendTime = Date.now()
+        }
+    })
+
+    socket.on(socketDir + 'gyro_value', (body) => {
+        gyroValue = body.value
+        gyroLog.innerHTML = gyroValue.toFixed(4)
+        callGyro(gyroValue)
+    })
+
+    /*
+     *  SwitchButton
+     */
+
+    let switchButton = SwitchButton(element)
+    switchButton.onGyroSwitch((toggle) => {
+        if (!canUse) {
+            switchButton.gyroButton.innerHTML = 'Can not use Gyro Sensor'
+            return
+        }
+        gyroSwitch = toggle
+    })
+
+
+    let dopplerSwitch = true
+    switchButton.onDopplerSwitch((toggle) => {
+        dopplerSwitch = toggle
+    })
+
+    // panner - slider
+    let pannerSlider = Slider(element, 'panner', 'Panner Time')
+    pannerSlider.setList()
+    let p = document.createElement('p')
+    p.innerHTML = '音像移動（開始点　終了点）<br>←音の開始　　→音の終了'
+    element.appendChild(p)
+
+    // panner - distance
+    let distanceSlider = SliderSingle(element, 'distance', 'Panner Distance')
+    distanceSlider.setList()
+    let p_d = document.createElement('p')
+    p_d.innerHTML = '←近い　→遠い'
+    element.appendChild(p_d)
+
+
+    let radioButton = RadioButton(element, 'tone', 'Tone Select')
+    radioButton.setList(soundNameList)
+    radioButton.onSelect((name) => {
+        console.log(name)
+        let name2 = radioButton.getSelected()
+        console.log(name == name2)
+    })
+
+    homeButton(element, config.user)
+    // let canvas = Canvas(element)
+    // let field = Field(canvas)
+
+    socket.on(socketDir + 'user_list', (list) => {
+        toList.setList(list)
+        fromList.setList(list)
+        fromList.check(config.user)
+    })
+
+    socket.on(socketDir + 'user_add', (user) => {
+        toList.addUser(user)
+        fromList.addUser(user)
+    })
+
+    socket.on(socketDir + 'user_remove', (user) => {
+        toList.removeUser(user)
+        fromList.removeUser(user)
+    })
+
+    let syncPlay = SyncPlay(context)
+    let syncNoteList = {}
+    let pannerList = {}
+    let isPlaying = false
+
+    // 人固定
+    context.listener.setPosition(0, 0, -0.1)
+
+    let createSyncNote = (bufferName, time, offset, duration) => {
+        let music_offset = offset || 0
+        duration = duration || null
+        let correctionTime = clientTime.correctionServerTime(time)
+        let left = correctionTime - Date.now()
+
+        // htmlText.log.innerHTML = 'start playback after: ' + left.toFixed(4) + 'ms'
+
+        return syncPlay.createSyncNote(bufferName, correctionTime, music_offset, duration)
+    }
+
+    let setCommonSyncNote = (syncNote, noteName) => {
+        syncNote.started(() => {
+            console.log('syncPlay: start')
+            syncNoteList[noteName] = syncNote
+        })
+
+        syncNote.stoped(() => {
+            console.log('syncPlay: stop')
+            if (syncNoteList[noteName]) {
+                delete syncNoteList[noteName]
+            }
+        })
+
+        syncNote.finished(() => {
+            console.log('syncPlay: finish')
+            if (isPlaying && syncNoteList[noteName]) {
+                isPlaying = false
+                syncNoteList[noteName].stop()
+                // field.toStopStatus(noteName)
+                delete syncNoteList[noteName]
+
+                // htmlText.status.innerHTML = 'finish'
+            }
+        })
+
+        return syncNote
+    }
+
+    let createIndividualPanner = (name) => {
+        if (name == 'music') {
+            let gainNode = context.createGain()
+            gainNode.gain.value = 20.0
+            gainNode.connect(context.destination)
+            let panner = createPanner(true)
+            panner.connect(gainNode)
+            pannerList[name] = panner
+            return panner
+        } else {
+            let gainNode = context.createGain()
+            gainNode.gain.value = 20.0
+            gainNode.connect(context.destination)
+            let panner = createPanner(true)
+            panner.connect(gainNode)
+            pannerList[name] = panner
+            return panner
+        }
+    }
+
+    /*
+     * Evary EventLister are in this Method
+     * socket
+     * canvas
+     * button
+     */
+
+    // socket
+
+    syncPlay.loadBuffer(soundList, () => {
+
+    })
+    // socket.on(socketDir + 'play', (body) => {
+    //     console.log('syncPlay')
+    //     console.log(body)
+    //     let notes = body.notes
+    //     notes.forEach((nt) => {
+    //         syncNote = createSyncNote(nt.bufferName, body.time, body.offset, body.duration)
+    //         syncNote = setCommonSyncNote(syncNote, nt.name)
+    //         let panner = createIndividualPanner(nt.name)
+    //         syncPlay.play(panner, syncNote)
+    //         field.toPlayStatus(nt.name)
+    //     })
+    // })
+
+
+    socket.call.on('connect', () => {
+        clientID = uuid.v4()
+
+        // field.setClientID(clientID)
+
+        socket.emit(socketDir + 'register', {
+            type: socketType,
+            id: clientID,
+            user: config.user
+        })
+
+        socket.on(socketDir + 'register', (body) => {
+            if (body.id === clientID && body.name) {
+                clientName = body.name
+            }
+
+            htmlText.status.innerHTML = 'user: ' + clientName
+        })
+
+
+        socket.on(socketDir + 'notification_common', (body) => {
+            console.log(body)
+            let from = body.from.indexOf(config.user) >= 0 ? true : false
+            let to = body.to.indexOf(config.user) >= 0 ? true : false
+            let doppler = body.doppler
+
+            let fromText = ''
+            body.from.forEach((n) => {
+                fromText += n + ' '
+            })
+            let toText = ''
+            body.to.forEach((n) => {
+                toText += n + ' '
+            })
+            htmlText.log.innerHTML = 'From: ' + fromText + '　To: ' + toText
+            if (!from && !to) {
+                return
+            }
+
+            body.notes.forEach((nt) => {
+
+                let con = (t) => {
+                    htmlText.log.innerHTML = panner.positionY.value
+                    console.log(panner.positionY)
+
+                    setTimeout(() => {
+                        t += 100
+                        if (t < 3000) {
+                            con(t)
+                        }
+                    }, 100)
+                }
+                let linearRamp = (fromValue, toValue, time, callback, value, dif, passTime) => {
+                    value = value ? value : fromValue
+                    dif = dif ? dif : (toValue - fromValue) / (time / 10)
+                    passTime = passTime ? passTime : 0
+                    setTimeout(() => {
+                        callback(value)
+                        value += dif
+                        passTime += 10
+                        if (passTime < time) {
+                            linearRamp(fromValue, toValue, time, callback, value, dif, passTime)
+                        }
+                    }, 10)
+                }
+
+                if (from || to) {
+                    syncNote = createSyncNote(nt.sound, nt.time, nt.offset, nt.duration)
+                    // let panner = createIndividualPanner(nt.name)
+
+                    let gainNode = context.createGain()
+                    gainNode.gain.value = 0.0
+                    gainNode.connect(context.destination)
+
+                    let dist = nt.distance || 30
+                    // panner.setPosition(0, 0, 0)
+
+                    syncNote.started((leftTime) => {
+
+                        let ct = syncPlay.getCurrentTime() + leftTime / 1000
+                        let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
+                        let start = startValue * syncNote.duration
+                        let endValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[1] / 100 : 0.8
+                        let end = endValue * syncNote.duration
+
+                        console.log('from', 'start', start, 'end', end, 'dist', dist)
+
+                        // override
+                        // gainNode  0(Mute) ~ 1(Default) ~
+                        // GyroValue 手前 1 奥 0
+
+                        let pMillis = -1
+                        let pValue = -1
+                        callGyro = (value) => {
+                            let t = syncPlay.getCurrentTime() // sec
+                            let sinValue = Math.sin(Math.PI * 2 * (t - ct) / 30)
+                            value = sinValue / 2 + 0.5
+
+                            if (from) {
+                                gainNode.gain.value = value
+                            } else if (to) {
+                                gainNode.gain.value = 1 - value
+                            }
+                            // panner.setPosition(0, value * dist, 0)
+                            // console.log(gainNode.gain.value)
+
+                            if (pMillis == -1) {
+                                pMillis = Date.now()
+                                pValue = value
+                            } else {
+                                let millis = Date.now()
+                                let t = millis - pMillis
+                                let difV = value - pValue
+                                t = t == 0 ? 1 : t
+
+                                // m/ms
+                                // ２点間の距離を1mとする
+                                let vs = (difV / t)
+
+                                // km/h
+                                // vs = vs * 1000 * 60 * 60 / 1000
+                                vs = vs * 3600
+
+                                pMillis = millis
+                                pValue = value
+
+                                // fromを自分とすると
+                                // from 1 to 0
+                                // マイナス方向が離れる
+                                // v0 = 0 観測者は静止
+                                // V = 340
+                                let rate = 340 / (340 - vs)
+
+                                // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
+                                // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
+                                if (doppler) {
+                                    syncNote.source.playbackRate.value = rate
+                                    gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + rate.toFixed(4)
+                                } else {
+                                    syncNote.source.playbackRate.value = 1
+                                    gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', 1.0 '
+
+                                }
+                            }
+                            //
+                            // f' = f * ( (V - v0)/(V - vs) )
+                            // V = 音速 331.5 + 0.61t
+                            // v0 = 観測者の動く速度
+                            // vs = 音源の動く速度
+                            // 距離を１ｍとする
+
+                        }
+                        // example,  safari for ios
+                        // if (typeof panner.positionY == 'undefined') {
+                        //     setTimeout(() => {
+                        //         linearRamp(0, dist, end - start, (value) => {
+                        //             panner.setPosition(0, value, 0)
+                        //         })
+                        //     }, leftTime + start)
+                        // } else {
+                        //     panner.positionY.linearRampToValueAtTime(0, ct + start / 1000)
+                        //     panner.positionY.linearRampToValueAtTime(dist, ct + end / 1000)
+                        // }
+                    })
+                    syncPlay.play(gainNode, syncNote)
+
+                    syncNote.finished(() => {
+                        callGyro = () => {}
+                        notificationButton.notificationText.innerHTML = '　'
+                    })
+                }
+
+            })
+        })
+
+
+    })
+
+
+    // button
+
+    notificationButton.test.onclick = () => {
+
+        console.log('Test Play')
+
+        // ios対策
+        context.createBufferSource().start(0)
+
+        let soundName = radioButton.getSelected()
+
+        let note = syncPlay.createSyncNote(soundName, Date.now())
+        syncPlay.play(context.destination, note)
+
+        // htmlText.status.innerHTML = 'volume on'
+    }
+
+    notificationButton.notification.onclick = () => {
+        context.createBufferSource().start(0)
+        notificationButton.notificationText.innerHTML = '♪'
+        let toUserList = toList.getSelectUser()
+        let fromUserList = fromList.getSelectUser()
+        let soundName = radioButton.getSelected()
+        let pannerValues = pannerSlider.getValues()
+        let pannerDistance = distanceSlider.getValue()
+        let doppler = dopplerSwitch
+
+        console.log(toUserList)
+        console.log(fromUserList)
+        let body = {
+            id: clientID,
+            type: socketType,
+            user: config.user,
+            from: fromUserList,
+            to: toUserList,
+            sound: soundName,
+            panner: pannerValues,
+            distance: pannerDistance,
+            doppler: doppler
+        }
+        console.log(body)
+        socket.emit(socketDir + 'notification_common', body)
+    }
+}
+
+
+let createPanner = (side = 'from') => {
+    var panner = context.createPanner()
+
+    // 指向性  Gainは減衰率  InterAngleは減衰しない範囲
+    panner.coneOuterGain = 0.1
+    panner.coneOuterAngle = 180
+    panner.coneInnerAngle = 30
+
+    // "linear" "inverse" "exponential"
+    panner.distanceModel = 'exponential'
+
+    // 基準距離
+    panner.refDistance = 1.0
+
+    // 最大距離
+    panner.maxDistance = 10000
+
+    panner.panningModel = 'equalpower'
+    // panner.panningModel = 'HRTF'
+
+    // x: 左右
+    // y: 上下  +が上
+    // z: 奥と手前  +が手前
+
+    // 音源　向かい合っている
+    // 音源の向き
+    // 音源の位置
+    panner.setPosition(0, 0, 0)
+    panner.setOrientation(0, 0, 1)
+
+    return panner
+}
+
+},{"./../demo-common/html/button-notification.js":177,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./../demo-common/html/select-list.js":180,"./../demo-common/html/slider-single.js":181,"./../demo-common/html/slider.js":182,"./../exCall-module/config":224,"./canvas/field.js":185,"./canvas/icon-note.js":186,"./canvas/icon-speaker.js":187,"./graph/index.js":192,"./gyro.js":195,"./html/html-text.js":196,"./html/switchButton.js":197,"./sync-play.js":199,"node-uuid":264}],199:[function(require,module,exports){
+arguments[4][153][0].apply(exports,arguments)
+},{"dup":153}],200:[function(require,module,exports){
+arguments[4][154][0].apply(exports,arguments)
+},{"dup":154}],201:[function(require,module,exports){
+arguments[4][155][0].apply(exports,arguments)
+},{"dup":155}],202:[function(require,module,exports){
+arguments[4][156][0].apply(exports,arguments)
+},{"dup":156}],203:[function(require,module,exports){
+arguments[4][157][0].apply(exports,arguments)
+},{"dup":157}],204:[function(require,module,exports){
+arguments[4][158][0].apply(exports,arguments)
+},{"dup":158}],205:[function(require,module,exports){
+arguments[4][147][0].apply(exports,arguments)
+},{"dup":147}],206:[function(require,module,exports){
+arguments[4][148][0].apply(exports,arguments)
+},{"dup":148}],207:[function(require,module,exports){
 let uuid = require('node-uuid')
 let job = require('./../Job/cron.js')
 
@@ -23827,490 +27810,17 @@ let createPanner = () => {
     return panner
 }
 
-},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":155,"./../demo-common/html/radio-button.js":156,"./biquad.js":162,"./button.js":163,"./canvas.js":164,"./field.js":165,"./html-text.js":166,"./icon-note.js":167,"./icon-speaker.js":168,"./sync-play.js":170,"node-uuid":226}],170:[function(require,module,exports){
-module.exports = (context) => {
-    return new SyncPlay(context)
-}
-
-function SyncPlay(context, clientTime) {
-    this.context = context
-    this.buffer = {}
-    this.source = {}
-    this.panner = {}
-    this.audioUrlList = {}
-}
-
-
-/**
- * @param {Object.<string, string>} audioUrlList - key: audioName value: audioUrl
- */
-
-SyncPlay.prototype.setAudioList = function(audioUrlList) {
-    this.audioUrlList = audioUrlList
-}
-
-SyncPlay.prototype.setOscillator = function(oscillator) {
-    this.oscillator = oscillator
-}
-
-
-SyncPlay.prototype.loadBuffer = function(audioUrlList, callback = () => {}) {
-    audioUrlList = audioUrlList || this.audioUrlList
-    load(audioUrlList, (bufferList) => {
-        this.buffer = bufferList
-        callback()
-    })
-}
-
-SyncPlay.prototype.createSyncNote = function(sourceName, startDate, offset, duration, oscillator) {
-    let call_start = []
-    let call_finish = []
-    let call_stop = []
-    let syncNote = {
-        sourceName: sourceName,
-        startDate: startDate, // UTC millis
-        startTime: 0, //  time of context(ms)   Rewrite the value in this method
-        offset: offset, // (ms)
-        duration: duration, //  (ms) If undefined, rewrite the value in this method
-        buffer: null, // Rewrite the value in this method
-        source: null, // Rewrite the value in this method
-        isPlaying: false,
-        oscillator: oscillator || null,
-        start: () => {
-            if (syncNote.oscillator) {
-                syncNote.oscillator.connect(syncNote.source)
-                syncNote.oscillator.start(syncNote.startTime / 1000, syncNote.offset / 1000, syncNote.duration / 1000)
-            } else {
-                syncNote.source.start(syncNote.startTime / 1000, syncNote.offset / 1000, syncNote.duration / 1000)
-            }
-            syncNote.isPlaying = true
-            syncNote.fireStart()
-
-            let leftTime = syncNote.duration - syncNote.offset
-            setTimeout(() => {
-                syncNote.isPlaying = false
-                syncNote.fireFinish()
-            }, leftTime)
-        },
-        connect: (destination) => {
-            syncNote.source.connect(destination)
-        },
-        stop: () => {
-            if (syncNote.isPlaying) {
-                syncNote.source.stop()
-                syncNote.fireStop()
-            }
-        },
-        fireStart: () => {
-            call_start.forEach((c) => {
-                c()
-            })
-        },
-        fireFinish: () => {
-            call_finish.forEach((c) => {
-                c()
-            })
-        },
-        fireStop: () => {
-            call_stop.forEach((c) => {
-                c()
-            })
-        },
-        started: (callback = () => {}) => {
-            call_start.push(callback)
-        },
-        finished: (callback = () => {}) => {
-            call_finish.push(callback)
-        },
-        stoped: (callback = () => {}) => {
-            call_stop.push(callback)
-        }
-    }
-
-    // set buffer & source
-    let source = context.createBufferSource()
-    let buffer = this.buffer[sourceName]
-    source.buffer = buffer
-    syncNote.buffer = buffer
-    syncNote.source = source
-
-    // set startTime
-    let ct = this.context.currentTime * 1000 // sec -> ms
-    let leftTime = syncNote.startDate - Date.now()
-    syncNote.startTime = ct + leftTime
-
-    // If undefined, set duration
-    if (!syncNote.duration) {
-        syncNote.duration = syncNote.buffer.duration * 1000 // sec -> ms
-    }
-
-    return syncNote
-}
-
-
-SyncPlay.prototype.play = (destination, syncNote) => {
-    // to array
-    if (!Array.isArray(syncNote)) {
-        let temp = syncNote
-        syncNote = []
-        syncNote.push(temp)
-    }
-
-    // play
-    syncNote.forEach((note) => {
-        note.connect(destination)
-        note.start()
-    })
-}
-
-SyncPlay.prototype.pannerPosition = (dx, dy) => {
-    if (panner && panner.setPosition) {
-        panner.setPosition(dx * 10, dy * 10, 0)
-    }
-}
-
-
-
-/**
- * load Audio File
- * load() -> loadSound()
- * -> return
- * @param {string[]|string} urlList -
- * @return {Object[]} - buffer[]
- */
-
-let load = (urlList, callback = () => {}) => {
-    let bufferList = {}
-    let cnt = 0
-    let length = Object.keys(urlList).length
-    for (let key in urlList) {
-        loadSound(urlList[key], (buf) => {
-            bufferList[key] = buf
-            cnt++
-            if (cnt == length) {
-                callback(bufferList)
-            }
-        })
-    }
-}
-
-let loadSound = (url, callback = () => {}) => {
-    let request = new XMLHttpRequest()
-    request.open('GET', url, true)
-    request.responseType = 'arraybuffer'
-    request.onload = function() {
-        console.log('load')
-        context.decodeAudioData(request.response, function(buffer) {
-            callback(buffer)
-        }, (err) => {
-            console.log(err)
-        })
-    }
-    request.send()
-}
-
-},{}],171:[function(require,module,exports){
-module.exports = (canvas) => {
-    return new Field(canvas)
-}
-
-
-function Field(canvas) {
-    this.canvas = canvas
-    this.clientID = ''
-    this.center = {
-        x: canvas.width / 2,
-        y: canvas.height / 2
-    }
-    this.w = canvas.width
-    this.h = canvas.height
-    this.size = this.w / 2
-
-    this.otherSpeakers = []
-    this.notes = {}
-
-    this.callStart = () => {}
-    this.callSendSpeakerInfo = () => {}
-    this.callSendNoteInfo = () => {}
-    this.callUpdatePannerPosition = () => {}
-}
-
-Field.prototype.setClientID = function(clientID) {
-    this.clientID = clientID
-}
-
-
-Field.prototype.setNote = function(note) {
-    let name = note.name
-    note.x = note.x * this.w
-    note.y = note.y * this.h
-    note.size = Math.round(this.w / 15)
-    this.notes[name] = note
-
-    // this.note = note
-    this.updatePannerPosition(this.notes[name], this.speaker)
-    this.render()
-    let field = this
-    this.notes[name].icon.onload = function() {
-        field.render()
-    }
-}
-
-Field.prototype.updateNote = function(note) {
-    let name = note.name
-    if (this.notes[name]) {
-        let nt = this.notes[name]
-        nt.x = note.x * this.w
-        nt.y = note.y * this.h
-        nt.over = note.over
-        nt.isMove = note.isMove
-        nt.isOtherMove = note.isOtherMove
-        this.updatePannerPosition(nt, this.speaker)
-        console.log(name, 'update')
-    }
-    this.render()
-
-}
-
-
-Field.prototype.setThisSpeaker = function(speaker) {
-    this.speaker = speaker
-    this.speaker.x = this.center.x
-    this.speaker.y = this.center.y
-    this.speaker.size = Math.round(this.w / 15)
-    let field = this
-    this.speaker.icon.onload = function() {
-        field.render()
-        field.sendSpeakerInfoToServer(field.speaker)
-    }
-}
-
-Field.prototype.setOtherSpeaker = function(SpeakerIcon, speakers) {
-    let speakerArray = []
-    if (typeof speakers == 'object') {
-        for (let id in speakers) {
-            if (id === this.clientID) {
-                continue
-            }
-            let sp = speakers[id]
-            let speaker = SpeakerIcon(this.speaker.icon)
-            speaker.x = sp.x * this.w
-            speaker.y = sp.y * this.h
-            speaker.size = Math.round(this.w / 15)
-            speaker.over = sp.over
-            speaker.isMove = sp.isMove
-            speaker.isThis = false
-            speaker.isPlay = sp.isPlay
-            speakerArray.push(speaker)
-        }
-    }
-    this.otherSpeakers = speakerArray
-    this.render()
-}
-
-Field.prototype.toPlayStatus = function(name = 'default') {
-    if (this.notes[name]) {
-        this.notes[name].isPlay = true
-        // this.updatePannerPosition(this.notes[name], this.speaker)
-    }
-    if (this.speaker) {
-        this.speaker.isPlay = true
-        this.sendSpeakerInfoToServer(this.speaker)
-    }
-    this.render()
-}
-
-Field.prototype.toStopStatus = function(name = 'default') {
-    if (this.notes[name]) {
-        this.notes[name].isPlay = false
-    }
-    if (this.speaker) {
-        this.speaker.isPlay = false
-        this.sendSpeakerInfoToServer(this.speaker)
-    }
-    this.render()
-}
-
-
-
-Field.prototype.render = function() {
-    // Draw points onto the canvas element.
-    var ctx = this.canvas.getContext('2d');
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-    ctx.save()
-    // grid
-    let size = this.size
-    let cnt = 0
-    ctx.strokeStyle = 'rgba(0,0,0,0.1)'
-    for (let r = 0; r <= size; r += size / 4) {
-        let alpha = 0.5 - cnt * 0.1
-        ctx.strokeStyle = 'rgba(0,0,0,' + alpha + ')'
-        cnt++
-        ctx.beginPath()
-        ctx.arc(this.center.x, this.center.y, r, 0, Math.PI * 2)
-        ctx.stroke()
-        ctx.strokeStyle = 'rgba(0,0,0,' + alpha + ')'
-
-        this.line(ctx, 0, this.center.y - r, this.w, this.center.y - r)
-        if (cnt > 1) {
-            this.line(ctx, 0, this.center.y + r, this.w, this.center.y + r)
-            this.line(ctx, this.center.x - r, 0, this.center.x - r, this.h)
-        }
-        this.line(ctx, this.center.x + r, 0, this.center.x + r, this.h)
-    }
-
-    this.speaker.draw(ctx)
-    if (this.otherSpeakers) {
-        this.otherSpeakers.forEach((sp) => {
-            sp.draw(ctx)
-        })
-    }
-    // this.note.draw(ctx)
-    for (let name in this.notes) {
-        this.notes[name].draw(ctx)
-    }
-    ctx.restore()
-}
-
-Field.prototype.started = function(callback) {
-    this.callStart = callback
-}
-
-
-Field.prototype.mousePressed = function(x, y) {
-    if (this.speaker.isOver(x, y)) {
-        this.speaker.isMove = true
-        this.speaker.over = true
-        this.speaker.x = x
-        this.speaker.y = y
-    } else {
-        for (let name in this.notes) {
-            let note = this.notes[name]
-            if (!note.isOtherMove && note.isOver(x, y)) {
-                note.isSync = true
-                note.click()
-                break
-            }
-        }
-    }
-    // this.updatePannerPosition(this.note, this.speaker)
-    this.render()
-}
-
-
-Field.prototype.mouseReleased = function(x, y) {
-    if (this.speaker.isMove) {
-        this.speaker.x = x
-        this.speaker.y = y
-        this.speaker.isMove = false
-        this.speaker.over = false
-    }
-    for (let name in this.notes) {
-        let note = this.notes[name]
-        if (!note.isOtherMove && note.isMove) {
-            note.x = x
-            note.y = y
-            note.isMove = false
-            note.over = false
-            note.isSync = false
-            this.sendNoteInfoToServer(note, true)
-        }
-        this.updatePannerPosition(note, this.speaker)
-    }
-    this.sendSpeakerInfoToServer(this.speaker)
-    this.render()
-}
-
-Field.prototype.mouseMoved = function(x, y) {
-    if (this.speaker.isMove) {
-        this.speaker.x = x
-        this.speaker.y = y - 2
-        this.sendSpeakerInfoToServer(this.speaker)
-    }
-    for (let name in this.notes) {
-        let note = this.notes[name]
-        if (!note.isOtherMove && note.isMove) {
-            note.over = true
-            note.x = x
-            note.y = y - 2
-            this.sendNoteInfoToServer(note, false)
-          }
-        this.updatePannerPosition(note, this.speaker)
-
-    }
-    this.render()
-}
-
-Field.prototype.pannerPosition = function(callback) {
-    this.callUpdatePannerPosition = callback
-}
-
-Field.prototype.updatePannerPosition = function(note, speaker) {
-    // 音源が原点
-    let x = note.x - speaker.x
-    let y = note.y - speaker.y
-    let dx = x / this.size
-    let dy = y / this.size
-    let body = {
-        name: note.name,
-        position: {
-            x: dx,
-            y: dy,
-            z: 0
-        }
-    }
-    this.callUpdatePannerPosition(body)
-}
-
-Field.prototype.sendSpeakerInfo = function(callback) {
-    this.sendSpeakerInfo = callback
-}
-
-Field.prototype.sendSpeakerInfoToServer = function(speaker) {
-    let sp = Object.assign({}, speaker)
-    sp.icon = null
-    sp.draw = null
-    sp.isOver = null
-    sp.x = sp.x / this.w
-    sp.y = sp.y / this.h
-    this.sendSpeakerInfo(sp)
-}
-
-Field.prototype.sendNoteInfo = function(callback) {
-    this.sendNoteInfo = callback
-}
-
-Field.prototype.sendNoteInfoToServer = function(note, release) {
-    let nt = Object.assign({}, note)
-    nt.icon = null
-    nt.draw = null
-    nt.isOver = null
-    nt.setParentNote = null
-    nt.idMove = false
-    nt.isOtherMove = release ? false : true
-    nt.x = nt.x / this.w
-    nt.y = nt.y / this.h
-    nt.id = this.clientID
-    nt.release = release
-    this.sendNoteInfo(nt)
-}
-
-
-Field.prototype.line = (ctx, x1, y1, x2, y2) => {
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
-}
-
-},{}],172:[function(require,module,exports){
-arguments[4][167][0].apply(exports,arguments)
-},{"dup":167}],173:[function(require,module,exports){
-arguments[4][151][0].apply(exports,arguments)
-},{"dup":151}],174:[function(require,module,exports){
-arguments[4][149][0].apply(exports,arguments)
-},{"dup":149}],175:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./biquad.js":200,"./button.js":201,"./canvas.js":202,"./field.js":203,"./html-text.js":204,"./icon-note.js":205,"./icon-speaker.js":206,"./sync-play.js":208,"node-uuid":264}],208:[function(require,module,exports){
+arguments[4][162][0].apply(exports,arguments)
+},{"dup":162}],209:[function(require,module,exports){
+arguments[4][171][0].apply(exports,arguments)
+},{"dup":171}],210:[function(require,module,exports){
+arguments[4][147][0].apply(exports,arguments)
+},{"dup":147}],211:[function(require,module,exports){
+arguments[4][148][0].apply(exports,arguments)
+},{"dup":148}],212:[function(require,module,exports){
+arguments[4][150][0].apply(exports,arguments)
+},{"dup":150}],213:[function(require,module,exports){
 let uuid = require('node-uuid')
 // let job = require('./../Job/cron.js')
 
@@ -24730,230 +28240,9 @@ let createPanner = (side = 'from') => {
     return panner
 }
 
-},{"./../demo-common/html/button-notification.js":154,"./../demo-common/html/homeButton.js":155,"./../demo-common/html/radio-button.js":156,"./../demo-common/html/select-list.js":157,"./../demo-common/html/slider-single.js":158,"./../demo-common/html/slider.js":159,"./../exCall-module/config":186,"./canvas/field.js":171,"./canvas/icon-note.js":172,"./canvas/icon-speaker.js":173,"./html/html-text.js":174,"./sync-play.js":176,"node-uuid":226}],176:[function(require,module,exports){
-module.exports = (context) => {
-    return new SyncPlay(context)
-}
-
-function SyncPlay(context, clientTime) {
-    this.context = context
-    this.buffer = {}
-    this.source = {}
-    this.panner = {}
-    this.audioUrlList = {}
-}
-
-
-/**
- * @param {Object.<string, string>} audioUrlList - key: audioName value: audioUrl
- */
-
-SyncPlay.prototype.setAudioList = function(audioUrlList) {
-    this.audioUrlList = audioUrlList
-}
-
-SyncPlay.prototype.setOscillator = function(oscillator) {
-    this.oscillator = oscillator
-}
-
-SyncPlay.prototype.getCurrentTime = function() {
-    return this.context.currentTime
-}
-
-
-SyncPlay.prototype.loadBuffer = function(audioUrlList, callback = () => {}) {
-    audioUrlList = audioUrlList || this.audioUrlList
-    load(audioUrlList, (bufferList) => {
-        this.buffer = bufferList
-        callback()
-    })
-}
-
-SyncPlay.prototype.createSyncNote = function(sourceName, startDate, offset, duration, oscillator) {
-    let leftTime = startDate - Date.now()
-
-    let call_start = []
-    let call_finish = []
-    let call_stop = []
-    let syncPlay = this
-    let syncNote = {
-        sourceName: sourceName,
-        startDate: startDate, // UTC millis
-        startTime: 0, //  time of context(ms)   Rewrite the value in this method
-        offset: offset || 0, // (ms)
-        duration: duration, //  (ms) If undefined, rewrite the value in this method
-        buffer: null, // Rewrite the value in this method
-        source: null, // Rewrite the value in this method
-        isPlaying: false,
-        oscillator: oscillator || null,
-        start: () => {
-            if(!syncNote.buffer){
-                return
-            }
-            if (syncNote.oscillator) {
-                syncNote.oscillator.connect(syncNote.source)
-                syncNote.oscillator.start(syncNote.startTime / 1000, syncNote.offset / 1000, syncNote.duration / 1000)
-            } else {
-                syncNote.source.start(syncNote.startTime / 1000, syncNote.offset / 1000, syncNote.duration / 1000)
-            }
-            let leftStartTime = syncNote.startTime - syncPlay.context.currentTime * 1000
-            leftStartTime = leftStartTime < 0 ? 0 : leftStartTime
-
-            let leftTime = leftStartTime + syncNote.duration - syncNote.offset
-
-            syncNote.isPlaying = true
-            syncNote.fireStart(leftStartTime)
-
-            setTimeout(() => {
-                syncNote.isPlaying = false
-                syncNote.fireFinish()
-            }, leftTime)
-        },
-        connect: (destination) => {
-            syncNote.source.connect(destination)
-        },
-        stop: () => {
-            if (syncNote.isPlaying) {
-                syncNote.source.stop()
-                syncNote.fireStop()
-            }
-        },
-        fireStart: (leftTime) => {
-            call_start.forEach((c) => {
-                c(leftTime)
-            })
-        },
-        fireFinish: () => {
-            call_finish.forEach((c) => {
-                c()
-            })
-        },
-        fireStop: () => {
-            call_stop.forEach((c) => {
-                c()
-            })
-        },
-        started: (callback = () => {}) => {
-            call_start.push(callback)
-        },
-        finished: (callback = () => {}) => {
-            call_finish.push(callback)
-        },
-        stoped: (callback = () => {}) => {
-            call_stop.push(callback)
-        }
-    }
-
-    // set buffer & source
-    let source = context.createBufferSource()
-    let buffer = this.buffer[sourceName] || null
-    if(!buffer){
-        console.log('error this.buffer[sourceName] sync-play.js')
-    }
-    source.buffer = buffer
-    syncNote.buffer = buffer
-    syncNote.source = source
-
-    // set startTime
-    let ct = this.context.currentTime * 1000 // sec -> ms
-    syncNote.startTime = ct + leftTime
-
-    // If undefined, set duration
-    if (!syncNote.duration) {
-        syncNote.duration = syncNote.buffer.duration * 1000 // sec -> ms
-    }
-
-    return syncNote
-}
-
-SyncPlay.prototype.preConnect = function(destination, syncNote) {
-    // to array
-    if (!Array.isArray(syncNote)) {
-        let temp = syncNote
-        syncNote = []
-        syncNote.push(temp)
-    }
-
-    // play
-    syncNote.forEach((note) => {
-        note.connect(destination)
-        note.start()
-    })
-}
-
-SyncPlay.prototype.speedPlay = function(syncNote) {
-    // to array
-    syncNote.start()
-}
-
-
-SyncPlay.prototype.play = function(destination, syncNote) {
-    // to array
-    if (!Array.isArray(syncNote)) {
-        let temp = syncNote
-        syncNote = []
-        syncNote.push(temp)
-    }
-
-    // play
-    syncNote.forEach((note) => {
-        note.connect(destination)
-        note.start()
-    })
-}
-
-
-SyncPlay.prototype.addBuffer = function(name, buffer, callback = () => {}) {
-    let syncPlay = this
-    context.decodeAudioData(buffer, function(decodedBuffer) {
-        syncPlay.buffer[name] = decodedBuffer
-        callback()
-    }, (err) => {
-        console.log(err)
-    })
-}
-
-
-
-/**
- * load Audio File
- * load() -> loadSound()
- * -> return
- * @param {string[]|string} urlList -
- * @return {Object[]} - buffer[]
- */
-
-let load = (urlList, callback = () => {}) => {
-    let bufferList = {}
-    let cnt = 0
-    let length = Object.keys(urlList).length
-    for (let key in urlList) {
-        loadSound(urlList[key], (buf) => {
-            bufferList[key] = buf
-            cnt++
-            if (cnt == length) {
-                callback(bufferList)
-            }
-        })
-    }
-}
-
-let loadSound = (url, callback = () => {}) => {
-    let request = new XMLHttpRequest()
-    request.open('GET', url, true)
-    request.responseType = 'arraybuffer'
-    request.onload = function() {
-        console.log('load')
-        context.decodeAudioData(request.response, function(buffer) {
-            callback(buffer)
-        }, (err) => {
-            console.log(err)
-        })
-    }
-    request.send()
-}
-
-},{}],177:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":177,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./../demo-common/html/select-list.js":180,"./../demo-common/html/slider-single.js":181,"./../demo-common/html/slider.js":182,"./../exCall-module/config":224,"./canvas/field.js":209,"./canvas/icon-note.js":210,"./canvas/icon-speaker.js":211,"./html/html-text.js":212,"./sync-play.js":214,"node-uuid":264}],214:[function(require,module,exports){
+arguments[4][153][0].apply(exports,arguments)
+},{"dup":153}],215:[function(require,module,exports){
 let isMove = false
 let timeout = 10000
 
@@ -24991,15 +28280,15 @@ exports.moved = (text, callback = () => {}) => {
     })
 }
 
-},{}],178:[function(require,module,exports){
+},{}],216:[function(require,module,exports){
 arguments[4][171][0].apply(exports,arguments)
-},{"dup":171}],179:[function(require,module,exports){
-arguments[4][167][0].apply(exports,arguments)
-},{"dup":167}],180:[function(require,module,exports){
-arguments[4][151][0].apply(exports,arguments)
-},{"dup":151}],181:[function(require,module,exports){
-arguments[4][149][0].apply(exports,arguments)
-},{"dup":149}],182:[function(require,module,exports){
+},{"dup":171}],217:[function(require,module,exports){
+arguments[4][147][0].apply(exports,arguments)
+},{"dup":147}],218:[function(require,module,exports){
+arguments[4][148][0].apply(exports,arguments)
+},{"dup":148}],219:[function(require,module,exports){
+arguments[4][150][0].apply(exports,arguments)
+},{"dup":150}],220:[function(require,module,exports){
 let uuid = require('node-uuid')
 // let job = require('./../Job/cron.js')
 
@@ -25532,7 +28821,7 @@ let createPanner = () => {
     return panner
 }
 
-},{"./../demo-common/html/button-notification.js":154,"./../demo-common/html/homeButton.js":155,"./../demo-common/html/radio-button.js":156,"./../demo-common/html/select-list.js":157,"./../demo-common/html/slider-single.js":158,"./../demo-common/html/slider.js":159,"./../demo-common/html/switch.js":160,"./../exCall-module/config":186,"./accel.js":177,"./canvas/field.js":178,"./canvas/icon-note.js":179,"./canvas/icon-speaker.js":180,"./html/html-text.js":181,"./random-notification.js":183,"./sync-play.js":184,"node-uuid":226}],183:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":177,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./../demo-common/html/select-list.js":180,"./../demo-common/html/slider-single.js":181,"./../demo-common/html/slider.js":182,"./../demo-common/html/switch.js":183,"./../exCall-module/config":224,"./accel.js":215,"./canvas/field.js":216,"./canvas/icon-note.js":217,"./canvas/icon-speaker.js":218,"./html/html-text.js":219,"./random-notification.js":221,"./sync-play.js":222,"node-uuid":264}],221:[function(require,module,exports){
 let first = false
 let isRandom = false
 let randomRange = [5000, 30000]
@@ -25564,9 +28853,9 @@ exports.off = () => {
     isRandom = false
 }
 
-},{}],184:[function(require,module,exports){
-arguments[4][176][0].apply(exports,arguments)
-},{"dup":176}],185:[function(require,module,exports){
+},{}],222:[function(require,module,exports){
+arguments[4][153][0].apply(exports,arguments)
+},{"dup":153}],223:[function(require,module,exports){
 // JSONファイルのdirectory
 // let json = './../../local-env/config.json'
 // return
@@ -25578,7 +28867,7 @@ try {
 
 module.exports = env
 
-},{"./../../local-env/config.json":189}],186:[function(require,module,exports){
+},{"./../../local-env/config.json":227}],224:[function(require,module,exports){
 (function (process){
 
 let config = {}
@@ -25594,7 +28883,7 @@ for(let key in local){
 module.exports = config
 
 }).call(this,require('_process'))
-},{"./config-local.js":185,"_process":111}],187:[function(require,module,exports){
+},{"./config-local.js":223,"_process":111}],225:[function(require,module,exports){
 let div
 let user = null
 let userName = null
@@ -25664,7 +28953,7 @@ exports.setNameChangeButton = (callback = () => {}) => {
     }
 }
 
-},{}],188:[function(require,module,exports){
+},{}],226:[function(require,module,exports){
 window.addEventListener('load', init, false);
 
 /*
@@ -25845,6 +29134,80 @@ function init() {
         })
     }
 
+    if (demo_type == 'demo-accel-notification') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        let demo_mention = require('./demo-accel-notification/main.js')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            demo_mention.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            socket.call.on('connect', () => {
+                if (demo_argument.getAttribute('data-reset')) {
+                    socket.emit('demo_motivation_reset', {})
+                }
+            })
+        })
+    }
+
+    if (demo_type == 'demo-doppler-notification') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        let demo_mention = require('./demo-doppler-notification/main.js')
+        let graph = require('./demo-doppler-notification/graph')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            demo_mention.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            graph.init(document.getElementById('canvas_graph'))
+
+            socket.call.on('connect', () => {
+                if (demo_argument.getAttribute('data-reset')) {
+                    socket.emit('demo_motivation_reset', {})
+                }
+            })
+        })
+    }
+
+    if (demo_type == 'demo-chat') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        let demo_mention = require('./demo-chat/main.js')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            demo_mention.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            socket.call.on('connect', () => {
+                if (demo_argument.getAttribute('data-reset')) {
+                    socket.emit('demo_motivation_reset', {})
+                }
+            })
+        })
+    }
+
+    if (demo_type == 'demo-accel-sensor') {
+        let syncmusic = require('./demo-accel-sensor/main.js')
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        syncmusic.start(document.getElementById('canvas_div'), context, socket, ntp, user)
+        socket.call.on('connect', () => {
+            if (demo_argument.getAttribute('data-reset')) {
+                socket.emit('demo_motivation_reset', {})
+            }
+        })
+    }
+
     if (demo_type == 'demo-task-notification') {
         let user = demo_argument.getAttribute('data-user')
         let config = {
@@ -25876,13 +29239,13 @@ function init() {
 
 }
 
-},{"./demo-alarm/main.js":152,"./demo-common/prompt.js":161,"./demo-motivation/main.js":169,"./demo-simple-notification/main.js":175,"./demo-task-notification/main.js":182,"./home/home.js":187,"./ntp-client.js":190,"./socket-client":191,"./sync-music/sync-music-surround.js":192}],189:[function(require,module,exports){
+},{"./demo-accel-notification/main.js":152,"./demo-accel-sensor/main.js":161,"./demo-alarm/main.js":169,"./demo-chat/main.js":175,"./demo-common/prompt.js":184,"./demo-doppler-notification/graph":192,"./demo-doppler-notification/main.js":198,"./demo-motivation/main.js":207,"./demo-simple-notification/main.js":213,"./demo-task-notification/main.js":220,"./home/home.js":225,"./ntp-client.js":228,"./socket-client":229,"./sync-music/sync-music-surround.js":230}],227:[function(require,module,exports){
 module.exports={
   "PORT": 8118,
   "SERVER_URL": "https://excall.herokuapp.com"
 }
 
-},{}],190:[function(require,module,exports){
+},{}],228:[function(require,module,exports){
 let socket
 let dateDiff = 0
 
@@ -26005,9 +29368,9 @@ let emit = () => {
     }, 1000 * 1 + Math.floor((Math.random() * 500)))
 }
 
-},{}],191:[function(require,module,exports){
+},{}],229:[function(require,module,exports){
 const io = require('socket.io-client')
-// let url = 'http://192.168.144.126:8001'
+let url = 'http://192.168.144.126:8001'
 // let url = 'http://192.168.100.16:8001'
 // let url = 'http://133.26.45.88:8001'
 // let url = 'http://localhost:8001'
@@ -26015,7 +29378,7 @@ const io = require('socket.io-client')
 // demo5  demoでも一緒
 // let url = 'http://192.168.10.14:8001'
 //
-let url = 'https://fromtone.herokuapp.com'
+// let url = 'https://fromtone.herokuapp.com'
 
 
 let socket = io.connect(url)
@@ -26054,7 +29417,7 @@ socket.on('disconnect', () => {
     call.emit('disconnect', url)
 })
 
-},{"./../../../exCall-module/simpleCall":244,"socket.io-client":230}],192:[function(require,module,exports){
+},{"./../../../exCall-module/simpleCall":282,"socket.io-client":268}],230:[function(require,module,exports){
 let uuid = require('node-uuid')
 let job = require('./../Job/cron.js')
 
@@ -26720,7 +30083,7 @@ Field.prototype.sendNoteInfoToServer = function(note, release) {
     })
 }
 
-},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":155,"node-uuid":226}],193:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":178,"node-uuid":264}],231:[function(require,module,exports){
 module.exports = after
 
 function after(count, callback, err_cb) {
@@ -26750,7 +30113,7 @@ function after(count, callback, err_cb) {
 
 function noop() {}
 
-},{}],194:[function(require,module,exports){
+},{}],232:[function(require,module,exports){
 /**
  * An abstraction for slicing an arraybuffer even when
  * ArrayBuffer.prototype.slice is not supported
@@ -26781,7 +30144,7 @@ module.exports = function(arraybuffer, start, end) {
   return result.buffer;
 };
 
-},{}],195:[function(require,module,exports){
+},{}],233:[function(require,module,exports){
 
 /**
  * Expose `Backoff`.
@@ -26868,7 +30231,7 @@ Backoff.prototype.setJitter = function(jitter){
 };
 
 
-},{}],196:[function(require,module,exports){
+},{}],234:[function(require,module,exports){
 /*
  * base64-arraybuffer
  * https://github.com/niklasvh/base64-arraybuffer
@@ -26937,7 +30300,7 @@ Backoff.prototype.setJitter = function(jitter){
   };
 })();
 
-},{}],197:[function(require,module,exports){
+},{}],235:[function(require,module,exports){
 (function (global){
 /**
  * Create a blob builder even when vendor prefixes exist
@@ -27037,7 +30400,7 @@ module.exports = (function() {
 })();
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],198:[function(require,module,exports){
+},{}],236:[function(require,module,exports){
 /**
  * Slice reference.
  */
@@ -27062,7 +30425,7 @@ module.exports = function(obj, fn){
   }
 };
 
-},{}],199:[function(require,module,exports){
+},{}],237:[function(require,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -27227,7 +30590,7 @@ Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
 };
 
-},{}],200:[function(require,module,exports){
+},{}],238:[function(require,module,exports){
 
 module.exports = function(a, b){
   var fn = function(){};
@@ -27235,7 +30598,7 @@ module.exports = function(a, b){
   a.prototype = new fn;
   a.prototype.constructor = a;
 };
-},{}],201:[function(require,module,exports){
+},{}],239:[function(require,module,exports){
 (function (root, factory) {
 	if (typeof define === 'function' && define.amd) {
 		define(['moment-timezone'], factory);
@@ -27777,7 +31140,7 @@ return exports;
 
 }));
 
-},{"child_process":44,"moment-timezone":222}],202:[function(require,module,exports){
+},{"child_process":44,"moment-timezone":260}],240:[function(require,module,exports){
 (function (process){
 /**
  * This is the web browser implementation of `debug()`.
@@ -27966,7 +31329,7 @@ function localstorage() {
 }
 
 }).call(this,require('_process'))
-},{"./debug":203,"_process":111}],203:[function(require,module,exports){
+},{"./debug":241,"_process":111}],241:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -28170,11 +31533,11 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":225}],204:[function(require,module,exports){
+},{"ms":263}],242:[function(require,module,exports){
 
 module.exports = require('./lib/index');
 
-},{"./lib/index":205}],205:[function(require,module,exports){
+},{"./lib/index":243}],243:[function(require,module,exports){
 
 module.exports = require('./socket');
 
@@ -28186,7 +31549,7 @@ module.exports = require('./socket');
  */
 module.exports.parser = require('engine.io-parser');
 
-},{"./socket":206,"engine.io-parser":214}],206:[function(require,module,exports){
+},{"./socket":244,"engine.io-parser":252}],244:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -28934,7 +32297,7 @@ Socket.prototype.filterUpgrades = function (upgrades) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./transport":207,"./transports/index":208,"component-emitter":199,"debug":202,"engine.io-parser":214,"indexof":219,"parsejson":227,"parseqs":228,"parseuri":229}],207:[function(require,module,exports){
+},{"./transport":245,"./transports/index":246,"component-emitter":237,"debug":240,"engine.io-parser":252,"indexof":257,"parsejson":265,"parseqs":266,"parseuri":267}],245:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -29093,7 +32456,7 @@ Transport.prototype.onClose = function () {
   this.emit('close');
 };
 
-},{"component-emitter":199,"engine.io-parser":214}],208:[function(require,module,exports){
+},{"component-emitter":237,"engine.io-parser":252}],246:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies
@@ -29150,7 +32513,7 @@ function polling (opts) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling-jsonp":209,"./polling-xhr":210,"./websocket":212,"xmlhttprequest-ssl":213}],209:[function(require,module,exports){
+},{"./polling-jsonp":247,"./polling-xhr":248,"./websocket":250,"xmlhttprequest-ssl":251}],247:[function(require,module,exports){
 (function (global){
 
 /**
@@ -29385,7 +32748,7 @@ JSONPPolling.prototype.doWrite = function (data, fn) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":211,"component-inherit":200}],210:[function(require,module,exports){
+},{"./polling":249,"component-inherit":238}],248:[function(require,module,exports){
 (function (global){
 /**
  * Module requirements.
@@ -29802,7 +33165,7 @@ function unloadHandler () {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":211,"component-emitter":199,"component-inherit":200,"debug":202,"xmlhttprequest-ssl":213}],211:[function(require,module,exports){
+},{"./polling":249,"component-emitter":237,"component-inherit":238,"debug":240,"xmlhttprequest-ssl":251}],249:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -30049,7 +33412,7 @@ Polling.prototype.uri = function () {
   return schema + '://' + (ipv6 ? '[' + this.hostname + ']' : this.hostname) + port + this.path + query;
 };
 
-},{"../transport":207,"component-inherit":200,"debug":202,"engine.io-parser":214,"parseqs":228,"xmlhttprequest-ssl":213,"yeast":239}],212:[function(require,module,exports){
+},{"../transport":245,"component-inherit":238,"debug":240,"engine.io-parser":252,"parseqs":266,"xmlhttprequest-ssl":251,"yeast":277}],250:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -30339,7 +33702,7 @@ WS.prototype.check = function () {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../transport":207,"component-inherit":200,"debug":202,"engine.io-parser":214,"parseqs":228,"ws":18,"yeast":239}],213:[function(require,module,exports){
+},{"../transport":245,"component-inherit":238,"debug":240,"engine.io-parser":252,"parseqs":266,"ws":18,"yeast":277}],251:[function(require,module,exports){
 (function (global){
 // browser shim for xmlhttprequest module
 
@@ -30380,7 +33743,7 @@ module.exports = function (opts) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"has-cors":218}],214:[function(require,module,exports){
+},{"has-cors":256}],252:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -30990,7 +34353,7 @@ exports.decodePayloadAsBinary = function (data, binaryType, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./keys":215,"./utf8":216,"after":193,"arraybuffer.slice":194,"base64-arraybuffer":196,"blob":197,"has-binary2":217}],215:[function(require,module,exports){
+},{"./keys":253,"./utf8":254,"after":231,"arraybuffer.slice":232,"base64-arraybuffer":234,"blob":235,"has-binary2":255}],253:[function(require,module,exports){
 
 /**
  * Gets the keys for an object.
@@ -31011,7 +34374,7 @@ module.exports = Object.keys || function keys (obj){
   return arr;
 };
 
-},{}],216:[function(require,module,exports){
+},{}],254:[function(require,module,exports){
 (function (global){
 /*! https://mths.be/utf8js v2.1.2 by @mathias */
 ;(function(root) {
@@ -31270,7 +34633,7 @@ module.exports = Object.keys || function keys (obj){
 }(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],217:[function(require,module,exports){
+},{}],255:[function(require,module,exports){
 (function (global){
 /* global Blob File */
 
@@ -31336,7 +34699,7 @@ function hasBinary (obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"isarray":220}],218:[function(require,module,exports){
+},{"isarray":258}],256:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -31355,11 +34718,11 @@ try {
   module.exports = false;
 }
 
-},{}],219:[function(require,module,exports){
+},{}],257:[function(require,module,exports){
 arguments[4][93][0].apply(exports,arguments)
-},{"dup":93}],220:[function(require,module,exports){
+},{"dup":93}],258:[function(require,module,exports){
 arguments[4][96][0].apply(exports,arguments)
-},{"dup":96}],221:[function(require,module,exports){
+},{"dup":96}],259:[function(require,module,exports){
 module.exports={
 	"version": "2017b",
 	"zones": [
@@ -31960,11 +35323,11 @@ module.exports={
 		"Pacific/Tarawa|Pacific/Wallis"
 	]
 }
-},{}],222:[function(require,module,exports){
+},{}],260:[function(require,module,exports){
 var moment = module.exports = require("./moment-timezone");
 moment.tz.load(require('./data/packed/latest.json'));
 
-},{"./data/packed/latest.json":221,"./moment-timezone":223}],223:[function(require,module,exports){
+},{"./data/packed/latest.json":259,"./moment-timezone":261}],261:[function(require,module,exports){
 //! moment-timezone.js
 //! version : 0.5.13
 //! Copyright (c) JS Foundation and other contributors
@@ -32567,7 +35930,7 @@ moment.tz.load(require('./data/packed/latest.json'));
 	return moment;
 }));
 
-},{"moment":224}],224:[function(require,module,exports){
+},{"moment":262}],262:[function(require,module,exports){
 //! moment.js
 //! version : 2.18.1
 //! authors : Tim Wood, Iskren Chernev, Moment.js contributors
@@ -37032,7 +40395,7 @@ return hooks;
 
 })));
 
-},{}],225:[function(require,module,exports){
+},{}],263:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -37186,7 +40549,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],226:[function(require,module,exports){
+},{}],264:[function(require,module,exports){
 (function (Buffer){
 //     uuid.js
 //
@@ -37462,7 +40825,7 @@ function plural(ms, n, name) {
 })('undefined' !== typeof window ? window : null);
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":46,"crypto":55}],227:[function(require,module,exports){
+},{"buffer":46,"crypto":55}],265:[function(require,module,exports){
 (function (global){
 /**
  * JSON parse.
@@ -37497,7 +40860,7 @@ module.exports = function parsejson(data) {
   }
 };
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],228:[function(require,module,exports){
+},{}],266:[function(require,module,exports){
 /**
  * Compiles a querystring
  * Returns string representation of the object
@@ -37536,7 +40899,7 @@ exports.decode = function(qs){
   return qry;
 };
 
-},{}],229:[function(require,module,exports){
+},{}],267:[function(require,module,exports){
 /**
  * Parses an URI
  *
@@ -37577,7 +40940,7 @@ module.exports = function parseuri(str) {
     return uri;
 };
 
-},{}],230:[function(require,module,exports){
+},{}],268:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -37673,7 +41036,7 @@ exports.connect = lookup;
 exports.Manager = require('./manager');
 exports.Socket = require('./socket');
 
-},{"./manager":231,"./socket":233,"./url":234,"debug":202,"socket.io-parser":236}],231:[function(require,module,exports){
+},{"./manager":269,"./socket":271,"./url":272,"debug":240,"socket.io-parser":274}],269:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -38248,7 +41611,7 @@ Manager.prototype.onreconnect = function () {
   this.emitAll('reconnect', attempt);
 };
 
-},{"./on":232,"./socket":233,"backo2":195,"component-bind":198,"component-emitter":199,"debug":202,"engine.io-client":204,"indexof":219,"socket.io-parser":236}],232:[function(require,module,exports){
+},{"./on":270,"./socket":271,"backo2":233,"component-bind":236,"component-emitter":237,"debug":240,"engine.io-client":242,"indexof":257,"socket.io-parser":274}],270:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -38274,7 +41637,7 @@ function on (obj, ev, fn) {
   };
 }
 
-},{}],233:[function(require,module,exports){
+},{}],271:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -38694,7 +42057,7 @@ Socket.prototype.compress = function (compress) {
   return this;
 };
 
-},{"./on":232,"component-bind":198,"component-emitter":199,"debug":202,"parseqs":228,"socket.io-parser":236,"to-array":238}],234:[function(require,module,exports){
+},{"./on":270,"component-bind":236,"component-emitter":237,"debug":240,"parseqs":266,"socket.io-parser":274,"to-array":276}],272:[function(require,module,exports){
 (function (global){
 
 /**
@@ -38773,7 +42136,7 @@ function url (uri, loc) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"debug":202,"parseuri":229}],235:[function(require,module,exports){
+},{"debug":240,"parseuri":267}],273:[function(require,module,exports){
 (function (global){
 /*global Blob,File*/
 
@@ -38918,7 +42281,7 @@ exports.removeBlobs = function(data, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./is-buffer":237,"isarray":220}],236:[function(require,module,exports){
+},{"./is-buffer":275,"isarray":258}],274:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -39320,7 +42683,7 @@ function error() {
   };
 }
 
-},{"./binary":235,"./is-buffer":237,"component-emitter":199,"debug":202,"has-binary2":217}],237:[function(require,module,exports){
+},{"./binary":273,"./is-buffer":275,"component-emitter":237,"debug":240,"has-binary2":255}],275:[function(require,module,exports){
 (function (global){
 
 module.exports = isBuf;
@@ -39337,7 +42700,7 @@ function isBuf(obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],238:[function(require,module,exports){
+},{}],276:[function(require,module,exports){
 module.exports = toArray
 
 function toArray(list, index) {
@@ -39352,7 +42715,7 @@ function toArray(list, index) {
     return array
 }
 
-},{}],239:[function(require,module,exports){
+},{}],277:[function(require,module,exports){
 'use strict';
 
 var alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_'.split('')
@@ -39422,7 +42785,7 @@ yeast.encode = encode;
 yeast.decode = decode;
 module.exports = yeast;
 
-},{}],240:[function(require,module,exports){
+},{}],278:[function(require,module,exports){
 const CallbackChild = require('./CallbackChild.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -39600,7 +42963,7 @@ let keyCheck = (key) => {
     return key
 }
 
-},{"./CallOperator.js":242,"./CallbackChild.js":243}],241:[function(require,module,exports){
+},{"./CallOperator.js":280,"./CallbackChild.js":281}],279:[function(require,module,exports){
 /**
  * 一連の流れで連続するcallback
  * contextInfoを受け継ぐ
@@ -39756,7 +43119,7 @@ CallMeasure.prototype.Operator = function(num, next) {
     }
 }
 
-},{}],242:[function(require,module,exports){
+},{}],280:[function(require,module,exports){
 // CallOperator
 
 module.exports = (Child, num) => {
@@ -39776,7 +43139,7 @@ module.exports = (Child, num) => {
     }
 }
 
-},{}],243:[function(require,module,exports){
+},{}],281:[function(require,module,exports){
 const CallMeasure = require('./CallMeasure.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -39955,7 +43318,7 @@ CallbackChild.prototype.emit = function(...option) {
     callMeasure.start()
 }
 
-},{"./CallMeasure.js":241,"./CallOperator.js":242}],244:[function(require,module,exports){
+},{"./CallMeasure.js":279,"./CallOperator.js":280}],282:[function(require,module,exports){
 module.exports = require('./Call/Call.js')()
 
-},{"./Call/Call.js":240}]},{},[188]);
+},{"./Call/Call.js":278}]},{},[226]);

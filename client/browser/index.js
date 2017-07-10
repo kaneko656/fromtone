@@ -178,6 +178,80 @@ function init() {
         })
     }
 
+    if (demo_type == 'demo-accel-notification') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        let demo_mention = require('./demo-accel-notification/main.js')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            demo_mention.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            socket.call.on('connect', () => {
+                if (demo_argument.getAttribute('data-reset')) {
+                    socket.emit('demo_motivation_reset', {})
+                }
+            })
+        })
+    }
+
+    if (demo_type == 'demo-doppler-notification') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        let demo_mention = require('./demo-doppler-notification/main.js')
+        let graph = require('./demo-doppler-notification/graph')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            demo_mention.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            graph.init(document.getElementById('canvas_graph'))
+
+            socket.call.on('connect', () => {
+                if (demo_argument.getAttribute('data-reset')) {
+                    socket.emit('demo_motivation_reset', {})
+                }
+            })
+        })
+    }
+
+    if (demo_type == 'demo-chat') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        let demo_mention = require('./demo-chat/main.js')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            demo_mention.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            socket.call.on('connect', () => {
+                if (demo_argument.getAttribute('data-reset')) {
+                    socket.emit('demo_motivation_reset', {})
+                }
+            })
+        })
+    }
+
+    if (demo_type == 'demo-accel-sensor') {
+        let syncmusic = require('./demo-accel-sensor/main.js')
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        syncmusic.start(document.getElementById('canvas_div'), context, socket, ntp, user)
+        socket.call.on('connect', () => {
+            if (demo_argument.getAttribute('data-reset')) {
+                socket.emit('demo_motivation_reset', {})
+            }
+        })
+    }
+
     if (demo_type == 'demo-task-notification') {
         let user = demo_argument.getAttribute('data-user')
         let config = {
