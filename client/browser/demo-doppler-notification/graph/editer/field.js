@@ -327,7 +327,7 @@ Field.prototype.getValue = function(divNum) {
             }
             let v = b.getValue(divX)
             let velocity = b.getVelocity(v.t)
-            velocity = velocity * (w / h)
+            velocity = -1 * velocity * (w / h)
             // x,y,t
             v.value = (v.y - my.minY) / (my.maxY - my.minY)
             v.div = (divX - this.minX) / w

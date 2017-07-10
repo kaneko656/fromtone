@@ -68,45 +68,6 @@ exports.start = (element, context, socket, clientTime, config) => {
 
     let notificationButton = NotificationButton(element)
 
-    // gyro
-    let gyroSwitch = true
-    let sendTime = 0
-    let sendInterval = 100
-    let canUse = true
-    let gyroLog = document.createElement('p')
-    element.appendChild(gyroLog)
-    let gyroValue = -1
-    let callGyro = () => {}
-    gyro.moved(gyroLog, (value) => {
-        if (!value) {
-            switchButton.gyroButton.innerHTML = 'Can not use Gyro Sensor'
-            canUse = false
-        }
-        let tempGyroValue
-        if (value < -30) {
-            tempGyroValue = 0
-        } else if (value > 30) {
-            tempGyroValue = 1
-        } else {
-            tempGyroValue = (value + 30) / 60
-        }
-        if (gyroSwitch && Date.now() - sendTime > sendInterval) {
-            socket.emit(socketDir + 'gyro', {
-                type: socketType,
-                id: clientID,
-                user: config.user,
-                value: tempGyroValue
-            })
-            sendTime = Date.now()
-        }
-    })
-
-    socket.on(socketDir + 'gyro_value', (body) => {
-        gyroValue = body.value
-        gyroLog.innerHTML = gyroValue.toFixed(4)
-        callGyro(gyroValue)
-    })
-
     /*
      *  SwitchButton
      */
@@ -125,21 +86,6 @@ exports.start = (element, context, socket, clientTime, config) => {
     switchButton.onDopplerSwitch((toggle) => {
         dopplerSwitch = toggle
     })
-
-    // panner - slider
-    let pannerSlider = Slider(element, 'panner', 'Panner Time')
-    pannerSlider.setList()
-    let p = document.createElement('p')
-    p.innerHTML = '音像移動（開始点　終了点）<br>←音の開始　　→音の終了'
-    element.appendChild(p)
-
-    // panner - distance
-    let distanceSlider = SliderSingle(element, 'distance', 'Panner Distance')
-    distanceSlider.setList()
-    let p_d = document.createElement('p')
-    p_d.innerHTML = '←近い　→遠い'
-    element.appendChild(p_d)
-
 
     let radioButton = RadioButton(element, 'tone', 'Tone Select')
     radioButton.setList(soundNameList)
@@ -248,19 +194,6 @@ exports.start = (element, context, socket, clientTime, config) => {
     syncPlay.loadBuffer(soundList, () => {
 
     })
-    // socket.on(socketDir + 'play', (body) => {
-    //     console.log('syncPlay')
-    //     console.log(body)
-    //     let notes = body.notes
-    //     notes.forEach((nt) => {
-    //         syncNote = createSyncNote(nt.bufferName, body.time, body.offset, body.duration)
-    //         syncNote = setCommonSyncNote(syncNote, nt.name)
-    //         let panner = createIndividualPanner(nt.name)
-    //         syncPlay.play(panner, syncNote)
-    //         field.toPlayStatus(nt.name)
-    //     })
-    // })
-
 
     socket.call.on('connect', () => {
         clientID = uuid.v4()
@@ -286,7 +219,6 @@ exports.start = (element, context, socket, clientTime, config) => {
             console.log(body)
             let from = body.from.indexOf(config.user) >= 0 ? true : false
             let to = body.to.indexOf(config.user) >= 0 ? true : false
-            let doppler = body.doppler
 
             let fromText = ''
             body.from.forEach((n) => {
@@ -301,217 +233,123 @@ exports.start = (element, context, socket, clientTime, config) => {
                 return
             }
 
-            body.notes.forEach((nt) => {
-
-
-                // let linearRamp = (fromValue, toValue, time, callback, value, dif, passTime) => {
-                //     value = value ? value : fromValue
-                //     dif = dif ? dif : (toValue - fromValue) / (time / 10)
-                //     passTime = passTime ? passTime : 0
-                //     setTimeout(() => {
-                //         callback(value)
-                //         value += dif
-                //         passTime += 10
-                //         if (passTime < time) {
-                //             linearRamp(fromValue, toValue, time, callback, value, dif, passTime)
-                //         }
-                //     }, 10)
-                // }
-
-                if (from || to) {
-                    syncNote = createSyncNote(nt.sound, nt.time, nt.offset, nt.duration)
-                    // let panner = createIndividualPanner(nt.name)
-                    let ev = body.editer || connect.get('editerValue')
-                    if (!ev) {
-                        ev = []
-                    }
-                    console.log(body.editer)
-
-                    let gainNode = context.createGain()
-                    gainNode.connect(context.destination)
-
-                    let con = (t, duration) => {
-                        htmlText.log.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
-                        // gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
-                        console.log(t)
-                        setTimeout(() => {
-                            t += 100
-                            if (t < duration) {
-                                con(t, duration)
-                            }
-                        }, 100)
-                    }
-
-                    // let dist = nt.distance || 30
-                    // panner.setPosition(0, 0, 0)
-
-                    syncNote.started((leftTime) => {
-
-                        // ms -> s
-                        let duration = syncNote.duration / 1000
-                        // ms -> s
-                        let st = syncPlay.getCurrentTime() + leftTime / 1000
-                        con(0, syncNote.duration + leftTime)
-
-                        // viewStart
-                        connect.set('viewStart', {
-                            duration: syncNote.duration,
-                            leftTime: leftTime
-                        })
-
-                        ev.forEach((d, i) => {
-                            let v = d.value
-                            let t = d.div
-                            if (from) {
-                                v = v
-                            } else if (to) {
-                                v = 1 - v
-                            }
-                            if (i == 0) {
-                                gainNode.gain.value = v
-                            }
-                            gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
-
-                            // s
-                            // 0 - 1 -> 0.1
-                            let interT = i >= 1 ? ev[i].div - ev[i - 1].div : ev[i].div
-                            // 0 - duration -> duration * 0.1
-                            interT *= duration
-                            // m
-                            let dist = 1
-
-                            // m/s
-                            let vs = d.velocity * dist / duration
-                            // km/h
-                            // vs = vs * 60 * 60 / 1000
-                            vs = vs * 3.6
-
-                            let rate = 340 / (340 - vs)
-                            if (i == 0) {
-                                gainNode.gain.value = rate
-                            }
-                            if (doppler && !isNaN(vs)) {
-                                syncNote.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t)
-                            } else {
-                                syncNote.source.playbackRate.value = 1
-                            }
-                            // fromを自分とすると
-                            // from 1 to 0
-                            // マイナス方向が離れる
-                            // v0 = 0 観測者は静止
-                            // V = 340
-                            // let rate = 340 / (340 - vs)
-                            //
-                            // // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
-                            // // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
-                            // if (doppler) {
-                            //     syncNote.source.playbackRate.value = rate
-                            //     gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + rate.toFixed(4)
-                            // } else {
-                            //     syncNote.source.playbackRate.value = 1
-                            //     gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', 1.0 '
-                            //
-                            // }
-                        })
-
-                        // let ct = syncPlay.getCurrentTime() + leftTime / 1000
-                        // let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
-                        // let start = startValue * syncNote.duration
-                        // let endValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[1] / 100 : 0.8
-                        // let end = endValue * syncNote.duration
-
-                        // console.log('from', 'start', start, 'end', end, 'dist', dist)
-
-                        // override
-                        // gainNode  0(Mute) ~ 1(Default) ~
-                        // GyroValue 手前 1 奥 0
-
-                        // let pMillis = -1
-                        // let pValue = -1
-                        // callGyro = (value) => {
-                        //     let t = syncPlay.getCurrentTime() // sec
-                        //     let sinValue = Math.sin(Math.PI * 2 * (t - ct) / 30)
-                        //     value = sinValue / 2 + 0.5
-                        //
-                        //     if (from) {
-                        //         gainNode.gain.value = value
-                        //     } else if (to) {
-                        //         gainNode.gain.value = 1 - value
-                        //     }
-                        //     // panner.setPosition(0, value * dist, 0)
-                        //     // console.log(gainNode.gain.value)
-                        //
-                        //     if (pMillis == -1) {
-                        //         pMillis = Date.now()
-                        //         pValue = value
-                        //     } else {
-                        //         let millis = Date.now()
-                        //         let t = millis - pMillis
-                        //         let difV = value - pValue
-                        //         t = t == 0 ? 1 : t
-                        //
-                        //         // m/ms
-                        //         // ２点間の距離を1mとする
-                        //         let vs = (difV / t)
-                        //
-                        //         // km/h
-                        //         // vs = vs * 1000 * 60 * 60 / 1000
-                        //         vs = vs * 3600
-                        //
-                        //         pMillis = millis
-                        //         pValue = value
-                        //
-                        //         // fromを自分とすると
-                        //         // from 1 to 0
-                        //         // マイナス方向が離れる
-                        //         // v0 = 0 観測者は静止
-                        //         // V = 340
-                        //         let rate = 340 / (340 - vs)
-                        //
-                        //         // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
-                        //         // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
-                        //         if (doppler) {
-                        //             syncNote.source.playbackRate.value = rate
-                        //             gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + rate.toFixed(4)
-                        //         } else {
-                        //             syncNote.source.playbackRate.value = 1
-                        //             gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', 1.0 '
-                        //
-                        //         }
-                        //     }
-                        //     //
-                        //     // f' = f * ( (V - v0)/(V - vs) )
-                        //     // V = 音速 331.5 + 0.61t
-                        //     // v0 = 観測者の動く速度
-                        //     // vs = 音源の動く速度
-                        //     // 距離を１ｍとする
-                        //
-                        // }
-                        // example,  safari for ios
-                        // if (typeof panner.positionY == 'undefined') {
-                        //     setTimeout(() => {
-                        //         linearRamp(0, dist, end - start, (value) => {
-                        //             panner.setPosition(0, value, 0)
-                        //         })
-                        //     }, leftTime + start)
-                        // } else {
-                        //     panner.positionY.linearRampToValueAtTime(0, ct + start / 1000)
-                        //     panner.positionY.linearRampToValueAtTime(dist, ct + end / 1000)
-                        // }
-                    })
-                    syncPlay.play(gainNode, syncNote)
-
-                    syncNote.finished(() => {
-                        callGyro = () => {}
-                        notificationButton.notificationText.innerHTML = '　'
-                    })
-                }
-
+            body.notes.forEach((note) => {
+                play(body, note, from, to)
             })
         })
-
-
     })
+
+    function play(body, note, from, to) {
+        syncNote = createSyncNote(note.sound, note.time, note.offset, note.duration)
+        let ev = body.editer || connect.get('editerValue')
+        if (!ev) {
+            ev = []
+        }
+
+        let gainNode = context.createGain()
+        gainNode.connect(context.destination)
+
+        let doppler = body.doppler
+
+        let consol = (t, duration) => {
+            htmlText.log.innerHTML = 'Volume[0-1]: ' + gainNode.gain.value.toFixed(4) + ',  Doppler: ' + syncNote.source.playbackRate.value.toFixed(4)
+            // gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
+            setTimeout(() => {
+                t += 100
+                if (t < duration) {
+                    consol(t, duration)
+                }
+            }, 100)
+        }
+
+        syncNote.started((leftTime) => {
+
+            // ms -> s
+            let duration = syncNote.duration / 1000
+            // ms -> s
+            let st = syncPlay.getCurrentTime() + leftTime / 1000
+            consol(0, syncNote.duration + leftTime)
+
+            // viewStart
+            connect.set('viewStart', {
+                duration: syncNote.duration,
+                leftTime: leftTime
+            })
+
+            let position = body.position || {}
+
+            ev.forEach((d, i) => {
+                let v = d.value
+                let t = d.div
+                if (from) {
+                    v = v
+                } else if (to) {
+                    v = 1 - v
+                }
+                if (i == 0) {
+                    gainNode.gain.value = v
+                }
+                gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
+
+                // s
+                // 0 - 1 -> 0.1
+                let interT = i >= 1 ? ev[i].div - ev[i - 1].div : ev[i].div
+                // 0 - duration -> duration * 0.1
+                interT *= duration
+                // m
+                let dist = position.d || 1
+
+
+                // m/s fromからtoに向かうときプラス方向
+                let vs = d.velocity * dist / duration
+                // km/h
+                // vs = vs * 60 * 60 / 1000
+                vs = vs * 3.6
+
+                // vcos
+                // 音源位置
+                // from 0[m] - dist[m] to
+                let meter = (1 - d.value) * dist
+                let ang = 0
+                let px = meter
+                let py = 0
+                if (position.target == 'from') {
+                    let lx = position.offsetX
+                    let ly = position.offsetY
+                    ang = Math.atan2(ly - py, lx - px)
+                }
+                if (position.target == 'to') {
+                    let lx = dist + position.offsetX
+                    let ly = position.offsetY
+                    ang = Math.atan2(ly - py, lx - px)
+                }
+
+                let rate = 340 / (340 - vs * Math.cos(ang))
+                if (i == 0) {
+                    gainNode.gain.value = rate
+                }
+                if (doppler && !isNaN(vs)) {
+                    syncNote.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t)
+                } else {
+                    syncNote.source.playbackRate.value = 1
+                }
+                // fromを自分とすると
+                // from 1 to 0
+                // マイナス方向が離れる
+                // v0 = 0 観測者は静止
+                // V = 340
+                // let rate = 340 / (340 - vs)
+                //
+                // // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
+                // // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
+            })
+        })
+        syncPlay.play(gainNode, syncNote)
+
+        syncNote.finished(() => {
+            notificationButton.notificationText.innerHTML = '　'
+        })
+    }
 
 
     // button
@@ -537,10 +375,12 @@ exports.start = (element, context, socket, clientTime, config) => {
         let toUserList = toList.getSelectUser()
         let fromUserList = fromList.getSelectUser()
         let soundName = radioButton.getSelected()
-        let pannerValues = pannerSlider.getValues()
-        let pannerDistance = distanceSlider.getValue()
+        // let pannerValues = pannerSlider.getValues()
+        // let pannerDistance = distanceSlider.getValue()
         let doppler = dopplerSwitch
         let editer = connect.get('editerValue')
+        let position = connect.get('positionValue')
+        console.log(position)
 
         console.log(toUserList)
         console.log(fromUserList)
@@ -551,46 +391,13 @@ exports.start = (element, context, socket, clientTime, config) => {
             from: fromUserList,
             to: toUserList,
             sound: soundName,
-            panner: pannerValues,
-            distance: pannerDistance,
+            // panner: pannerValues,
+            // distance: pannerDistance,
             doppler: doppler,
-            editer: editer
+            editer: editer,
+            position: position
         }
         console.log(body)
         socket.emit(socketDir + 'notification_common', body)
     }
-}
-
-
-let createPanner = (side = 'from') => {
-    var panner = context.createPanner()
-
-    // 指向性  Gainは減衰率  InterAngleは減衰しない範囲
-    panner.coneOuterGain = 0.1
-    panner.coneOuterAngle = 180
-    panner.coneInnerAngle = 30
-
-    // "linear" "inverse" "exponential"
-    panner.distanceModel = 'exponential'
-
-    // 基準距離
-    panner.refDistance = 1.0
-
-    // 最大距離
-    panner.maxDistance = 10000
-
-    panner.panningModel = 'equalpower'
-    // panner.panningModel = 'HRTF'
-
-    // x: 左右
-    // y: 上下  +が上
-    // z: 奥と手前  +が手前
-
-    // 音源　向かい合っている
-    // 音源の向き
-    // 音源の位置
-    panner.setPosition(0, 0, 0)
-    panner.setOrientation(0, 0, 1)
-
-    return panner
 }

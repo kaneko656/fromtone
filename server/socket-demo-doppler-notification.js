@@ -73,11 +73,8 @@ exports.start = (socket, disconnect, _serverTime) => {
                 emitAllClient(socketDir + 'surround_note', Object.assign({}, tempNote[name]))
                 delete noteClient[name]
                 delete tempNote[name]
-
             }
         }
-
-
         if (id in speakerList) {
             delete speakerList[id]
         }
@@ -101,6 +98,7 @@ exports.start = (socket, disconnect, _serverTime) => {
             to: body.to,
             doppler: body.doppler || false,
             editer: body.editer,
+            position: body.position,
             notes: [{
                 st: st,
                 time: st + 1500,

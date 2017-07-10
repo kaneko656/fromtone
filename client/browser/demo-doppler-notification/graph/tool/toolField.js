@@ -12,8 +12,9 @@ function Field(canvas) {
     this.h = canvas.height
 
     this.tool = []
-    this.selectToolNum = -1
-    this.selectToolMode = ''
+    this.selectToolNum = 0
+    this.selectToolMode = 'pointMove'
+    connect.set('toolMode', 'pointMove')
 
     let tw = this.h
     let th = this.h
