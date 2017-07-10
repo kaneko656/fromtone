@@ -25942,6 +25942,10 @@ function Bezier(p) {
     this.callMovedHead = () => {}
     this.callMovedTail = () => {}
 
+    this.limit = {
+        minW: 10
+    }
+
     // x,y anchorx,y anchorx,y x,y
     // length 8
     this.p = p
@@ -26041,6 +26045,14 @@ Bezier.prototype.separate = function(t) {
     let sepBezier = []
     sepBezier[0] = new Bezier([p[0], p[1], d1.x, d1.y, r1.x, r1.y, sep.x, sep.y])
     sepBezier[1] = new Bezier([sep.x, sep.y, r2.x, r2.y, d2.x, d2.y, p[6], p[7]])
+
+    let limit = this.limit
+    if (limit.minW) {
+        if (Math.abs(sepBezier[0].p[6] - sepBezier[0].p[0]) < limit.minW ||
+            Math.abs(sepBezier[1].p[6] - sepBezier[1].p[0]) < limit.minW) {
+            return false
+        }
+    }
     return sepBezier
 }
 
@@ -26055,9 +26067,24 @@ Bezier.prototype.divPoint = function(p4, t) {
     }
 }
 
-Bezier.prototype.move = function(pN, x, y, notCall) {
+Bezier.prototype.move = function(pN, x, y, notCall, callback = () => {}) {
     if (pN >= 0 && pN <= 3) {
         let p = this.p
+        let limit = this.limit
+        let res = null
+        if (limit.minW && pN == 0) {
+            if (p[6] - x < limit.minW) {
+                x = p[6] - limit.minW
+                res = true
+            }
+        }
+        if (limit.minW && pN == 3) {
+            if (x - p[0] < limit.minW) {
+                x = p[0] + limit.minW
+                res = true
+            }
+        }
+
         let dx = x - p[pN * 2]
         let dy = y - p[pN * 2 + 1]
         p[pN * 2] = x
@@ -26071,17 +26098,28 @@ Bezier.prototype.move = function(pN, x, y, notCall) {
             p[3] += dy
             this.setInnerPoint()
             if (!notCall) {
-                this.callMovedHead(obj)
+                this.callMovedHead(obj, (res) => {
+                    this.move(pN, res.x, res.y, true)
+                })
             }
         } else if (pN == 3) {
             p[4] += dx
             p[5] += dy
             this.setInnerPoint()
             if (!notCall) {
-                this.callMovedTail(obj)
+                this.callMovedTail(obj, (res) => {
+                    this.move(pN, res.x, res.y, true)
+                })
             }
         } else {
             this.setInnerPoint()
+        }
+
+        if (res) {
+            callback({
+                x: x,
+                y: y
+            })
         }
     }
 }
@@ -26090,7 +26128,9 @@ Bezier.prototype.onPoint = function(x, y, optionR) {
     let p = this.p
     let r = optionR || this.edgePointR
     r = r * r
-    for (let i = 0; i < 4; i++) {
+    let s = [1, 2, 0, 3]
+    for (let n = 0; n < 4; n++) {
+        let i = s[n]
         let px = p[i * 2]
         let py = p[i * 2 + 1]
         let d = (px - x) * (px - x) + (py - y) * (py - y)
@@ -26123,8 +26163,8 @@ Bezier.prototype.nearPoint = function(x, y) {
         let ip = []
         let min = nearP.t - a / 2 > 0 ? nearP.t - a / 2 : 0
         let max = nearP.t + a / 2 < 1 ? nearP.t + a / 2 : 1
-        min -= a/10
-        max += a/10
+        min -= a / 10
+        max += a / 10
         for (let t = min; t <= max; t += a * this.innerAccuracy) {
             let p = this.getBezierPoint(t)
             ip.push(p)
@@ -26158,8 +26198,8 @@ Bezier.prototype.getValue = function(x) {
         let ip = []
         let min = nearP.t - a / 2 > 0 ? nearP.t - a / 2 : 0
         let max = nearP.t + a / 2 < 1 ? nearP.t + a / 2 : 1
-        min -= a/10
-        max += a/10
+        min -= a / 10
+        max += a / 10
         for (let t = min; t <= max; t += a * this.innerAccuracy) {
             let p = this.getBezierPoint(t)
             ip.push(p)
@@ -26243,6 +26283,10 @@ function Field(canvas) {
     this.clientID = ''
     this.w = canvas.width
     this.h = canvas.height
+    this.minX = 50
+    this.maxX = this.w - 50
+    this.minY = 50
+    this.maxY = this.h - 50
 
     this.renderObject = {}
     this.tempRenderObject = []
@@ -26260,7 +26304,7 @@ function Field(canvas) {
     let h = this.h
 
     this.bezier = []
-    let b = Bezier([50, h / 2, w - 50, h / 2])
+    let b = Bezier([this.minX, this.maxY, this.maxX, this.minY])
     this.bezier.push(b)
 
     // this.bezier = b.separate(0.3)
@@ -26320,8 +26364,8 @@ Field.prototype.render = function() {
     // grid
     for (let r = 0; r <= 10; r += 1) {
         ctx.strokeStyle = 'rgba(0,0,0,0.1)'
-        let ww = (this.w-100)/10
-        this.line(ctx, 50 + r*ww, 0, 50+r*ww, this.h)
+        let ww = (this.w - 100) / 10
+        this.line(ctx, 50 + r * ww, 0, 50 + r * ww, this.h)
     }
     this.bezier.forEach((b, i) => {
         let isSelect = (i == selectBezier)
@@ -26401,7 +26445,6 @@ Field.prototype.mousePressed = function(x, y) {
         this.bezier.forEach((b, i) => {
             let inW = b.inW(x)
             if (inW) {
-                my.selectBezier = i
                 let p = b.nearPoint(x, y)
                 if (p.d <= 10) {
                     my.separate(i, p.t)
@@ -26414,10 +26457,9 @@ Field.prototype.mousePressed = function(x, y) {
 
 
 Field.prototype.mouseReleased = function(x, y) {
-    console.log(this.getValue(10))
     this.selectBezierPoint = -1
+    connect.set('editerValue', this.getValue(100))
     this.render()
-
 }
 
 Field.prototype.mouseMoved = function(x, y) {
@@ -26464,6 +26506,9 @@ Field.prototype.mouseMoved = function(x, y) {
 
 Field.prototype.separate = function(i, t) {
     let sepB = this.bezier[i].separate(t)
+    if (!sepB) {
+        return
+    }
     this.bezier.splice(i, 1, sepB[0], sepB[1])
 
     let my = this
@@ -26471,13 +26516,13 @@ Field.prototype.separate = function(i, t) {
         if (idx < 0 || idx >= my.bezier.length - 1) {
             return
         }
-        my.bezier[idx].callMovedTail = (e) => {
+        my.bezier[idx].callMovedTail = (e, callback) => {
             let notCall = true
-            my.bezier[idx + 1].move(0, e.x, e.y, notCall)
+            my.bezier[idx + 1].move(0, e.x, e.y, notCall, callback)
         }
-        my.bezier[idx + 1].callMovedHead = (e) => {
+        my.bezier[idx + 1].callMovedHead = (e, callback) => {
             let notCall = true
-            my.bezier[idx].move(3, e.x, e.y, notCall)
+            my.bezier[idx].move(3, e.x, e.y, notCall, callback)
         }
     }
     link(i - 1)
@@ -26494,7 +26539,9 @@ Field.prototype.getValue = function(divNum) {
     this.bezier.forEach((b, i) => {
         let mx = b.maxX
         for (divX; divX <= mx; divX += t) {
-            value.push(b.getValue(divX))
+            let v = b.getValue(divX)
+            v.div = (divX - minX) / (maxX - minX)
+            value.push(v)
         }
     })
     return value
@@ -26840,6 +26887,7 @@ let SelectList = require('./../demo-common/html/select-list.js')
 let gyro = require('./gyro.js')
 let SwitchButton = require('./html/switchButton.js')
 let graph = require('./graph/index.js')
+let connect = require('./graph/connect.js')
 
 // let Biquad = require('./biquad.js')
 
@@ -27127,17 +27175,7 @@ exports.start = (element, context, socket, clientTime, config) => {
 
             body.notes.forEach((nt) => {
 
-                let con = (t) => {
-                    htmlText.log.innerHTML = panner.positionY.value
-                    console.log(panner.positionY)
 
-                    setTimeout(() => {
-                        t += 100
-                        if (t < 3000) {
-                            con(t)
-                        }
-                    }, 100)
-                }
                 let linearRamp = (fromValue, toValue, time, callback, value, dif, passTime) => {
                     value = value ? value : fromValue
                     dif = dif ? dif : (toValue - fromValue) / (time / 10)
@@ -27155,89 +27193,118 @@ exports.start = (element, context, socket, clientTime, config) => {
                 if (from || to) {
                     syncNote = createSyncNote(nt.sound, nt.time, nt.offset, nt.duration)
                     // let panner = createIndividualPanner(nt.name)
+                    let ev = connect.get('editerValue')
+                    if (!ev) {
+                        ev = []
+                    }
+                    console.log(ev)
 
                     let gainNode = context.createGain()
-                    gainNode.gain.value = 0.0
+                    gainNode.gain.value = 0.5
                     gainNode.connect(context.destination)
+
+                    let con = (t) => {
+                        htmlText.log.innerHTML = gainNode.gain.value
+                        console.log(gainNode.gain.value)
+
+                        setTimeout(() => {
+                            t += 100
+                            if (t < 3000) {
+                                con(t)
+                            }
+                        }, 100)
+                    }
+
+
 
                     let dist = nt.distance || 30
                     // panner.setPosition(0, 0, 0)
 
                     syncNote.started((leftTime) => {
 
-                        let ct = syncPlay.getCurrentTime() + leftTime / 1000
-                        let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
-                        let start = startValue * syncNote.duration
-                        let endValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[1] / 100 : 0.8
-                        let end = endValue * syncNote.duration
+                      con(0)
+                      let duration = syncNote.duration / 1000
+                      let st = syncPlay.getCurrentTime() + leftTime / 1000
+                      ev.forEach((div) => {
+                          let v = div.y / 300
+                          let t = div.div
+                          gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
+                          console.log(v,duration)
+                      })
 
-                        console.log('from', 'start', start, 'end', end, 'dist', dist)
+                        // let ct = syncPlay.getCurrentTime() + leftTime / 1000
+                        // let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
+                        // let start = startValue * syncNote.duration
+                        // let endValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[1] / 100 : 0.8
+                        // let end = endValue * syncNote.duration
+
+                        // console.log('from', 'start', start, 'end', end, 'dist', dist)
 
                         // override
                         // gainNode  0(Mute) ~ 1(Default) ~
                         // GyroValue 手前 1 奥 0
 
-                        let pMillis = -1
-                        let pValue = -1
-                        callGyro = (value) => {
-                            let t = syncPlay.getCurrentTime() // sec
-                            let sinValue = Math.sin(Math.PI * 2 * (t - ct) / 30)
-                            value = sinValue / 2 + 0.5
-
-                            if (from) {
-                                gainNode.gain.value = value
-                            } else if (to) {
-                                gainNode.gain.value = 1 - value
-                            }
-                            // panner.setPosition(0, value * dist, 0)
-                            // console.log(gainNode.gain.value)
-
-                            if (pMillis == -1) {
-                                pMillis = Date.now()
-                                pValue = value
-                            } else {
-                                let millis = Date.now()
-                                let t = millis - pMillis
-                                let difV = value - pValue
-                                t = t == 0 ? 1 : t
-
-                                // m/ms
-                                // ２点間の距離を1mとする
-                                let vs = (difV / t)
-
-                                // km/h
-                                // vs = vs * 1000 * 60 * 60 / 1000
-                                vs = vs * 3600
-
-                                pMillis = millis
-                                pValue = value
-
-                                // fromを自分とすると
-                                // from 1 to 0
-                                // マイナス方向が離れる
-                                // v0 = 0 観測者は静止
-                                // V = 340
-                                let rate = 340 / (340 - vs)
-
-                                // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
-                                // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
-                                if (doppler) {
-                                    syncNote.source.playbackRate.value = rate
-                                    gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + rate.toFixed(4)
-                                } else {
-                                    syncNote.source.playbackRate.value = 1
-                                    gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', 1.0 '
-
-                                }
-                            }
-                            //
-                            // f' = f * ( (V - v0)/(V - vs) )
-                            // V = 音速 331.5 + 0.61t
-                            // v0 = 観測者の動く速度
-                            // vs = 音源の動く速度
-                            // 距離を１ｍとする
-
-                        }
+                        // let pMillis = -1
+                        // let pValue = -1
+                        // callGyro = (value) => {
+                        //     let t = syncPlay.getCurrentTime() // sec
+                        //     let sinValue = Math.sin(Math.PI * 2 * (t - ct) / 30)
+                        //     value = sinValue / 2 + 0.5
+                        //
+                        //     if (from) {
+                        //         gainNode.gain.value = value
+                        //     } else if (to) {
+                        //         gainNode.gain.value = 1 - value
+                        //     }
+                        //     // panner.setPosition(0, value * dist, 0)
+                        //     // console.log(gainNode.gain.value)
+                        //
+                        //     if (pMillis == -1) {
+                        //         pMillis = Date.now()
+                        //         pValue = value
+                        //     } else {
+                        //         let millis = Date.now()
+                        //         let t = millis - pMillis
+                        //         let difV = value - pValue
+                        //         t = t == 0 ? 1 : t
+                        //
+                        //         // m/ms
+                        //         // ２点間の距離を1mとする
+                        //         let vs = (difV / t)
+                        //
+                        //         // km/h
+                        //         // vs = vs * 1000 * 60 * 60 / 1000
+                        //         vs = vs * 3600
+                        //
+                        //         pMillis = millis
+                        //         pValue = value
+                        //
+                        //         // fromを自分とすると
+                        //         // from 1 to 0
+                        //         // マイナス方向が離れる
+                        //         // v0 = 0 観測者は静止
+                        //         // V = 340
+                        //         let rate = 340 / (340 - vs)
+                        //
+                        //         // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
+                        //         // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
+                        //         if (doppler) {
+                        //             syncNote.source.playbackRate.value = rate
+                        //             gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + rate.toFixed(4)
+                        //         } else {
+                        //             syncNote.source.playbackRate.value = 1
+                        //             gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', 1.0 '
+                        //
+                        //         }
+                        //     }
+                        //     //
+                        //     // f' = f * ( (V - v0)/(V - vs) )
+                        //     // V = 音速 331.5 + 0.61t
+                        //     // v0 = 観測者の動く速度
+                        //     // vs = 音源の動く速度
+                        //     // 距離を１ｍとする
+                        //
+                        // }
                         // example,  safari for ios
                         // if (typeof panner.positionY == 'undefined') {
                         //     setTimeout(() => {
@@ -27344,7 +27411,7 @@ let createPanner = (side = 'from') => {
     return panner
 }
 
-},{"./../demo-common/html/button-notification.js":177,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./../demo-common/html/select-list.js":180,"./../demo-common/html/slider-single.js":181,"./../demo-common/html/slider.js":182,"./../exCall-module/config":224,"./canvas/field.js":185,"./canvas/icon-note.js":186,"./canvas/icon-speaker.js":187,"./graph/index.js":192,"./gyro.js":195,"./html/html-text.js":196,"./html/switchButton.js":197,"./sync-play.js":199,"node-uuid":264}],199:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":177,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./../demo-common/html/select-list.js":180,"./../demo-common/html/slider-single.js":181,"./../demo-common/html/slider.js":182,"./../exCall-module/config":224,"./canvas/field.js":185,"./canvas/icon-note.js":186,"./canvas/icon-speaker.js":187,"./graph/connect.js":189,"./graph/index.js":192,"./gyro.js":195,"./html/html-text.js":196,"./html/switchButton.js":197,"./sync-play.js":199,"node-uuid":264}],199:[function(require,module,exports){
 arguments[4][153][0].apply(exports,arguments)
 },{"dup":153}],200:[function(require,module,exports){
 arguments[4][154][0].apply(exports,arguments)

@@ -15,6 +15,7 @@ let SelectList = require('./../demo-common/html/select-list.js')
 let gyro = require('./gyro.js')
 let SwitchButton = require('./html/switchButton.js')
 let graph = require('./graph/index.js')
+let connect = require('./graph/connect.js')
 
 // let Biquad = require('./biquad.js')
 
@@ -302,17 +303,7 @@ exports.start = (element, context, socket, clientTime, config) => {
 
             body.notes.forEach((nt) => {
 
-                let con = (t) => {
-                    htmlText.log.innerHTML = panner.positionY.value
-                    console.log(panner.positionY)
 
-                    setTimeout(() => {
-                        t += 100
-                        if (t < 3000) {
-                            con(t)
-                        }
-                    }, 100)
-                }
                 let linearRamp = (fromValue, toValue, time, callback, value, dif, passTime) => {
                     value = value ? value : fromValue
                     dif = dif ? dif : (toValue - fromValue) / (time / 10)
@@ -330,89 +321,118 @@ exports.start = (element, context, socket, clientTime, config) => {
                 if (from || to) {
                     syncNote = createSyncNote(nt.sound, nt.time, nt.offset, nt.duration)
                     // let panner = createIndividualPanner(nt.name)
+                    let ev = connect.get('editerValue')
+                    if (!ev) {
+                        ev = []
+                    }
+                    console.log(ev)
 
                     let gainNode = context.createGain()
-                    gainNode.gain.value = 0.0
+                    gainNode.gain.value = 0.5
                     gainNode.connect(context.destination)
+
+                    let con = (t) => {
+                        htmlText.log.innerHTML = gainNode.gain.value
+                        console.log(gainNode.gain.value)
+
+                        setTimeout(() => {
+                            t += 100
+                            if (t < 3000) {
+                                con(t)
+                            }
+                        }, 100)
+                    }
+
+
 
                     let dist = nt.distance || 30
                     // panner.setPosition(0, 0, 0)
 
                     syncNote.started((leftTime) => {
 
-                        let ct = syncPlay.getCurrentTime() + leftTime / 1000
-                        let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
-                        let start = startValue * syncNote.duration
-                        let endValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[1] / 100 : 0.8
-                        let end = endValue * syncNote.duration
+                      con(0)
+                      let duration = syncNote.duration / 1000
+                      let st = syncPlay.getCurrentTime() + leftTime / 1000
+                      ev.forEach((div) => {
+                          let v = div.y / 300
+                          let t = div.div
+                          gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
+                          console.log(v,duration)
+                      })
 
-                        console.log('from', 'start', start, 'end', end, 'dist', dist)
+                        // let ct = syncPlay.getCurrentTime() + leftTime / 1000
+                        // let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
+                        // let start = startValue * syncNote.duration
+                        // let endValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[1] / 100 : 0.8
+                        // let end = endValue * syncNote.duration
+
+                        // console.log('from', 'start', start, 'end', end, 'dist', dist)
 
                         // override
                         // gainNode  0(Mute) ~ 1(Default) ~
                         // GyroValue 手前 1 奥 0
 
-                        let pMillis = -1
-                        let pValue = -1
-                        callGyro = (value) => {
-                            let t = syncPlay.getCurrentTime() // sec
-                            let sinValue = Math.sin(Math.PI * 2 * (t - ct) / 30)
-                            value = sinValue / 2 + 0.5
-
-                            if (from) {
-                                gainNode.gain.value = value
-                            } else if (to) {
-                                gainNode.gain.value = 1 - value
-                            }
-                            // panner.setPosition(0, value * dist, 0)
-                            // console.log(gainNode.gain.value)
-
-                            if (pMillis == -1) {
-                                pMillis = Date.now()
-                                pValue = value
-                            } else {
-                                let millis = Date.now()
-                                let t = millis - pMillis
-                                let difV = value - pValue
-                                t = t == 0 ? 1 : t
-
-                                // m/ms
-                                // ２点間の距離を1mとする
-                                let vs = (difV / t)
-
-                                // km/h
-                                // vs = vs * 1000 * 60 * 60 / 1000
-                                vs = vs * 3600
-
-                                pMillis = millis
-                                pValue = value
-
-                                // fromを自分とすると
-                                // from 1 to 0
-                                // マイナス方向が離れる
-                                // v0 = 0 観測者は静止
-                                // V = 340
-                                let rate = 340 / (340 - vs)
-
-                                // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
-                                // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
-                                if (doppler) {
-                                    syncNote.source.playbackRate.value = rate
-                                    gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + rate.toFixed(4)
-                                } else {
-                                    syncNote.source.playbackRate.value = 1
-                                    gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', 1.0 '
-
-                                }
-                            }
-                            //
-                            // f' = f * ( (V - v0)/(V - vs) )
-                            // V = 音速 331.5 + 0.61t
-                            // v0 = 観測者の動く速度
-                            // vs = 音源の動く速度
-                            // 距離を１ｍとする
-
-                        }
+                        // let pMillis = -1
+                        // let pValue = -1
+                        // callGyro = (value) => {
+                        //     let t = syncPlay.getCurrentTime() // sec
+                        //     let sinValue = Math.sin(Math.PI * 2 * (t - ct) / 30)
+                        //     value = sinValue / 2 + 0.5
+                        //
+                        //     if (from) {
+                        //         gainNode.gain.value = value
+                        //     } else if (to) {
+                        //         gainNode.gain.value = 1 - value
+                        //     }
+                        //     // panner.setPosition(0, value * dist, 0)
+                        //     // console.log(gainNode.gain.value)
+                        //
+                        //     if (pMillis == -1) {
+                        //         pMillis = Date.now()
+                        //         pValue = value
+                        //     } else {
+                        //         let millis = Date.now()
+                        //         let t = millis - pMillis
+                        //         let difV = value - pValue
+                        //         t = t == 0 ? 1 : t
+                        //
+                        //         // m/ms
+                        //         // ２点間の距離を1mとする
+                        //         let vs = (difV / t)
+                        //
+                        //         // km/h
+                        //         // vs = vs * 1000 * 60 * 60 / 1000
+                        //         vs = vs * 3600
+                        //
+                        //         pMillis = millis
+                        //         pValue = value
+                        //
+                        //         // fromを自分とすると
+                        //         // from 1 to 0
+                        //         // マイナス方向が離れる
+                        //         // v0 = 0 観測者は静止
+                        //         // V = 340
+                        //         let rate = 340 / (340 - vs)
+                        //
+                        //         // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
+                        //         // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
+                        //         if (doppler) {
+                        //             syncNote.source.playbackRate.value = rate
+                        //             gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + rate.toFixed(4)
+                        //         } else {
+                        //             syncNote.source.playbackRate.value = 1
+                        //             gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', 1.0 '
+                        //
+                        //         }
+                        //     }
+                        //     //
+                        //     // f' = f * ( (V - v0)/(V - vs) )
+                        //     // V = 音速 331.5 + 0.61t
+                        //     // v0 = 観測者の動く速度
+                        //     // vs = 音源の動く速度
+                        //     // 距離を１ｍとする
+                        //
+                        // }
                         // example,  safari for ios
                         // if (typeof panner.positionY == 'undefined') {
                         //     setTimeout(() => {

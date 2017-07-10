@@ -11,6 +11,10 @@ function Field(canvas) {
     this.clientID = ''
     this.w = canvas.width
     this.h = canvas.height
+    this.minX = 50
+    this.maxX = this.w - 50
+    this.minY = 50
+    this.maxY = this.h - 50
 
     this.renderObject = {}
     this.tempRenderObject = []
@@ -28,7 +32,7 @@ function Field(canvas) {
     let h = this.h
 
     this.bezier = []
-    let b = Bezier([50, h / 2, w - 50, h / 2])
+    let b = Bezier([this.minX, this.maxY, this.maxX, this.minY])
     this.bezier.push(b)
 
     // this.bezier = b.separate(0.3)
@@ -88,8 +92,8 @@ Field.prototype.render = function() {
     // grid
     for (let r = 0; r <= 10; r += 1) {
         ctx.strokeStyle = 'rgba(0,0,0,0.1)'
-        let ww = (this.w-100)/10
-        this.line(ctx, 50 + r*ww, 0, 50+r*ww, this.h)
+        let ww = (this.w - 100) / 10
+        this.line(ctx, 50 + r * ww, 0, 50 + r * ww, this.h)
     }
     this.bezier.forEach((b, i) => {
         let isSelect = (i == selectBezier)
@@ -169,7 +173,6 @@ Field.prototype.mousePressed = function(x, y) {
         this.bezier.forEach((b, i) => {
             let inW = b.inW(x)
             if (inW) {
-                my.selectBezier = i
                 let p = b.nearPoint(x, y)
                 if (p.d <= 10) {
                     my.separate(i, p.t)
@@ -182,10 +185,9 @@ Field.prototype.mousePressed = function(x, y) {
 
 
 Field.prototype.mouseReleased = function(x, y) {
-    console.log(this.getValue(10))
     this.selectBezierPoint = -1
+    connect.set('editerValue', this.getValue(100))
     this.render()
-
 }
 
 Field.prototype.mouseMoved = function(x, y) {
@@ -232,6 +234,9 @@ Field.prototype.mouseMoved = function(x, y) {
 
 Field.prototype.separate = function(i, t) {
     let sepB = this.bezier[i].separate(t)
+    if (!sepB) {
+        return
+    }
     this.bezier.splice(i, 1, sepB[0], sepB[1])
 
     let my = this
@@ -239,13 +244,13 @@ Field.prototype.separate = function(i, t) {
         if (idx < 0 || idx >= my.bezier.length - 1) {
             return
         }
-        my.bezier[idx].callMovedTail = (e) => {
+        my.bezier[idx].callMovedTail = (e, callback) => {
             let notCall = true
-            my.bezier[idx + 1].move(0, e.x, e.y, notCall)
+            my.bezier[idx + 1].move(0, e.x, e.y, notCall, callback)
         }
-        my.bezier[idx + 1].callMovedHead = (e) => {
+        my.bezier[idx + 1].callMovedHead = (e, callback) => {
             let notCall = true
-            my.bezier[idx].move(3, e.x, e.y, notCall)
+            my.bezier[idx].move(3, e.x, e.y, notCall, callback)
         }
     }
     link(i - 1)
@@ -262,7 +267,9 @@ Field.prototype.getValue = function(divNum) {
     this.bezier.forEach((b, i) => {
         let mx = b.maxX
         for (divX; divX <= mx; divX += t) {
-            value.push(b.getValue(divX))
+            let v = b.getValue(divX)
+            v.div = (divX - minX) / (maxX - minX)
+            value.push(v)
         }
     })
     return value

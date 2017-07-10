@@ -6,6 +6,10 @@ function Bezier(p) {
     this.callMovedHead = () => {}
     this.callMovedTail = () => {}
 
+    this.limit = {
+        minW: 10
+    }
+
     // x,y anchorx,y anchorx,y x,y
     // length 8
     this.p = p
@@ -105,6 +109,14 @@ Bezier.prototype.separate = function(t) {
     let sepBezier = []
     sepBezier[0] = new Bezier([p[0], p[1], d1.x, d1.y, r1.x, r1.y, sep.x, sep.y])
     sepBezier[1] = new Bezier([sep.x, sep.y, r2.x, r2.y, d2.x, d2.y, p[6], p[7]])
+
+    let limit = this.limit
+    if (limit.minW) {
+        if (Math.abs(sepBezier[0].p[6] - sepBezier[0].p[0]) < limit.minW ||
+            Math.abs(sepBezier[1].p[6] - sepBezier[1].p[0]) < limit.minW) {
+            return false
+        }
+    }
     return sepBezier
 }
 
@@ -119,9 +131,24 @@ Bezier.prototype.divPoint = function(p4, t) {
     }
 }
 
-Bezier.prototype.move = function(pN, x, y, notCall) {
+Bezier.prototype.move = function(pN, x, y, notCall, callback = () => {}) {
     if (pN >= 0 && pN <= 3) {
         let p = this.p
+        let limit = this.limit
+        let res = null
+        if (limit.minW && pN == 0) {
+            if (p[6] - x < limit.minW) {
+                x = p[6] - limit.minW
+                res = true
+            }
+        }
+        if (limit.minW && pN == 3) {
+            if (x - p[0] < limit.minW) {
+                x = p[0] + limit.minW
+                res = true
+            }
+        }
+
         let dx = x - p[pN * 2]
         let dy = y - p[pN * 2 + 1]
         p[pN * 2] = x
@@ -135,17 +162,28 @@ Bezier.prototype.move = function(pN, x, y, notCall) {
             p[3] += dy
             this.setInnerPoint()
             if (!notCall) {
-                this.callMovedHead(obj)
+                this.callMovedHead(obj, (res) => {
+                    this.move(pN, res.x, res.y, true)
+                })
             }
         } else if (pN == 3) {
             p[4] += dx
             p[5] += dy
             this.setInnerPoint()
             if (!notCall) {
-                this.callMovedTail(obj)
+                this.callMovedTail(obj, (res) => {
+                    this.move(pN, res.x, res.y, true)
+                })
             }
         } else {
             this.setInnerPoint()
+        }
+
+        if (res) {
+            callback({
+                x: x,
+                y: y
+            })
         }
     }
 }
@@ -154,7 +192,9 @@ Bezier.prototype.onPoint = function(x, y, optionR) {
     let p = this.p
     let r = optionR || this.edgePointR
     r = r * r
-    for (let i = 0; i < 4; i++) {
+    let s = [1, 2, 0, 3]
+    for (let n = 0; n < 4; n++) {
+        let i = s[n]
         let px = p[i * 2]
         let py = p[i * 2 + 1]
         let d = (px - x) * (px - x) + (py - y) * (py - y)
@@ -187,8 +227,8 @@ Bezier.prototype.nearPoint = function(x, y) {
         let ip = []
         let min = nearP.t - a / 2 > 0 ? nearP.t - a / 2 : 0
         let max = nearP.t + a / 2 < 1 ? nearP.t + a / 2 : 1
-        min -= a/10
-        max += a/10
+        min -= a / 10
+        max += a / 10
         for (let t = min; t <= max; t += a * this.innerAccuracy) {
             let p = this.getBezierPoint(t)
             ip.push(p)
@@ -222,8 +262,8 @@ Bezier.prototype.getValue = function(x) {
         let ip = []
         let min = nearP.t - a / 2 > 0 ? nearP.t - a / 2 : 0
         let max = nearP.t + a / 2 < 1 ? nearP.t + a / 2 : 1
-        min -= a/10
-        max += a/10
+        min -= a / 10
+        max += a / 10
         for (let t = min; t <= max; t += a * this.innerAccuracy) {
             let p = this.getBezierPoint(t)
             ip.push(p)

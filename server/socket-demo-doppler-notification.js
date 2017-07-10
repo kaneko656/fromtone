@@ -101,6 +101,7 @@ exports.start = (socket, disconnect, _serverTime) => {
             from: body.from,
             to: body.to,
             doppler: body.doppler || false,
+            editer: body.editer,
             notes: [{
                 st: st,
                 time: st + 1500,
