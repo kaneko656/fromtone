@@ -25943,7 +25943,7 @@ function Bezier(p) {
     this.callMovedTail = () => {}
 
     this.limit = {
-        minW: 10
+        minW: 30
     }
 
     // x,y anchorx,y anchorx,y x,y
@@ -25964,6 +25964,7 @@ function Bezier(p) {
     this.setInnerPoint()
     this.minX = p[0] < p[6] ? p[0] : p[6]
     this.maxX = p[0] > p[6] ? p[0] : p[6]
+    this.tCoeValue = this.tCoe()
 
     this.edgePointR = 5
 
@@ -26056,6 +26057,20 @@ Bezier.prototype.separate = function(t) {
     return sepBezier
 }
 
+// Bezier.prototype.pointVelocity = function(t) {
+//     let tCoe = this.tCoe()
+//     let diffXt = 3 * tCoe.x[3] * t * t + 2 * tCoe.x[2] * t + tCoe.x[1]
+//     let diffYt = 3 * tCoe.y[3] * t * t + 2 * tCoe.y[2] * t + tCoe.y[1]
+//     return diffYt / diffXt
+// }
+
+Bezier.prototype.getVelocity = function(t) {
+    let tCoe = this.tCoeValue
+    let diffXt = 3 * tCoe.x[3] * t * t + 2 * tCoe.x[2] * t + tCoe.x[1]
+    let diffYt = 3 * tCoe.y[3] * t * t + 2 * tCoe.y[2] * t + tCoe.y[1]
+    return diffYt / diffXt
+}
+
 Bezier.prototype.divPoint = function(p4, t) {
     let mt = 1 - t
     let x = mt * p4[0] + t * p4[2]
@@ -26072,15 +26087,23 @@ Bezier.prototype.move = function(pN, x, y, notCall, callback = () => {}) {
         let p = this.p
         let limit = this.limit
         let res = null
-        if (limit.minW && pN == 0) {
-            if (p[6] - x < limit.minW) {
+        if (pN == 0) {
+            if (limit.minW && p[6] - x < limit.minW) {
                 x = p[6] - limit.minW
+                res = true
+            }
+            if (limit.minX && x < limit.minX) {
+                x = limit.minX
                 res = true
             }
         }
         if (limit.minW && pN == 3) {
             if (x - p[0] < limit.minW) {
                 x = p[0] + limit.minW
+                res = true
+            }
+            if (limit.maxX && x > limit.maxX) {
+                x = limit.maxX
                 res = true
             }
         }
@@ -26220,6 +26243,7 @@ Bezier.prototype.setInnerPoint = function() {
     let p = this.p
     this.minX = p[0] < p[6] ? p[0] : p[6]
     this.maxX = p[0] > p[6] ? p[0] : p[6]
+    this.tCoeValue = this.tCoe()
     this.innerPoint = []
     for (let t = 0; t <= 1; t += this.innerAccuracy) {
         let p = this.getBezierPoint(t)
@@ -26291,6 +26315,8 @@ function Field(canvas) {
     this.renderObject = {}
     this.tempRenderObject = []
 
+    this.viewValue = []
+
     this.selectBezier = -1
     this.selectBezierPoint = -1
 
@@ -26305,6 +26331,8 @@ function Field(canvas) {
 
     this.bezier = []
     let b = Bezier([this.minX, this.maxY, this.maxX, this.minY])
+    b.limit['minX'] = this.minX
+    b.limit['maxX'] = this.maxX
     this.bezier.push(b)
 
     // this.bezier = b.separate(0.3)
@@ -26349,6 +26377,14 @@ function Field(canvas) {
         field.mouseReleased(x, y)
         return false
     })
+
+    connect.set('editerValue', this.getValue(100))
+
+    connect.on('viewStart', (res) => {
+        // duration 3000/20 = 150
+        let divNum = res.duration / 20
+        field.viewStart(divNum, res.duration / divNum, res.leftTime)
+    })
 }
 
 
@@ -26367,6 +26403,41 @@ Field.prototype.render = function() {
         let ww = (this.w - 100) / 10
         this.line(ctx, 50 + r * ww, 0, 50 + r * ww, this.h)
     }
+    // min max Line
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)'
+    this.line(ctx, this.minX, this.minY, this.maxX, this.minY)
+    this.line(ctx, this.minX, this.maxY, this.maxX, this.maxY)
+    this.line(ctx, this.minX, 0, this.minX, this.h)
+    this.line(ctx, this.maxX, 0, this.maxX, this.h)
+
+    //
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    ctx.fillStyle = 'rgba(0,0,0,1.0)'
+    ctx.save()
+    ctx.translate(20, this.maxY)
+    ctx.scale(1.5, 1.5)
+    ctx.fillText('From', 0, 0)
+    ctx.restore()
+    ctx.save()
+    ctx.translate(20, this.minY)
+    ctx.scale(1.5, 1.5)
+    ctx.fillText('To', 0, 0)
+    ctx.restore()
+    ctx.save()
+    ctx.textAlign = "left"
+    ctx.translate(this.minX + 4, this.maxY + 20)
+    ctx.scale(1.5, 1.5)
+    ctx.fillText('Start', 0, 0)
+    ctx.restore()
+    ctx.save()
+    ctx.textAlign = "right"
+    ctx.translate(this.maxX - 4, this.maxY + 20)
+    ctx.scale(1.5, 1.5)
+    ctx.fillText('End', 0, 0)
+    ctx.restore()
+
+    // bezier curve
     this.bezier.forEach((b, i) => {
         let isSelect = (i == selectBezier)
         if (isSelect) {
@@ -26378,6 +26449,7 @@ Field.prototype.render = function() {
         b.render(ctx, isSelect)
     })
 
+    // interval point on bezier
     let a = this.getValue(10)
     a.forEach((p) => {
         ctx.beginPath()
@@ -26425,7 +26497,7 @@ Field.prototype.mousePressed = function(x, y) {
         this.bezier.forEach((b, i) => {
             let inW = b.inW(x)
             if (inW || i == tempSelectBezier) {
-                let onP = b.onPoint(x, y, 7)
+                let onP = b.onPoint(x, y, 20)
                 if (onP && !select) {
                     my.selectBezier = i
                     my.selectBezierPoint = onP.pointID
@@ -26446,7 +26518,7 @@ Field.prototype.mousePressed = function(x, y) {
             let inW = b.inW(x)
             if (inW) {
                 let p = b.nearPoint(x, y)
-                if (p.d <= 10) {
+                if (p.d <= 20) {
                     my.separate(i, p.t)
                 }
             }
@@ -26471,7 +26543,7 @@ Field.prototype.mouseMoved = function(x, y) {
     if (mode == 'pointMove' && selectBezier >= 0) {
         let b = this.bezier[selectBezier]
         b.move(selectBezierPoint, x, y)
-        let onP = b.onPoint(x, y, 10)
+        let onP = b.onPoint(x, y, 20)
         if (onP) {
             onP.r = 7
             onP.type = 'ellipse'
@@ -26491,8 +26563,8 @@ Field.prototype.mouseMoved = function(x, y) {
             let inW = b.inW(x)
             if (inW) {
                 let p = b.nearPoint(x, y)
-                if (p.d <= 10) {
-                    p.r = 5
+                if (p.d <= 20) {
+                    p.r = 7
                     p.type = 'ellipse'
                     p.fillStyle = 'rgba(250,150,155,1.0)'
                     my.tempRenderObject.push(p)
@@ -26510,6 +26582,10 @@ Field.prototype.separate = function(i, t) {
         return
     }
     this.bezier.splice(i, 1, sepB[0], sepB[1])
+    for (let n = 0; n < 2; n++) {
+        sepB[n].limit['minX'] = this.minX
+        sepB[n].limit['maxX'] = this.maxX
+    }
 
     let my = this
     let link = (idx) => {
@@ -26533,19 +26609,57 @@ Field.prototype.separate = function(i, t) {
 Field.prototype.getValue = function(divNum) {
     let minX = this.bezier[0].minX
     let maxX = this.bezier[this.bezier.length - 1].maxX
-    let t = (maxX - minX) / divNum
+    let h = this.maxY - this.minY
+    let w = this.maxX - this.minX
+    let t = w / divNum
     let divX = minX
     let value = []
+    let my = this
     this.bezier.forEach((b, i) => {
         let mx = b.maxX
         for (divX; divX <= mx; divX += t) {
+            if (divX < b.minX) {
+                continue
+            }
             let v = b.getValue(divX)
-            v.div = (divX - minX) / (maxX - minX)
+            let velocity = b.getVelocity(v.t)
+            velocity = velocity * (w / h)
+            // x,y,t
+            v.value = (v.y - my.minY) / (my.maxY - my.minY)
+            v.div = (divX - this.minX) / w
+            v.velocity = velocity
             value.push(v)
         }
     })
     return value
 }
+
+Field.prototype.viewStart = function(divNum, per, leftTime) {
+    this.viewValue = this.getValue(divNum)
+    let viewCon = (num) => {
+        setTimeout(() => {
+            if (num < divNum) {
+                this.view(num)
+                viewCon(num + 1)
+            }
+        }, per)
+    }
+    setTimeout(() => {
+        viewCon(0)
+    }, leftTime)
+}
+
+Field.prototype.view = function(num) {
+    if (this.viewValue[num]) {
+        let obj = this.viewValue[num]
+        obj.r = 7
+        obj.type = 'ellipse'
+        obj.fillStyle = 'rgba(50,50,255,0.5)'
+        this.tempRenderObject.push(obj)
+        this.render()
+    }
+}
+
 
 Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.beginPath()
@@ -26663,22 +26777,25 @@ function Field(canvas) {
         let cx = tool.x + tool.w / 2
         let cy = tool.y + tool.h / 2
         let r = tool.w / 5
-
-        ctx.beginPath()
-        ctx.strokeStyle = 'rgba(150,150,150,1)'
-        ctx.arc(cx - r * 1.5, cy, r / 2, 0, Math.PI * 2)
-        ctx.stroke()
+        //
+        // ctx.beginPath()
+        // ctx.strokeStyle = 'rgba(150,150,150,1)'
+        // ctx.arc(cx - r * 1.5, cy, r / 2, 0, Math.PI * 2)
+        // ctx.stroke()
 
         ctx.beginPath()
         ctx.fillStyle = 'rgba(50,50,50,1)'
-        ctx.arc(cx + r * 1.5, cy, r / 2, 0, Math.PI * 2)
+        ctx.arc(cx, cy, r / 2, 0, Math.PI * 2)
         ctx.fill()
 
-        ctx.strokeStyle = 'rgba(50,50,50,1)'
-        tool.line(ctx, cx - r / 2, cy, cx + r / 2, cy)
-        tool.line(ctx, cx + r / 2, cy, cx + r / 2 - r / 3, cy - r / 3)
-        tool.line(ctx, cx + r / 2, cy, cx + r / 2 - r / 3, cy + r / 3)
-
+        ctx.translate(cx, cy)
+        for (let rot = 0; rot < 4; rot++) {
+            ctx.rotate(Math.PI / 2)
+            ctx.strokeStyle = 'rgba(50,50,50,1)'
+            tool.line(ctx, r, 0, r * 2, 0)
+            tool.line(ctx, r * 2, 0, r * 2 - r / 3, - r / 3)
+            tool.line(ctx, r * 2, 0, r * 2 - r / 3, r / 3)
+        }
         ctx.restore()
     }
 
@@ -26891,8 +27008,8 @@ let connect = require('./graph/connect.js')
 
 // let Biquad = require('./biquad.js')
 
-let socketDir = 'demo_accel_notification_'
-let socketType = 'demo_accel_notification'
+let socketDir = 'demo_doppler_notification_'
+let socketType = 'demo_doppler_notification'
 
 let config = require('./../exCall-module/config')
 
@@ -27176,61 +27293,115 @@ exports.start = (element, context, socket, clientTime, config) => {
             body.notes.forEach((nt) => {
 
 
-                let linearRamp = (fromValue, toValue, time, callback, value, dif, passTime) => {
-                    value = value ? value : fromValue
-                    dif = dif ? dif : (toValue - fromValue) / (time / 10)
-                    passTime = passTime ? passTime : 0
-                    setTimeout(() => {
-                        callback(value)
-                        value += dif
-                        passTime += 10
-                        if (passTime < time) {
-                            linearRamp(fromValue, toValue, time, callback, value, dif, passTime)
-                        }
-                    }, 10)
-                }
+                // let linearRamp = (fromValue, toValue, time, callback, value, dif, passTime) => {
+                //     value = value ? value : fromValue
+                //     dif = dif ? dif : (toValue - fromValue) / (time / 10)
+                //     passTime = passTime ? passTime : 0
+                //     setTimeout(() => {
+                //         callback(value)
+                //         value += dif
+                //         passTime += 10
+                //         if (passTime < time) {
+                //             linearRamp(fromValue, toValue, time, callback, value, dif, passTime)
+                //         }
+                //     }, 10)
+                // }
 
                 if (from || to) {
                     syncNote = createSyncNote(nt.sound, nt.time, nt.offset, nt.duration)
                     // let panner = createIndividualPanner(nt.name)
-                    let ev = connect.get('editerValue')
+                    let ev = body.editer || connect.get('editerValue')
                     if (!ev) {
                         ev = []
                     }
-                    console.log(ev)
+                    console.log(body.editer)
 
                     let gainNode = context.createGain()
-                    gainNode.gain.value = 0.5
                     gainNode.connect(context.destination)
 
-                    let con = (t) => {
-                        htmlText.log.innerHTML = gainNode.gain.value
-                        console.log(gainNode.gain.value)
-
+                    let con = (t, duration) => {
+                        htmlText.log.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
+                        // gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
+                        console.log(t)
                         setTimeout(() => {
                             t += 100
-                            if (t < 3000) {
-                                con(t)
+                            if (t < duration) {
+                                con(t, duration)
                             }
                         }, 100)
                     }
 
-
-
-                    let dist = nt.distance || 30
+                    // let dist = nt.distance || 30
                     // panner.setPosition(0, 0, 0)
 
                     syncNote.started((leftTime) => {
 
-                      con(0)
-                      let duration = syncNote.duration / 1000
-                      let st = syncPlay.getCurrentTime() + leftTime / 1000
-                      ev.forEach((div) => {
-                          let v = div.y / 300
-                          let t = div.div
-                          gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
-                          console.log(v,duration)
-                      })
+                        // ms -> s
+                        let duration = syncNote.duration / 1000
+                        // ms -> s
+                        let st = syncPlay.getCurrentTime() + leftTime / 1000
+                        con(0, syncNote.duration + leftTime)
+
+                        // viewStart
+                        connect.set('viewStart', {
+                            duration: syncNote.duration,
+                            leftTime: leftTime
+                        })
+
+                        ev.forEach((d, i) => {
+                            let v = d.value
+                            let t = d.div
+                            if (from) {
+                                v = v
+                            } else if (to) {
+                                v = 1 - v
+                            }
+                            if (i == 0) {
+                                gainNode.gain.value = v
+                            }
+                            gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
+
+                            // s
+                            // 0 - 1 -> 0.1
+                            let interT = i >= 1 ? ev[i].div - ev[i - 1].div : ev[i].div
+                            // 0 - duration -> duration * 0.1
+                            interT *= duration
+                            // m
+                            let dist = 1
+
+                            // m/s
+                            let vs = d.velocity * dist / duration
+                            // km/h
+                            // vs = vs * 60 * 60 / 1000
+                            vs = vs * 3.6
+
+                            let rate = 340 / (340 - vs)
+                            if (i == 0) {
+                                gainNode.gain.value = rate
+                            }
+                            if (doppler && !isNaN(vs)) {
+                                syncNote.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t)
+                            } else {
+                                syncNote.source.playbackRate.value = 1
+                            }
+                            // fromを自分とすると
+                            // from 1 to 0
+                            // マイナス方向が離れる
+                            // v0 = 0 観測者は静止
+                            // V = 340
+                            // let rate = 340 / (340 - vs)
+                            //
+                            // // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
+                            // // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
+                            // if (doppler) {
+                            //     syncNote.source.playbackRate.value = rate
+                            //     gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + rate.toFixed(4)
+                            // } else {
+                            //     syncNote.source.playbackRate.value = 1
+                            //     gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', 1.0 '
+                            //
+                            // }
+                        })
 
                         // let ct = syncPlay.getCurrentTime() + leftTime / 1000
                         // let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
@@ -27358,6 +27529,7 @@ exports.start = (element, context, socket, clientTime, config) => {
         let pannerValues = pannerSlider.getValues()
         let pannerDistance = distanceSlider.getValue()
         let doppler = dopplerSwitch
+        let editer = connect.get('editerValue')
 
         console.log(toUserList)
         console.log(fromUserList)
@@ -27370,7 +27542,8 @@ exports.start = (element, context, socket, clientTime, config) => {
             sound: soundName,
             panner: pannerValues,
             distance: pannerDistance,
-            doppler: doppler
+            doppler: doppler,
+            editer: editer
         }
         console.log(body)
         socket.emit(socketDir + 'notification_common', body)

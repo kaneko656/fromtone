@@ -7,7 +7,7 @@ function Bezier(p) {
     this.callMovedTail = () => {}
 
     this.limit = {
-        minW: 10
+        minW: 30
     }
 
     // x,y anchorx,y anchorx,y x,y
@@ -28,6 +28,7 @@ function Bezier(p) {
     this.setInnerPoint()
     this.minX = p[0] < p[6] ? p[0] : p[6]
     this.maxX = p[0] > p[6] ? p[0] : p[6]
+    this.tCoeValue = this.tCoe()
 
     this.edgePointR = 5
 
@@ -120,6 +121,20 @@ Bezier.prototype.separate = function(t) {
     return sepBezier
 }
 
+// Bezier.prototype.pointVelocity = function(t) {
+//     let tCoe = this.tCoe()
+//     let diffXt = 3 * tCoe.x[3] * t * t + 2 * tCoe.x[2] * t + tCoe.x[1]
+//     let diffYt = 3 * tCoe.y[3] * t * t + 2 * tCoe.y[2] * t + tCoe.y[1]
+//     return diffYt / diffXt
+// }
+
+Bezier.prototype.getVelocity = function(t) {
+    let tCoe = this.tCoeValue
+    let diffXt = 3 * tCoe.x[3] * t * t + 2 * tCoe.x[2] * t + tCoe.x[1]
+    let diffYt = 3 * tCoe.y[3] * t * t + 2 * tCoe.y[2] * t + tCoe.y[1]
+    return diffYt / diffXt
+}
+
 Bezier.prototype.divPoint = function(p4, t) {
     let mt = 1 - t
     let x = mt * p4[0] + t * p4[2]
@@ -136,15 +151,23 @@ Bezier.prototype.move = function(pN, x, y, notCall, callback = () => {}) {
         let p = this.p
         let limit = this.limit
         let res = null
-        if (limit.minW && pN == 0) {
-            if (p[6] - x < limit.minW) {
+        if (pN == 0) {
+            if (limit.minW && p[6] - x < limit.minW) {
                 x = p[6] - limit.minW
+                res = true
+            }
+            if (limit.minX && x < limit.minX) {
+                x = limit.minX
                 res = true
             }
         }
         if (limit.minW && pN == 3) {
             if (x - p[0] < limit.minW) {
                 x = p[0] + limit.minW
+                res = true
+            }
+            if (limit.maxX && x > limit.maxX) {
+                x = limit.maxX
                 res = true
             }
         }
@@ -284,6 +307,7 @@ Bezier.prototype.setInnerPoint = function() {
     let p = this.p
     this.minX = p[0] < p[6] ? p[0] : p[6]
     this.maxX = p[0] > p[6] ? p[0] : p[6]
+    this.tCoeValue = this.tCoe()
     this.innerPoint = []
     for (let t = 0; t <= 1; t += this.innerAccuracy) {
         let p = this.getBezierPoint(t)

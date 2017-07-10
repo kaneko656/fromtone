@@ -40,22 +40,25 @@ function Field(canvas) {
         let cx = tool.x + tool.w / 2
         let cy = tool.y + tool.h / 2
         let r = tool.w / 5
-
-        ctx.beginPath()
-        ctx.strokeStyle = 'rgba(150,150,150,1)'
-        ctx.arc(cx - r * 1.5, cy, r / 2, 0, Math.PI * 2)
-        ctx.stroke()
+        //
+        // ctx.beginPath()
+        // ctx.strokeStyle = 'rgba(150,150,150,1)'
+        // ctx.arc(cx - r * 1.5, cy, r / 2, 0, Math.PI * 2)
+        // ctx.stroke()
 
         ctx.beginPath()
         ctx.fillStyle = 'rgba(50,50,50,1)'
-        ctx.arc(cx + r * 1.5, cy, r / 2, 0, Math.PI * 2)
+        ctx.arc(cx, cy, r / 2, 0, Math.PI * 2)
         ctx.fill()
 
-        ctx.strokeStyle = 'rgba(50,50,50,1)'
-        tool.line(ctx, cx - r / 2, cy, cx + r / 2, cy)
-        tool.line(ctx, cx + r / 2, cy, cx + r / 2 - r / 3, cy - r / 3)
-        tool.line(ctx, cx + r / 2, cy, cx + r / 2 - r / 3, cy + r / 3)
-
+        ctx.translate(cx, cy)
+        for (let rot = 0; rot < 4; rot++) {
+            ctx.rotate(Math.PI / 2)
+            ctx.strokeStyle = 'rgba(50,50,50,1)'
+            tool.line(ctx, r, 0, r * 2, 0)
+            tool.line(ctx, r * 2, 0, r * 2 - r / 3, - r / 3)
+            tool.line(ctx, r * 2, 0, r * 2 - r / 3, r / 3)
+        }
         ctx.restore()
     }
 

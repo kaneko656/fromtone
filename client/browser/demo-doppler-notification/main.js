@@ -19,8 +19,8 @@ let connect = require('./graph/connect.js')
 
 // let Biquad = require('./biquad.js')
 
-let socketDir = 'demo_accel_notification_'
-let socketType = 'demo_accel_notification'
+let socketDir = 'demo_doppler_notification_'
+let socketType = 'demo_doppler_notification'
 
 let config = require('./../exCall-module/config')
 
@@ -304,61 +304,115 @@ exports.start = (element, context, socket, clientTime, config) => {
             body.notes.forEach((nt) => {
 
 
-                let linearRamp = (fromValue, toValue, time, callback, value, dif, passTime) => {
-                    value = value ? value : fromValue
-                    dif = dif ? dif : (toValue - fromValue) / (time / 10)
-                    passTime = passTime ? passTime : 0
-                    setTimeout(() => {
-                        callback(value)
-                        value += dif
-                        passTime += 10
-                        if (passTime < time) {
-                            linearRamp(fromValue, toValue, time, callback, value, dif, passTime)
-                        }
-                    }, 10)
-                }
+                // let linearRamp = (fromValue, toValue, time, callback, value, dif, passTime) => {
+                //     value = value ? value : fromValue
+                //     dif = dif ? dif : (toValue - fromValue) / (time / 10)
+                //     passTime = passTime ? passTime : 0
+                //     setTimeout(() => {
+                //         callback(value)
+                //         value += dif
+                //         passTime += 10
+                //         if (passTime < time) {
+                //             linearRamp(fromValue, toValue, time, callback, value, dif, passTime)
+                //         }
+                //     }, 10)
+                // }
 
                 if (from || to) {
                     syncNote = createSyncNote(nt.sound, nt.time, nt.offset, nt.duration)
                     // let panner = createIndividualPanner(nt.name)
-                    let ev = connect.get('editerValue')
+                    let ev = body.editer || connect.get('editerValue')
                     if (!ev) {
                         ev = []
                     }
-                    console.log(ev)
+                    console.log(body.editer)
 
                     let gainNode = context.createGain()
-                    gainNode.gain.value = 0.5
                     gainNode.connect(context.destination)
 
-                    let con = (t) => {
-                        htmlText.log.innerHTML = gainNode.gain.value
-                        console.log(gainNode.gain.value)
-
+                    let con = (t, duration) => {
+                        htmlText.log.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
+                        // gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
+                        console.log(t)
                         setTimeout(() => {
                             t += 100
-                            if (t < 3000) {
-                                con(t)
+                            if (t < duration) {
+                                con(t, duration)
                             }
                         }, 100)
                     }
 
-
-
-                    let dist = nt.distance || 30
+                    // let dist = nt.distance || 30
                     // panner.setPosition(0, 0, 0)
 
                     syncNote.started((leftTime) => {
 
-                      con(0)
-                      let duration = syncNote.duration / 1000
-                      let st = syncPlay.getCurrentTime() + leftTime / 1000
-                      ev.forEach((div) => {
-                          let v = div.y / 300
-                          let t = div.div
-                          gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
-                          console.log(v,duration)
-                      })
+                        // ms -> s
+                        let duration = syncNote.duration / 1000
+                        // ms -> s
+                        let st = syncPlay.getCurrentTime() + leftTime / 1000
+                        con(0, syncNote.duration + leftTime)
+
+                        // viewStart
+                        connect.set('viewStart', {
+                            duration: syncNote.duration,
+                            leftTime: leftTime
+                        })
+
+                        ev.forEach((d, i) => {
+                            let v = d.value
+                            let t = d.div
+                            if (from) {
+                                v = v
+                            } else if (to) {
+                                v = 1 - v
+                            }
+                            if (i == 0) {
+                                gainNode.gain.value = v
+                            }
+                            gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
+
+                            // s
+                            // 0 - 1 -> 0.1
+                            let interT = i >= 1 ? ev[i].div - ev[i - 1].div : ev[i].div
+                            // 0 - duration -> duration * 0.1
+                            interT *= duration
+                            // m
+                            let dist = 1
+
+                            // m/s
+                            let vs = d.velocity * dist / duration
+                            // km/h
+                            // vs = vs * 60 * 60 / 1000
+                            vs = vs * 3.6
+
+                            let rate = 340 / (340 - vs)
+                            if (i == 0) {
+                                gainNode.gain.value = rate
+                            }
+                            if (doppler && !isNaN(vs)) {
+                                syncNote.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t)
+                            } else {
+                                syncNote.source.playbackRate.value = 1
+                            }
+                            // fromを自分とすると
+                            // from 1 to 0
+                            // マイナス方向が離れる
+                            // v0 = 0 観測者は静止
+                            // V = 340
+                            // let rate = 340 / (340 - vs)
+                            //
+                            // // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
+                            // // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
+                            // if (doppler) {
+                            //     syncNote.source.playbackRate.value = rate
+                            //     gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + rate.toFixed(4)
+                            // } else {
+                            //     syncNote.source.playbackRate.value = 1
+                            //     gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', 1.0 '
+                            //
+                            // }
+                        })
 
                         // let ct = syncPlay.getCurrentTime() + leftTime / 1000
                         // let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
@@ -486,6 +540,7 @@ exports.start = (element, context, socket, clientTime, config) => {
         let pannerValues = pannerSlider.getValues()
         let pannerDistance = distanceSlider.getValue()
         let doppler = dopplerSwitch
+        let editer = connect.get('editerValue')
 
         console.log(toUserList)
         console.log(fromUserList)
@@ -498,7 +553,8 @@ exports.start = (element, context, socket, clientTime, config) => {
             sound: soundName,
             panner: pannerValues,
             distance: pannerDistance,
-            doppler: doppler
+            doppler: doppler,
+            editer: editer
         }
         console.log(body)
         socket.emit(socketDir + 'notification_common', body)

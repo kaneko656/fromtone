@@ -85,7 +85,6 @@ exports.start = (socket, disconnect, _serverTime) => {
 
 
     socket.on(socketDir + 'notification_common', (body) => {
-        console.log(body)
         if (!Array.isArray(body.to)) {
             let ar = []
             ar.push(body.to)
