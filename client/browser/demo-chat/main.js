@@ -12,6 +12,10 @@ let Slider = require('./../demo-common/html/slider.js')
 let SliderSingle = require('./../demo-common/html/slider-single.js')
 let HtmlText = require('./html/html-text.js')
 let SelectList = require('./../demo-common/html/select-list.js')
+let gyro = require('./gyro.js')
+let SwitchButton = require('./html/switchButton.js')
+let graph = require('./graph/index.js')
+let connect = require('./graph/connect.js')
 
 // let Biquad = require('./biquad.js')
 
@@ -28,6 +32,8 @@ let soundList = {
     '３音': 'lib/sound/notification-common.mp3',
     '和風メロディ': 'lib/sound/wafuringtone.mp3',
     'ウィンドチャイム': 'lib/sound/windchime.mp3',
+    'music': 'lib/sound/clock3.mp3',
+    'voice': 'lib/sound/voice.mp3',
     '太鼓': 'lib/sound/taiko.mp3',
     'コーリング': 'lib/sound/emargency_calling.mp3',
     'アラーム': 'lib/sound/clockbell.mp3',
@@ -62,20 +68,24 @@ exports.start = (element, context, socket, clientTime, config) => {
 
     let notificationButton = NotificationButton(element)
 
-    // panner - slider
-    let pannerSlider = Slider(element, 'panner', 'Panner Time')
-    pannerSlider.setList()
-    let p = document.createElement('p')
-    p.innerHTML = '音像移動（開始点　終了点）<br>←音の開始　　→音の終了'
-    element.appendChild(p)
+    /*
+     *  SwitchButton
+     */
 
-    // panner - distance
-    let distanceSlider = SliderSingle(element, 'distance', 'Panner Distance')
-    distanceSlider.setList()
-    let p_d = document.createElement('p')
-    p_d.innerHTML = '←近い　→遠い'
-    element.appendChild(p_d)
+    let switchButton = SwitchButton(element)
+    switchButton.onGyroSwitch((toggle) => {
+        if (!canUse) {
+            switchButton.gyroButton.innerHTML = 'Can not use Gyro Sensor'
+            return
+        }
+        gyroSwitch = toggle
+    })
 
+
+    let dopplerSwitch = true
+    switchButton.onDopplerSwitch((toggle) => {
+        dopplerSwitch = toggle
+    })
 
     let radioButton = RadioButton(element, 'tone', 'Tone Select')
     radioButton.setList(soundNameList)
@@ -124,44 +134,6 @@ exports.start = (element, context, socket, clientTime, config) => {
         return syncPlay.createSyncNote(bufferName, correctionTime, music_offset, duration)
     }
 
-    let setCommonSyncNote = (syncNote, noteName) => {
-        syncNote.started(() => {
-            console.log('syncPlay: start')
-            syncNoteList[noteName] = syncNote
-        })
-
-        syncNote.stoped(() => {
-            console.log('syncPlay: stop')
-            if (syncNoteList[noteName]) {
-                delete syncNoteList[noteName]
-            }
-        })
-
-        syncNote.finished(() => {
-            console.log('syncPlay: finish')
-            if (isPlaying && syncNoteList[noteName]) {
-                isPlaying = false
-                syncNoteList[noteName].stop()
-                // field.toStopStatus(noteName)
-                delete syncNoteList[noteName]
-
-                // htmlText.status.innerHTML = 'finish'
-            }
-        })
-
-        return syncNote
-    }
-
-    let createIndividualPanner = (name) => {
-        let gainNode = context.createGain()
-        gainNode.gain.value = 20.0
-        gainNode.connect(context.destination)
-        let panner = createPanner(true)
-        panner.connect(gainNode)
-        pannerList[name] = panner
-        return panner
-    }
-
     /*
      * Evary EventLister are in this Method
      * socket
@@ -194,6 +166,59 @@ exports.start = (element, context, socket, clientTime, config) => {
             htmlText.status.innerHTML = 'user: ' + clientName
         })
 
+        /**
+         * voice
+         */
+
+        socket.on(socketDir + 'voice_from', (res) => {
+            context.createBufferSource().start(0)
+            notificationButton.notificationText.innerHTML = '♪'
+            let toUserList = toList.getSelectUser()
+            let fromUserList = fromList.getSelectUser()
+            let soundName = radioButton.getSelected()
+            let doppler = dopplerSwitch
+            let editer = connect.get('editerValue')
+            let position = connect.get('positionValue')
+            let body = {
+                id: clientID,
+                type: socketType,
+                user: config.user,
+                from: res.from,
+                to: res.to,
+                sound: res.voiceName,
+                doppler: doppler,
+                editer: editer,
+                position: position
+            }
+            socket.emit(socketDir + 'notification_common', body)
+        })
+
+        socket.on(socketDir + 'voice', (buffer) => {
+            console.log('getBuffer  ' + 'voice')
+            syncPlay.addBuffer('voice', buffer, () => {
+                socket.emit(socketDir + 'voice_ready', {
+                    id: clientID,
+                    user: config.user,
+                    type: socketType,
+                    voiceName: 'voice'
+                })
+                console.log('set Buffer')
+            })
+        })
+
+        socket.on(socketDir + 'voice_play', (body) => {
+            let notes = body.notes
+            console.log(body)
+            notes.forEach((nt) => {
+                syncNote = createSyncNote(nt.bufferName, nt.time, nt.offset || 0, nt.duration || null)
+                syncNote = setCommonSyncNote(syncNote, nt.name)
+                let panner = createIndividualPanner(nt.name)
+                syncPlay.play(panner, syncNote)
+                // field.toPlayStatus(nt.name)
+                console.log(nt.name)
+            })
+        })
+
 
         socket.on(socketDir + 'notification_common', (body) => {
             console.log(body)
@@ -213,108 +238,123 @@ exports.start = (element, context, socket, clientTime, config) => {
                 return
             }
 
-            body.notes.forEach((nt) => {
-
-                let con = (t) => {
-                    htmlText.log.innerHTML = panner.positionY.value
-                    console.log(panner.positionY)
-
-                    setTimeout(() => {
-                        t += 100
-                        if (t < 3000) {
-                            con(t)
-                        }
-                    }, 100)
-                }
-                let linearRamp = (fromValue, toValue, time, callback, value, dif, passTime) => {
-                    value = value ? value : fromValue
-                    dif = dif ? dif : (toValue - fromValue) / (time / 10)
-                    passTime = passTime ? passTime : 0
-                    setTimeout(() => {
-                        callback(value)
-                        value += dif
-                        passTime += 10
-                        if (passTime < time) {
-                            linearRamp(fromValue, toValue, time, callback, value, dif, passTime)
-                        }
-                    }, 10)
-                }
-
-                if (from) {
-                    syncNote = createSyncNote(nt.sound, nt.time, nt.offset, nt.duration)
-                    let panner = createIndividualPanner(nt.name)
-
-                    let dist = nt.distance || 30
-                    panner.setPosition(0, 0, 0)
-
-                    syncNote.started((leftTime) => {
-
-                        let ct = syncPlay.getCurrentTime() + leftTime / 1000
-                        let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
-                        let start = startValue * syncNote.duration
-                        let endValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[1] / 100 : 0.8
-                        let end = endValue * syncNote.duration
-
-                        console.log('from', 'start', start, 'end', end, 'dist', dist)
-
-                        // example,  safari for ios
-                        if (typeof panner.positionY == 'undefined') {
-                            setTimeout(() => {
-                                linearRamp(0, dist, end - start, (value) => {
-                                    panner.setPosition(0, value, 0)
-                                })
-                            }, leftTime + start)
-                        } else {
-                            panner.positionY.linearRampToValueAtTime(0, ct + start / 1000)
-                            panner.positionY.linearRampToValueAtTime(dist, ct + end / 1000)
-                        }
-                    })
-                    syncPlay.play(panner, syncNote)
-
-                    syncNote.finished(() => {
-                        notificationButton.notificationText.innerHTML = '　'
-                    })
-                }
-
-                if (to) {
-                    syncNote = createSyncNote(nt.sound, nt.time, nt.offset, nt.duration)
-                    let panner = createIndividualPanner(nt.name)
-
-                    let dist = nt.distance || 30
-                    panner.setPosition(0, dist, 0)
-
-                    syncNote.started((leftTime) => {
-
-                        let ct = syncPlay.getCurrentTime() + leftTime / 1000
-                        let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
-                        let start = startValue * syncNote.duration
-                        let endValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[1] / 100 : 0.8
-                        let end = endValue * syncNote.duration
-
-                        console.log('from', 'start', start, 'end', end, 'dist', dist)
-
-                        if (typeof panner.positionY == 'undefined') {
-                            setTimeout(() => {
-                                linearRamp(dist, 0, end - start, (value) => {
-                                    panner.setPosition(0, value, 0)
-                                })
-                            }, leftTime + start)
-                        } else {
-                            panner.positionY.linearRampToValueAtTime(dist, ct + start / 1000)
-                            panner.positionY.linearRampToValueAtTime(0, ct + end / 1000)
-                        }
-                    })
-                    syncPlay.play(panner, syncNote)
-
-                    syncNote.finished(() => {
-                        notificationButton.notificationText.innerHTML = '　'
-                    })
-                }
+            body.notes.forEach((note) => {
+                play(body, note, from, to)
             })
         })
-
-
     })
+
+    function play(body, note, from, to) {
+        syncNote = createSyncNote(note.sound, note.time, note.offset, note.duration)
+        let ev = body.editer || connect.get('editerValue')
+        if (!ev) {
+            ev = []
+        }
+
+        let gainNode = context.createGain()
+        gainNode.connect(context.destination)
+
+        let doppler = body.doppler
+
+        let consol = (t, duration) => {
+            htmlText.log.innerHTML = 'Volume[0-1]: ' + gainNode.gain.value.toFixed(4) + ',  Doppler: ' + syncNote.source.playbackRate.value.toFixed(4)
+            // gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
+            setTimeout(() => {
+                t += 100
+                if (t < duration) {
+                    consol(t, duration)
+                }
+            }, 100)
+        }
+
+        syncNote.started((leftTime) => {
+
+            // ms -> s
+            let duration = syncNote.duration / 1000
+            // ms -> s
+            let st = syncPlay.getCurrentTime() + leftTime / 1000
+            consol(0, syncNote.duration + leftTime)
+
+            // viewStart
+            connect.set('viewStart', {
+                duration: syncNote.duration,
+                leftTime: leftTime
+            })
+
+            let position = body.position || {}
+
+            ev.forEach((d, i) => {
+                let v = d.value
+                let t = d.div
+                if (from) {
+                    v = v
+                } else if (to) {
+                    v = 1 - v
+                }
+                if (i == 0) {
+                    gainNode.gain.value = v
+                }
+                gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
+
+                // s
+                // 0 - 1 -> 0.1
+                let interT = i >= 1 ? ev[i].div - ev[i - 1].div : ev[i].div
+                // 0 - duration -> duration * 0.1
+                interT *= duration
+                // m
+                let dist = position.d || 1
+
+
+                // m/s fromからtoに向かうときプラス方向
+                let vs = d.velocity * dist / duration
+                // km/h
+                // vs = vs * 60 * 60 / 1000
+                vs = vs * 3.6
+
+                // vcos
+                // 音源位置
+                // from 0[m] - dist[m] to
+                let meter = (1 - d.value) * dist
+                let ang = 0
+                let px = meter
+                let py = 0
+                if (position.target == 'from') {
+                    let lx = position.offsetX
+                    let ly = position.offsetY
+                    ang = Math.atan2(ly - py, lx - px)
+                }
+                if (position.target == 'to') {
+                    let lx = dist + position.offsetX
+                    let ly = position.offsetY
+                    ang = Math.atan2(ly - py, lx - px)
+                }
+
+                let rate = 340 / (340 - vs * Math.cos(ang))
+                if (i == 0) {
+                    gainNode.gain.value = rate
+                }
+                if (doppler && !isNaN(vs)) {
+                    syncNote.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t)
+                } else {
+                    syncNote.source.playbackRate.value = 1
+                }
+                // fromを自分とすると
+                // from 1 to 0
+                // マイナス方向が離れる
+                // v0 = 0 観測者は静止
+                // V = 340
+                // let rate = 340 / (340 - vs)
+                //
+                // // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
+                // // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
+            })
+        })
+        syncPlay.play(gainNode, syncNote)
+
+        syncNote.finished(() => {
+            notificationButton.notificationText.innerHTML = '　'
+        })
+    }
 
 
     // button
@@ -340,8 +380,12 @@ exports.start = (element, context, socket, clientTime, config) => {
         let toUserList = toList.getSelectUser()
         let fromUserList = fromList.getSelectUser()
         let soundName = radioButton.getSelected()
-        let pannerValues = pannerSlider.getValues()
-        let pannerDistance = distanceSlider.getValue()
+        // let pannerValues = pannerSlider.getValues()
+        // let pannerDistance = distanceSlider.getValue()
+        let doppler = dopplerSwitch
+        let editer = connect.get('editerValue')
+        let position = connect.get('positionValue')
+        console.log(position)
 
         console.log(toUserList)
         console.log(fromUserList)
@@ -352,44 +396,13 @@ exports.start = (element, context, socket, clientTime, config) => {
             from: fromUserList,
             to: toUserList,
             sound: soundName,
-            panner: pannerValues,
-            distance: pannerDistance
+            // panner: pannerValues,
+            // distance: pannerDistance,
+            doppler: doppler,
+            editer: editer,
+            position: position
         }
         console.log(body)
         socket.emit(socketDir + 'notification_common', body)
     }
-}
-
-
-let createPanner = (side = 'from') => {
-    var panner = context.createPanner()
-
-    // 指向性  Gainは減衰率  InterAngleは減衰しない範囲
-    panner.coneOuterGain = 0.1
-    panner.coneOuterAngle = 180
-    panner.coneInnerAngle = 30
-
-    // "linear" "inverse" "exponential"
-    panner.distanceModel = 'exponential'
-
-    // 基準距離
-    panner.refDistance = 1.0
-
-    // 最大距離
-    panner.maxDistance = 10000
-
-    panner.panningModel = 'equalpower'
-    // panner.panningModel = 'HRTF'
-
-    // x: 左右
-    // y: 上下  +が上
-    // z: 奥と手前  +が手前
-
-    // 音源　向かい合っている
-    // 音源の向き
-    // 音源の位置
-    panner.setPosition(0, 0, 0)
-    panner.setOrientation(0, 0, 1)
-
-    return panner
 }

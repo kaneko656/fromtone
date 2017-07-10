@@ -123,8 +123,8 @@ Field.prototype.toStopStatus = function(name = 'default') {
 
 Field.prototype.render = function() {
     // Draw points onto the canvas element.
-    var ctx = this.canvas.getContext('2d');
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    var ctx = this.canvas.getContext('2d')
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
     ctx.save()
     // grid

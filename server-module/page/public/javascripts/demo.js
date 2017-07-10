@@ -21372,7 +21372,7 @@ module.exports = (onTick, callback, start = true) => {
     })
 }
 
-},{"cron":240}],146:[function(require,module,exports){
+},{"cron":250}],146:[function(require,module,exports){
 module.exports = (canvas) => {
     return new Field(canvas)
 }
@@ -22515,7 +22515,7 @@ let createPanner = (side = 'from') => {
     return panner
 }
 
-},{"./../demo-common/html/button-notification.js":177,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./../demo-common/html/select-list.js":180,"./../demo-common/html/slider-single.js":181,"./../demo-common/html/slider.js":182,"./../exCall-module/config":225,"./canvas/field.js":146,"./canvas/icon-note.js":147,"./canvas/icon-speaker.js":148,"./gyro.js":149,"./html/html-text.js":150,"./html/switchButton.js":151,"./sync-play.js":153,"node-uuid":265}],153:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../exCall-module/config":235,"./canvas/field.js":146,"./canvas/icon-note.js":147,"./canvas/icon-speaker.js":148,"./gyro.js":149,"./html/html-text.js":150,"./html/switchButton.js":151,"./sync-play.js":153,"node-uuid":275}],153:[function(require,module,exports){
 module.exports = (context) => {
     return new SyncPlay(context)
 }
@@ -23592,7 +23592,7 @@ let createPanner = () => {
     return panner
 }
 
-},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./biquad.js":154,"./button.js":155,"./canvas.js":156,"./field.js":157,"./html-text.js":158,"./icon-note.js":159,"./icon-speaker.js":160,"./sync-play.js":162,"node-uuid":265}],162:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./biquad.js":154,"./button.js":155,"./canvas.js":156,"./field.js":157,"./html-text.js":158,"./icon-note.js":159,"./icon-speaker.js":160,"./sync-play.js":162,"node-uuid":275}],162:[function(require,module,exports){
 module.exports = (context) => {
     return new SyncPlay(context)
 }
@@ -24461,7 +24461,7 @@ let createPanner = (side = 'from') => {
     return panner
 }
 
-},{"./../Job/cron.js":145,"./button.js":163,"./canvas.js":164,"./field.js":165,"./html-text.js":166,"./icon-note.js":167,"./icon-speaker.js":168,"./sync-play.js":170,"node-uuid":265}],170:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./button.js":163,"./canvas.js":164,"./field.js":165,"./html-text.js":166,"./icon-note.js":167,"./icon-speaker.js":168,"./sync-play.js":170,"node-uuid":275}],170:[function(require,module,exports){
 module.exports = (context) => {
     return new SyncPlay(context)
 }
@@ -24633,1281 +24633,12 @@ let loadSound = (url, callback = () => {}) => {
 }
 
 },{}],171:[function(require,module,exports){
-module.exports = (canvas) => {
-    return new Field(canvas)
-}
-
-
-function Field(canvas) {
-    this.canvas = canvas
-    this.clientID = ''
-    this.center = {
-        x: canvas.width / 2,
-        y: canvas.height / 2
-    }
-    this.w = canvas.width
-    this.h = canvas.height
-    this.size = this.w / 2
-
-    this.otherSpeakers = []
-    this.notes = {}
-
-    this.callStart = () => {}
-    this.callSendSpeakerInfo = () => {}
-    this.callSendNoteInfo = () => {}
-    this.callUpdatePannerPosition = () => {}
-}
-
-Field.prototype.setClientID = function(clientID) {
-    this.clientID = clientID
-}
-
-
-Field.prototype.setNote = function(note) {
-    let name = note.name
-    note.x = note.x * this.w
-    note.y = note.y * this.h
-    note.size = Math.round(this.w / 15)
-    this.notes[name] = note
-
-    // this.note = note
-    this.updatePannerPosition(this.notes[name], this.speaker)
-    this.render()
-    let field = this
-    this.notes[name].icon.onload = function() {
-        field.render()
-    }
-}
-
-Field.prototype.updateNote = function(note) {
-    let name = note.name
-    if (this.notes[name]) {
-        let nt = this.notes[name]
-        nt.x = note.x * this.w
-        nt.y = note.y * this.h
-        nt.over = note.over
-        nt.isMove = note.isMove
-        nt.isOtherMove = note.isOtherMove
-        this.updatePannerPosition(nt, this.speaker)
-        console.log(name, 'update')
-    }
-    this.render()
-
-}
-
-
-Field.prototype.setThisSpeaker = function(speaker) {
-    this.speaker = speaker
-    this.speaker.x = this.center.x
-    this.speaker.y = this.center.y
-    this.speaker.size = Math.round(this.w / 15)
-    let field = this
-    this.speaker.icon.onload = function() {
-        field.render()
-        field.sendSpeakerInfoToServer(field.speaker)
-    }
-}
-
-Field.prototype.setOtherSpeaker = function(SpeakerIcon, speakers) {
-    let speakerArray = []
-    if (typeof speakers == 'object') {
-        for (let id in speakers) {
-            if (id === this.clientID) {
-                continue
-            }
-            let sp = speakers[id]
-            let speaker = SpeakerIcon(this.speaker.icon)
-            speaker.x = sp.x * this.w
-            speaker.y = sp.y * this.h
-            speaker.size = Math.round(this.w / 15)
-            speaker.over = sp.over
-            speaker.isMove = sp.isMove
-            speaker.isThis = false
-            speaker.isPlay = sp.isPlay
-            speakerArray.push(speaker)
-        }
-    }
-    this.otherSpeakers = speakerArray
-    this.render()
-}
-
-Field.prototype.toPlayStatus = function(name = 'default') {
-    if (this.notes[name]) {
-        this.notes[name].isPlay = true
-        // this.updatePannerPosition(this.notes[name], this.speaker)
-    }
-    if (this.speaker) {
-        this.speaker.isPlay = true
-        this.sendSpeakerInfoToServer(this.speaker)
-    }
-    this.render()
-}
-
-Field.prototype.toStopStatus = function(name = 'default') {
-    if (this.notes[name]) {
-        this.notes[name].isPlay = false
-    }
-    if (this.speaker) {
-        this.speaker.isPlay = false
-        this.sendSpeakerInfoToServer(this.speaker)
-    }
-    this.render()
-}
-
-
-
-Field.prototype.render = function() {
-    // Draw points onto the canvas element.
-    var ctx = this.canvas.getContext('2d');
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-    ctx.save()
-    // grid
-    let size = this.size
-    let cnt = 0
-    ctx.strokeStyle = 'rgba(0,0,0,0.1)'
-    for (let r = 0; r <= size; r += size / 4) {
-        let alpha = 0.5 - cnt * 0.1
-        ctx.strokeStyle = 'rgba(0,0,0,' + alpha + ')'
-        cnt++
-        ctx.beginPath()
-        ctx.arc(this.center.x, this.center.y, r, 0, Math.PI * 2)
-        ctx.stroke()
-        ctx.strokeStyle = 'rgba(0,0,0,' + alpha + ')'
-
-        this.line(ctx, 0, this.center.y - r, this.w, this.center.y - r)
-        if (cnt > 1) {
-            this.line(ctx, 0, this.center.y + r, this.w, this.center.y + r)
-            this.line(ctx, this.center.x - r, 0, this.center.x - r, this.h)
-        }
-        this.line(ctx, this.center.x + r, 0, this.center.x + r, this.h)
-    }
-
-    this.speaker.draw(ctx)
-    if (this.otherSpeakers) {
-        this.otherSpeakers.forEach((sp) => {
-            sp.draw(ctx)
-        })
-    }
-    // this.note.draw(ctx)
-    for (let name in this.notes) {
-        this.notes[name].draw(ctx)
-    }
-    ctx.restore()
-}
-
-Field.prototype.started = function(callback) {
-    this.callStart = callback
-}
-
-
-Field.prototype.mousePressed = function(x, y) {
-    if (this.speaker.isOver(x, y)) {
-        this.speaker.isMove = true
-        this.speaker.over = true
-        this.speaker.x = x
-        this.speaker.y = y
-    } else {
-        for (let name in this.notes) {
-            let note = this.notes[name]
-            if (!note.isOtherMove && note.isOver(x, y)) {
-                note.isSync = true
-                note.click()
-                break
-            }
-        }
-    }
-    // this.updatePannerPosition(this.note, this.speaker)
-    this.render()
-}
-
-
-Field.prototype.mouseReleased = function(x, y) {
-    if (this.speaker.isMove) {
-        this.speaker.x = x
-        this.speaker.y = y
-        this.speaker.isMove = false
-        this.speaker.over = false
-    }
-    for (let name in this.notes) {
-        let note = this.notes[name]
-        if (!note.isOtherMove && note.isMove) {
-            note.x = x
-            note.y = y
-            note.isMove = false
-            note.over = false
-            note.isSync = false
-            this.sendNoteInfoToServer(note, true)
-        }
-        this.updatePannerPosition(note, this.speaker)
-    }
-    this.sendSpeakerInfoToServer(this.speaker)
-    this.render()
-}
-
-Field.prototype.mouseMoved = function(x, y) {
-    if (this.speaker.isMove) {
-        this.speaker.x = x
-        this.speaker.y = y - 2
-        this.sendSpeakerInfoToServer(this.speaker)
-    }
-    for (let name in this.notes) {
-        let note = this.notes[name]
-        if (!note.isOtherMove && note.isMove) {
-            note.over = true
-            note.x = x
-            note.y = y - 2
-            this.sendNoteInfoToServer(note, false)
-          }
-        this.updatePannerPosition(note, this.speaker)
-
-    }
-    this.render()
-}
-
-Field.prototype.pannerPosition = function(callback) {
-    this.callUpdatePannerPosition = callback
-}
-
-Field.prototype.updatePannerPosition = function(note, speaker) {
-    // 音源が原点
-    let x = note.x - speaker.x
-    let y = note.y - speaker.y
-    let dx = x / this.size
-    let dy = y / this.size
-    let body = {
-        name: note.name,
-        position: {
-            x: dx,
-            y: dy,
-            z: 0
-        }
-    }
-    this.callUpdatePannerPosition(body)
-}
-
-Field.prototype.sendSpeakerInfo = function(callback) {
-    this.sendSpeakerInfo = callback
-}
-
-Field.prototype.sendSpeakerInfoToServer = function(speaker) {
-    let sp = Object.assign({}, speaker)
-    sp.icon = null
-    sp.draw = null
-    sp.isOver = null
-    sp.x = sp.x / this.w
-    sp.y = sp.y / this.h
-    this.sendSpeakerInfo(sp)
-}
-
-Field.prototype.sendNoteInfo = function(callback) {
-    this.sendNoteInfo = callback
-}
-
-Field.prototype.sendNoteInfoToServer = function(note, release) {
-    let nt = Object.assign({}, note)
-    nt.icon = null
-    nt.draw = null
-    nt.isOver = null
-    nt.setParentNote = null
-    nt.idMove = false
-    nt.isOtherMove = release ? false : true
-    nt.x = nt.x / this.w
-    nt.y = nt.y / this.h
-    nt.id = this.clientID
-    nt.release = release
-    this.sendNoteInfo(nt)
-}
-
-
-Field.prototype.line = (ctx, x1, y1, x2, y2) => {
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
-}
-
-},{}],172:[function(require,module,exports){
+arguments[4][146][0].apply(exports,arguments)
+},{"dup":146}],172:[function(require,module,exports){
 arguments[4][147][0].apply(exports,arguments)
 },{"dup":147}],173:[function(require,module,exports){
 arguments[4][148][0].apply(exports,arguments)
 },{"dup":148}],174:[function(require,module,exports){
-arguments[4][150][0].apply(exports,arguments)
-},{"dup":150}],175:[function(require,module,exports){
-let uuid = require('node-uuid')
-// let job = require('./../Job/cron.js')
-
-// let Canvas = require('./canvas/canvas.js')
-let Field = require('./canvas/field.js')
-let NoteIcon = require('./canvas/icon-note.js')
-let SpeakerIcon = require('./canvas/icon-speaker.js')
-let SyncPlay = require('./sync-play.js')
-let NotificationButton = require('./../demo-common/html/button-notification.js')
-let RadioButton = require('./../demo-common/html/radio-button.js')
-let Slider = require('./../demo-common/html/slider.js')
-let SliderSingle = require('./../demo-common/html/slider-single.js')
-let HtmlText = require('./html/html-text.js')
-let SelectList = require('./../demo-common/html/select-list.js')
-
-// let Biquad = require('./biquad.js')
-
-let socketDir = 'demo_chat_'
-let socketType = 'demo_chat'
-
-let config = require('./../exCall-module/config')
-
-let homeButton = require('./../demo-common/html/homeButton.js')
-
-// let Voice = require('./createVoice.js')(config.VOICE_TEXT_API)
-// let Slack = require('./slack.js')
-let soundList = {
-    '３音': 'lib/sound/notification-common.mp3',
-    '和風メロディ': 'lib/sound/wafuringtone.mp3',
-    'ウィンドチャイム': 'lib/sound/windchime.mp3',
-    '太鼓': 'lib/sound/taiko.mp3',
-    'コーリング': 'lib/sound/emargency_calling.mp3',
-    'アラーム': 'lib/sound/clockbell.mp3',
-    '掃除機': 'lib/sound/cleaner.mp3',
-    '電子レンジ': 'lib/sound/microwave.mp3',
-    '扇風機': 'lib/sound/fan.mp3',
-    '洗濯機': 'lib/sound/washing.mp3',
-    'プリンタ': 'lib/sound/printer.mp3',
-    'ポッド注ぐ': 'lib/sound/pod.mp3',
-    '炒める': 'lib/sound/roasting.mp3',
-    '足音（走る）': 'lib/sound/dashing.mp3',
-    '足音（スリッパ）': 'lib/sound/walking.mp3',
-    '雨音': 'lib/sound/rain.mp3'
-}
-
-let soundNameList = []
-for (let name in soundList) {
-    soundNameList.push(name)
-}
-
-exports.start = (element, context, socket, clientTime, config) => {
-    element.style.margin = '30px'
-
-    console.log(config)
-
-    let clientID = uuid.v4() // This is temporary. When websocket connected, this is replaced new id
-
-
-    let htmlText = HtmlText(element)
-    let fromList = SelectList(element, 'from', 'From')
-    let toList = SelectList(element, 'to', 'To')
-
-    let notificationButton = NotificationButton(element)
-
-    // panner - slider
-    let pannerSlider = Slider(element, 'panner', 'Panner Time')
-    pannerSlider.setList()
-    let p = document.createElement('p')
-    p.innerHTML = '音像移動（開始点　終了点）<br>←音の開始　　→音の終了'
-    element.appendChild(p)
-
-    // panner - distance
-    let distanceSlider = SliderSingle(element, 'distance', 'Panner Distance')
-    distanceSlider.setList()
-    let p_d = document.createElement('p')
-    p_d.innerHTML = '←近い　→遠い'
-    element.appendChild(p_d)
-
-
-    let radioButton = RadioButton(element, 'tone', 'Tone Select')
-    radioButton.setList(soundNameList)
-    radioButton.onSelect((name) => {
-        console.log(name)
-        let name2 = radioButton.getSelected()
-        console.log(name == name2)
-    })
-
-    homeButton(element, config.user)
-    // let canvas = Canvas(element)
-    // let field = Field(canvas)
-
-    socket.on(socketDir + 'user_list', (list) => {
-        toList.setList(list)
-        fromList.setList(list)
-        fromList.check(config.user)
-    })
-
-    socket.on(socketDir + 'user_add', (user) => {
-        toList.addUser(user)
-        fromList.addUser(user)
-    })
-
-    socket.on(socketDir + 'user_remove', (user) => {
-        toList.removeUser(user)
-        fromList.removeUser(user)
-    })
-
-    let syncPlay = SyncPlay(context)
-    let syncNoteList = {}
-    let pannerList = {}
-    let isPlaying = false
-
-    // 人固定
-    context.listener.setPosition(0, 0, -0.1)
-
-    let createSyncNote = (bufferName, time, offset, duration) => {
-        let music_offset = offset || 0
-        duration = duration || null
-        let correctionTime = clientTime.correctionServerTime(time)
-        let left = correctionTime - Date.now()
-
-        // htmlText.log.innerHTML = 'start playback after: ' + left.toFixed(4) + 'ms'
-
-        return syncPlay.createSyncNote(bufferName, correctionTime, music_offset, duration)
-    }
-
-    let setCommonSyncNote = (syncNote, noteName) => {
-        syncNote.started(() => {
-            console.log('syncPlay: start')
-            syncNoteList[noteName] = syncNote
-        })
-
-        syncNote.stoped(() => {
-            console.log('syncPlay: stop')
-            if (syncNoteList[noteName]) {
-                delete syncNoteList[noteName]
-            }
-        })
-
-        syncNote.finished(() => {
-            console.log('syncPlay: finish')
-            if (isPlaying && syncNoteList[noteName]) {
-                isPlaying = false
-                syncNoteList[noteName].stop()
-                // field.toStopStatus(noteName)
-                delete syncNoteList[noteName]
-
-                // htmlText.status.innerHTML = 'finish'
-            }
-        })
-
-        return syncNote
-    }
-
-    let createIndividualPanner = (name) => {
-        let gainNode = context.createGain()
-        gainNode.gain.value = 20.0
-        gainNode.connect(context.destination)
-        let panner = createPanner(true)
-        panner.connect(gainNode)
-        pannerList[name] = panner
-        return panner
-    }
-
-    /*
-     * Evary EventLister are in this Method
-     * socket
-     * canvas
-     * button
-     */
-
-    // socket
-
-    syncPlay.loadBuffer(soundList, () => {
-
-    })
-
-    socket.call.on('connect', () => {
-        clientID = uuid.v4()
-
-        // field.setClientID(clientID)
-
-        socket.emit(socketDir + 'register', {
-            type: socketType,
-            id: clientID,
-            user: config.user
-        })
-
-        socket.on(socketDir + 'register', (body) => {
-            if (body.id === clientID && body.name) {
-                clientName = body.name
-            }
-
-            htmlText.status.innerHTML = 'user: ' + clientName
-        })
-
-
-        socket.on(socketDir + 'notification_common', (body) => {
-            console.log(body)
-            let from = body.from.indexOf(config.user) >= 0 ? true : false
-            let to = body.to.indexOf(config.user) >= 0 ? true : false
-
-            let fromText = ''
-            body.from.forEach((n) => {
-                fromText += n + ' '
-            })
-            let toText = ''
-            body.to.forEach((n) => {
-                toText += n + ' '
-            })
-            htmlText.log.innerHTML = 'From: ' + fromText + '　To: ' + toText
-            if (!from && !to) {
-                return
-            }
-
-            body.notes.forEach((nt) => {
-
-                let con = (t) => {
-                    htmlText.log.innerHTML = panner.positionY.value
-                    console.log(panner.positionY)
-
-                    setTimeout(() => {
-                        t += 100
-                        if (t < 3000) {
-                            con(t)
-                        }
-                    }, 100)
-                }
-                let linearRamp = (fromValue, toValue, time, callback, value, dif, passTime) => {
-                    value = value ? value : fromValue
-                    dif = dif ? dif : (toValue - fromValue) / (time / 10)
-                    passTime = passTime ? passTime : 0
-                    setTimeout(() => {
-                        callback(value)
-                        value += dif
-                        passTime += 10
-                        if (passTime < time) {
-                            linearRamp(fromValue, toValue, time, callback, value, dif, passTime)
-                        }
-                    }, 10)
-                }
-
-                if (from) {
-                    syncNote = createSyncNote(nt.sound, nt.time, nt.offset, nt.duration)
-                    let panner = createIndividualPanner(nt.name)
-
-                    let dist = nt.distance || 30
-                    panner.setPosition(0, 0, 0)
-
-                    syncNote.started((leftTime) => {
-
-                        let ct = syncPlay.getCurrentTime() + leftTime / 1000
-                        let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
-                        let start = startValue * syncNote.duration
-                        let endValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[1] / 100 : 0.8
-                        let end = endValue * syncNote.duration
-
-                        console.log('from', 'start', start, 'end', end, 'dist', dist)
-
-                        // example,  safari for ios
-                        if (typeof panner.positionY == 'undefined') {
-                            setTimeout(() => {
-                                linearRamp(0, dist, end - start, (value) => {
-                                    panner.setPosition(0, value, 0)
-                                })
-                            }, leftTime + start)
-                        } else {
-                            panner.positionY.linearRampToValueAtTime(0, ct + start / 1000)
-                            panner.positionY.linearRampToValueAtTime(dist, ct + end / 1000)
-                        }
-                    })
-                    syncPlay.play(panner, syncNote)
-
-                    syncNote.finished(() => {
-                        notificationButton.notificationText.innerHTML = '　'
-                    })
-                }
-
-                if (to) {
-                    syncNote = createSyncNote(nt.sound, nt.time, nt.offset, nt.duration)
-                    let panner = createIndividualPanner(nt.name)
-
-                    let dist = nt.distance || 30
-                    panner.setPosition(0, dist, 0)
-
-                    syncNote.started((leftTime) => {
-
-                        let ct = syncPlay.getCurrentTime() + leftTime / 1000
-                        let startValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[0] / 100 : 0.2
-                        let start = startValue * syncNote.duration
-                        let endValue = Array.isArray(nt.panner) && nt.panner.length == 2 ? nt.panner[1] / 100 : 0.8
-                        let end = endValue * syncNote.duration
-
-                        console.log('from', 'start', start, 'end', end, 'dist', dist)
-
-                        if (typeof panner.positionY == 'undefined') {
-                            setTimeout(() => {
-                                linearRamp(dist, 0, end - start, (value) => {
-                                    panner.setPosition(0, value, 0)
-                                })
-                            }, leftTime + start)
-                        } else {
-                            panner.positionY.linearRampToValueAtTime(dist, ct + start / 1000)
-                            panner.positionY.linearRampToValueAtTime(0, ct + end / 1000)
-                        }
-                    })
-                    syncPlay.play(panner, syncNote)
-
-                    syncNote.finished(() => {
-                        notificationButton.notificationText.innerHTML = '　'
-                    })
-                }
-            })
-        })
-
-
-    })
-
-
-    // button
-
-    notificationButton.test.onclick = () => {
-
-        console.log('Test Play')
-
-        // ios対策
-        context.createBufferSource().start(0)
-
-        let soundName = radioButton.getSelected()
-
-        let note = syncPlay.createSyncNote(soundName, Date.now())
-        syncPlay.play(context.destination, note)
-
-        // htmlText.status.innerHTML = 'volume on'
-    }
-
-    notificationButton.notification.onclick = () => {
-        context.createBufferSource().start(0)
-        notificationButton.notificationText.innerHTML = '♪'
-        let toUserList = toList.getSelectUser()
-        let fromUserList = fromList.getSelectUser()
-        let soundName = radioButton.getSelected()
-        let pannerValues = pannerSlider.getValues()
-        let pannerDistance = distanceSlider.getValue()
-
-        console.log(toUserList)
-        console.log(fromUserList)
-        let body = {
-            id: clientID,
-            type: socketType,
-            user: config.user,
-            from: fromUserList,
-            to: toUserList,
-            sound: soundName,
-            panner: pannerValues,
-            distance: pannerDistance
-        }
-        console.log(body)
-        socket.emit(socketDir + 'notification_common', body)
-    }
-}
-
-
-let createPanner = (side = 'from') => {
-    var panner = context.createPanner()
-
-    // 指向性  Gainは減衰率  InterAngleは減衰しない範囲
-    panner.coneOuterGain = 0.1
-    panner.coneOuterAngle = 180
-    panner.coneInnerAngle = 30
-
-    // "linear" "inverse" "exponential"
-    panner.distanceModel = 'exponential'
-
-    // 基準距離
-    panner.refDistance = 1.0
-
-    // 最大距離
-    panner.maxDistance = 10000
-
-    panner.panningModel = 'equalpower'
-    // panner.panningModel = 'HRTF'
-
-    // x: 左右
-    // y: 上下  +が上
-    // z: 奥と手前  +が手前
-
-    // 音源　向かい合っている
-    // 音源の向き
-    // 音源の位置
-    panner.setPosition(0, 0, 0)
-    panner.setOrientation(0, 0, 1)
-
-    return panner
-}
-
-},{"./../demo-common/html/button-notification.js":177,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./../demo-common/html/select-list.js":180,"./../demo-common/html/slider-single.js":181,"./../demo-common/html/slider.js":182,"./../exCall-module/config":225,"./canvas/field.js":171,"./canvas/icon-note.js":172,"./canvas/icon-speaker.js":173,"./html/html-text.js":174,"./sync-play.js":176,"node-uuid":265}],176:[function(require,module,exports){
-arguments[4][153][0].apply(exports,arguments)
-},{"dup":153}],177:[function(require,module,exports){
-module.exports = (element) => {
-    let button = {
-        test: null,
-        notification: null,
-        notificationText: null
-    }
-
-    let notification = document.createElement('button')
-    notification.setAttribute('class', 'btn btn-hg btn-primary')
-    notification.innerHTML = 'Notification'
-    let notificationText = document.createElement('h5')
-    notificationText.innerHTML = '　'
-
-    let p = document.createElement('p')
-    p.setAttribute('class', 'mbl')
-    let p2 = document.createElement('p')
-    p2.innerHTML = '<br>iosは一度ボタンを押さないと音がなりません<br>'
-
-    let test = document.createElement('button')
-    test.setAttribute('class', 'btn btn-default')
-    test.innerHTML = 'Test: この端末だけで鳴らす'
-
-
-    button.test = test
-    // button.stop = stop
-    button.notification = notification
-    button.notificationText = notificationText
-
-
-    // p.appendChild(stop)
-    p.appendChild(notification)
-    p.appendChild(notificationText)
-    p.appendChild(p2)
-    p.appendChild(test)
-    element.appendChild(p)
-
-    return button
-}
-
-},{}],178:[function(require,module,exports){
-// <button class="btn btn-default">Default</button>
-module.exports = (element, user) => {
-    let p = document.createElement('p')
-    p.setAttribute('class', 'mbl')
-    p.innerHTML = '<br>'
-
-    let button = document.createElement('button')
-    button.setAttribute('class', 'btn btn-default')
-    button.innerHTML = 'Homeに戻る'
-
-    button.onclick = () => {
-        let href = window.location.href
-        let http = 'http://'
-        if (href.indexOf('http://') >= 0) {
-            href = href.slice(7)
-        }
-        if (href.indexOf('https://') >= 0) {
-            href = href.slice(8)
-            http = 'https://'
-        }
-        let query_idx = href.indexOf('/')
-        if (query_idx >= 1) {
-            href = href.slice(0, query_idx)
-        }
-        let query = user ? '?user=' + user : ''
-        location.href = http + href + query
-    }
-
-    p.appendChild(button)
-    element.appendChild(p)
-
-
-}
-
-},{}],179:[function(require,module,exports){
-module.exports = (element, id, text) => {
-    return new RadioButton(element, id, text)
-}
-
-function RadioButton(element, id, text) {
-    this.div = null
-    this.selectStatus = {}
-    this.id = id || ''
-    this.onSelectCall = () => {}
-
-    this.init(element, text)
-}
-
-RadioButton.prototype.init = function(element, text) {
-    this.div = document.createElement('div')
-    let h = document.createElement('h5')
-    h.innerHTML = text || ''
-
-    element.appendChild(h)
-    element.appendChild(this.div)
-}
-
-
-RadioButton.prototype.setList = function(nameList) {
-    let div = this.div
-    let selectStatus = this.selectStatus
-    let id = this.id
-
-    let radio = {
-        start: null,
-        stop: null
-    }
-
-    nameList.forEach((name, i) => {
-
-        let label = document.createElement('label')
-        label.setAttribute('class', 'radio')
-        label.setAttribute('for', 'radio' + id + i)
-        label.setAttribute('data-name', name)
-
-        let input = document.createElement('input')
-        input.setAttribute('type', 'radio')
-        input.setAttribute('name', id)
-        // input.setAttribute('class', 'radio')
-        input.setAttribute('value', name)
-        input.setAttribute('id', 'radio' + id + i)
-        input.setAttribute('data-id', id)
-        input.setAttribute('data-toggle', 'radio')
-        if (i == 0) {
-            input.setAttribute('checked', 'checked')
-            selectStatus[name] = true
-        } else {
-            // input.setAttribute('disabled', '')
-            selectStatus[name] = false
-        }
-        label.innerHTML = name
-        label.appendChild(input)
-        div.appendChild(label)
-    })
-
-    // element.appendChild(div)
-
-    $(':radio').radiocheck()
-
-    let Radio = this
-    $(':radio').on('change.radiocheck', function(e) {
-        let dataID = e.target.getAttribute('data-id')
-        if (id == dataID) {
-            for (let name in selectStatus) {
-                if (name == e.target.value) {
-                    selectStatus[name] = true
-                } else {
-                    selectStatus[name] = false
-                }
-            }
-            Radio.onSelectCall(e.target.value)
-        }
-    })
-
-    return radio
-}
-
-RadioButton.prototype.onSelect = function(callback = () => {}) {
-    this.onSelectCall = callback
-}
-
-RadioButton.prototype.getSelected = function() {
-    for (let name in this.selectStatus) {
-        if (this.selectStatus[name]) {
-            return name
-        }
-    }
-    return ''
-}
-
-},{}],180:[function(require,module,exports){
-// let div = null
-//
-// let selectStatus = {}
-// let number = 0
-
-module.exports = (element, id, text) => {
-    return new SelectList(element, id, text)
-}
-
-function SelectList(element, id, text) {
-    this.div = null
-    this.selectStatus = {}
-    this.userList = {}
-    this.number = 0
-    this.id = id
-    this.init(element, text)
-    this.changeCall = () => {}
-}
-
-SelectList.prototype.init = function(element, text) {
-    this.div = document.createElement('div')
-    let h = document.createElement('h5')
-    h.innerHTML = text || ''
-
-    element.appendChild(h)
-    element.appendChild(this.div)
-}
-
-SelectList.prototype.selectUser = function() {
-    let list = []
-    for (let name in this.selectStatus) {
-        if (this.selectStatus[name]) {
-            list.push(name)
-        }
-    }
-    return list
-}
-
-SelectList.prototype.getSelectUser = function() {
-    return this.selectUser()
-}
-
-SelectList.prototype.getUserList = function() {
-    let list = []
-    for (let name in this.userList) {
-        if (this.userList[name]) {
-            list.push(name)
-        }
-    }
-    return list
-}
-
-SelectList.prototype.onChange = function(callback = () => {}) {
-    this.changeCall = callback
-}
-
-SelectList.prototype.setList = function(nameList) {
-    let id = this.id
-    let sl = this
-
-    nameList.forEach((name) => {
-        if (name in sl.selectStatus) {
-            return
-        }
-
-        let label = document.createElement('label')
-        label.setAttribute('class', 'checkbox')
-        label.setAttribute('for', 'checkbox' + id + sl.number)
-        label.setAttribute('data-name', name)
-
-        let input = document.createElement('input')
-        input.setAttribute('type', 'checkbox')
-        input.setAttribute('value', name)
-        input.setAttribute('data-id', id)
-        input.setAttribute('class', 'checkbox')
-        input.setAttribute('id', 'checkbox' + id + sl.number)
-        input.setAttribute('data-toggle', 'checkbox')
-        label.innerHTML = name
-        label.appendChild(input)
-        sl.div.appendChild(label)
-
-        sl.selectStatus[name] = false
-        sl.userList[name] = true
-        sl.number += 1
-    })
-
-    $(':checkbox').radiocheck()
-
-    $(':checkbox').on('change.radiocheck', function(e) {
-        // e.target.value
-        let dataID = e.target.getAttribute('data-id')
-        if (id == dataID && sl.selectStatus[e.target.value] != e.target.checked) {
-            sl.selectStatus[e.target.value] = e.target.checked
-            sl.changeCall()
-        }
-    })
-}
-
-SelectList.prototype.addUser = function(nameList) {
-    let id = this.id
-    let sl = this
-    if (!Array.isArray(nameList) && nameList) {
-        let temp = nameList
-        nameList = []
-        nameList.push(temp)
-    }
-
-    nameList.forEach((name, i) => {
-        if (name in sl.selectStatus) {
-            sl.enable(name)
-            return
-        }
-        let label = document.createElement('label')
-        label.setAttribute('class', 'checkbox')
-        label.setAttribute('for', 'checkbox' + id + sl.number)
-        label.setAttribute('data-name', name)
-
-        let input = document.createElement('input')
-        input.setAttribute('type', 'checkbox')
-        input.setAttribute('value', name)
-        input.setAttribute('data-id', id)
-        input.setAttribute('class', 'checkbox')
-        input.setAttribute('id', 'checkbox' + id + sl.number)
-        input.setAttribute('data-toggle', 'checkbox')
-        label.innerHTML = name
-        label.appendChild(input)
-        sl.div.appendChild(label)
-
-        sl.selectStatus[name] = false
-        sl.userList[name] = true
-        sl.number += 1
-    })
-
-    $(':checkbox').radiocheck()
-
-    $(':checkbox').on('change.radiocheck', function(e) {
-        let dataID = e.target.getAttribute('data-id')
-        if (id == dataID && sl.selectStatus[e.target.value] != e.target.checked) {
-            sl.selectStatus[e.target.value] = e.target.checked
-            sl.changeCall()
-        }
-    })
-}
-
-SelectList.prototype.removeUser = function(nameList) {
-    let sl = this
-    if (!Array.isArray(nameList) && nameList) {
-        let temp = nameList
-        nameList = []
-        nameList.push(temp)
-    }
-    nameList.forEach((targetName) => {
-        sl.disable(targetName)
-        sl.userList[targetName] = false
-    })
-}
-
-SelectList.prototype.disable = function(targetName) {
-    let children = this.div.children || []
-    for (var i = 0; i < children.length; i++) {
-        let name = children[i].getAttribute('data-name')
-        if (targetName === name) {
-            this.selectStatus[name] = false
-            let htmlFor = children[i].htmlFor
-            $('#' + htmlFor).radiocheck('indeterminate')
-            $('#' + htmlFor).radiocheck('disable')
-            return
-        }
-    }
-}
-
-SelectList.prototype.enable = function(targetName) {
-    let children = this.div.children || []
-    for (var i = 0; i < children.length; i++) {
-        let name = children[i].getAttribute('data-name')
-        if (targetName === name) {
-            this.selectStatus[name] = false
-            let htmlFor = children[i].htmlFor
-            $('#' + htmlFor).radiocheck('enable')
-            $('#' + htmlFor).radiocheck('determinate')
-            return
-        }
-    }
-}
-
-SelectList.prototype.check = function(targetName) {
-    let children = this.div.children || []
-    for (var i = 0; i < children.length; i++) {
-        let name = children[i].getAttribute('data-name')
-        if (targetName === name) {
-            this.selectStatus[name] = true
-            let htmlFor = children[i].htmlFor
-            $('#' + htmlFor).radiocheck('check')
-            return
-        }
-    }
-}
-
-// let getRadio = (targetName) => {
-//     let children = div.children || []
-//     for (var i = 0; i < children.length; i++) {
-//         let name = children[i].getAttribute('data-name')
-//         console.log(name)
-//         if (targetName === name) {
-//             let htmlFor = children[i].htmlFor
-//             return $('#' + htmlFor)
-//         }
-//     }
-//     return null
-// }
-
-},{}],181:[function(require,module,exports){
-// <div id="slider"></div>
-
-
-module.exports = (element, id, text) => {
-    return new Slider(element, id, text)
-}
-
-function Slider(element, id, text) {
-    this.div = null
-    this.value = {}
-    this.id = id || ''
-    this.onChangeCall = () => {}
-
-    this.init(element, text)
-}
-
-Slider.prototype.init = function(element, text) {
-    this.div = document.createElement('div')
-    this.div.setAttribute('id', 'slider' + this.id)
-    let h = document.createElement('h5')
-    h.innerHTML = text || ''
-
-    element.appendChild(h)
-    element.appendChild(this.div)
-}
-
-Slider.prototype.setList = function(nameList) {
-    var slider = $('#slider' + this.id)
-    if (slider.length > 0) {
-        slider.slider({
-            animate: 'fast',
-            min: 1,
-            max: 100,
-            value: 30,
-            orientation: 'horizontal'
-            // range: true
-        })
-        // }).addSliderSegments($slider.slider("option").max);
-    }
-}
-
-
-Slider.prototype.getValue = function() {
-    var slider = $('#slider' + this.id).slider('value')
-    return slider
-}
-
-},{}],182:[function(require,module,exports){
-// <div id="slider"></div>
-
-
-module.exports = (element, id, text) => {
-    return new Slider(element, id, text)
-}
-
-function Slider(element, id, text) {
-    this.div = null
-    this.value = {}
-    this.id = id || ''
-    this.onChangeCall = () => {}
-
-    this.init(element, text)
-}
-
-Slider.prototype.init = function(element, text) {
-    this.div = document.createElement('div')
-    this.div.setAttribute('id', 'slider' + this.id)
-    let h = document.createElement('h5')
-    h.innerHTML = text || ''
-
-    element.appendChild(h)
-    element.appendChild(this.div)
-}
-
-Slider.prototype.setList = function(nameList) {
-    var slider = $('#slider' + this.id)
-    if (slider.length > 0) {
-        slider.slider({
-            animate: 'fast',
-            min: 1,
-            max: 100,
-            values: [20, 60],
-            orientation: 'horizontal',
-            range: true
-        })
-        // }).addSliderSegments($slider.slider("option").max);
-    }
-}
-
-
-Slider.prototype.getValues = function() {
-    var slider = $('#slider' + this.id).slider('values')
-    return slider
-}
-
-},{}],183:[function(require,module,exports){
-// <input type="checkbox" checked data-toggle="switch" name="default-switch" id="switch-01" />
-
-// data-on-color
-//  primary
-//  info
-//  success
-//  warning
-//  danger
-
-// <input type="checkbox" checked data-toggle="switch" name="info-square-switch" data-on-color="success" id="switch-05" />
-
-module.exports = (element, id, text) => {
-    return new Switch(element, id, text)
-}
-
-function Switch(element, id, text) {
-    this.div = null
-    this.id = id || ''
-
-    this.init(element, text)
-}
-
-Switch.prototype.init = function(element, text) {
-    this.div = document.createElement('div')
-    // this.div.setAttribute('id', 'switch' + this.id)
-    // this.div.setAttribute('id', 'switch' + this.id)
-    let sw = document.createElement('input')
-    sw.setAttribute('type', 'checkbox')
-    sw.setAttribute('checked', '')
-    sw.setAttribute('class', 'checkbox')
-    sw.setAttribute('data-toggle', 'switch')
-    sw.setAttribute('name', 'default-switch')
-    // sw.setAttribute('data-on-color', 'success')
-    sw.setAttribute('id', 'switch' + this.id)
-
-    let h = document.createElement('h6')
-    h.innerHTML = text || ''
-
-    this.div.appendChild(sw)
-    element.appendChild(h)
-    element.appendChild(this.div)
-
-    $(':checkbox').radiocheck()
-}
-
-// Slider.prototype.set = function() {
-//     var slider = $('#slider' + this.id)
-// }
-
-
-Switch.prototype.getValues = function() {
-    var switchCheck = $('#switch' + this.id).slider('checked')
-    return switchCheck
-}
-
-},{}],184:[function(require,module,exports){
-exports.userNameCheck = (user, callback = () => {}) => {
-    if (!user || typeof user != 'string' || user == 'unknown') {
-        module.exports.userNameInput(callback)
-    }else{
-        callback(user)
-    }
-}
-
-exports.userNameInput = (callback = () => {}, caution = '') => {
-
-    // 入力ダイアログを表示 ＋ 入力内容を user に代入
-    // let user = window.prompt('ユーザー名を入力してください．slackでの名前を推奨（連携できます）' + caution, '')
-    let user = window.prompt('ユーザー名を入力してください．' + caution, '')
-
-    if (typeof user == 'string' && user.trim().length >= 1) {
-        let href = window.location.href
-        let query_idx = href.indexOf('?')
-        if(query_idx >= 1){
-            href = href.slice(0, query_idx)
-        }
-        location.href = href + '?user=' + user
-        callback(user)
-    } else if (user != "" && user != null) {
-        caution = '\n入力しないと進めません'
-        module.exports.userNameInput(callback, caution)
-    } else {
-        caution = '\n入力しないと進めません'
-        callback('unknown')
-        // module.exports.userNameInput(callback, caution)
-    }
-
-}
-
-},{}],185:[function(require,module,exports){
-arguments[4][146][0].apply(exports,arguments)
-},{"dup":146}],186:[function(require,module,exports){
-arguments[4][147][0].apply(exports,arguments)
-},{"dup":147}],187:[function(require,module,exports){
-arguments[4][148][0].apply(exports,arguments)
-},{"dup":148}],188:[function(require,module,exports){
 
 module.exports = (element, width, height) => {
     var canvas = document.createElement('canvas')
@@ -25918,7 +24649,7 @@ module.exports = (element, width, height) => {
     return canvas
 }
 
-},{}],189:[function(require,module,exports){
+},{}],175:[function(require,module,exports){
 let value = {}
 let call = {}
 exports.set = (name, v) => {
@@ -25936,7 +24667,7 @@ exports.on = (name, callback) => {
     call[name] = callback
 }
 
-},{}],190:[function(require,module,exports){
+},{}],176:[function(require,module,exports){
 module.exports = (p) => {
     return new Bezier(p)
 }
@@ -26296,7 +25027,7 @@ Bezier.prototype.tCoe = function() {
     }
 }
 
-},{}],191:[function(require,module,exports){
+},{}],177:[function(require,module,exports){
 let connect = require('./../connect.js')
 let Bezier = require('./bezier.js')
 
@@ -26671,7 +25402,7 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{"./../connect.js":189,"./bezier.js":190}],192:[function(require,module,exports){
+},{"./../connect.js":175,"./bezier.js":176}],178:[function(require,module,exports){
 let Canvas = require('./canvas.js')
 let editer
 let tool
@@ -26704,7 +25435,7 @@ exports.init = (_element) => {
     listener.render()
 }
 
-},{"./canvas.js":188,"./editer/field.js":191,"./listenerPosition/listenerField.js":193,"./tool/toolField.js":195}],193:[function(require,module,exports){
+},{"./canvas.js":174,"./editer/field.js":177,"./listenerPosition/listenerField.js":179,"./tool/toolField.js":181}],179:[function(require,module,exports){
 let connect = require('./../connect.js')
 // let Tool = require('./tool.js')
 
@@ -26729,9 +25460,9 @@ function Field(canvas) {
     this.d = 1
     this.r = 20
     this.listenerPosition = {
-        offsetX: -50,
+        offsetX: 50,
         offsetY: 0,
-        target: 'from',
+        target: 'to',
         r: 30
     }
 
@@ -26952,7 +25683,7 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{"./../connect.js":189}],194:[function(require,module,exports){
+},{"./../connect.js":175}],180:[function(require,module,exports){
 
 
 module.exports = (x, y, w, h) => {
@@ -26993,7 +25724,7 @@ Tool.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{}],195:[function(require,module,exports){
+},{}],181:[function(require,module,exports){
 let connect = require('./../connect.js')
 let Tool = require('./tool.js')
 
@@ -27176,7 +25907,7 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{"./../connect.js":189,"./tool.js":194}],196:[function(require,module,exports){
+},{"./../connect.js":175,"./tool.js":180}],182:[function(require,module,exports){
 let isMove = false
 let timeout = 10000
 
@@ -27242,9 +25973,9 @@ exports.moved = (text, callback = () => {}) => {
     // })
 }
 
-},{}],197:[function(require,module,exports){
+},{}],183:[function(require,module,exports){
 arguments[4][150][0].apply(exports,arguments)
-},{"dup":150}],198:[function(require,module,exports){
+},{"dup":150}],184:[function(require,module,exports){
 module.exports = (element) => {
     let s = new SwitchButton(element)
     s.create()
@@ -27327,7 +26058,1016 @@ SwitchButton.prototype.onDopplerSwitch = function(callback = () => {}) {
     this.callDoppler = callback
 }
 
-},{}],199:[function(require,module,exports){
+},{}],185:[function(require,module,exports){
+let uuid = require('node-uuid')
+// let job = require('./../Job/cron.js')
+
+// let Canvas = require('./canvas/canvas.js')
+let Field = require('./canvas/field.js')
+let NoteIcon = require('./canvas/icon-note.js')
+let SpeakerIcon = require('./canvas/icon-speaker.js')
+let SyncPlay = require('./sync-play.js')
+let NotificationButton = require('./../demo-common/html/button-notification.js')
+let RadioButton = require('./../demo-common/html/radio-button.js')
+let Slider = require('./../demo-common/html/slider.js')
+let SliderSingle = require('./../demo-common/html/slider-single.js')
+let HtmlText = require('./html/html-text.js')
+let SelectList = require('./../demo-common/html/select-list.js')
+let gyro = require('./gyro.js')
+let SwitchButton = require('./html/switchButton.js')
+let graph = require('./graph/index.js')
+let connect = require('./graph/connect.js')
+
+// let Biquad = require('./biquad.js')
+
+let socketDir = 'demo_chat_'
+let socketType = 'demo_chat'
+
+let config = require('./../exCall-module/config')
+
+let homeButton = require('./../demo-common/html/homeButton.js')
+
+// let Voice = require('./createVoice.js')(config.VOICE_TEXT_API)
+// let Slack = require('./slack.js')
+let soundList = {
+    '３音': 'lib/sound/notification-common.mp3',
+    '和風メロディ': 'lib/sound/wafuringtone.mp3',
+    'ウィンドチャイム': 'lib/sound/windchime.mp3',
+    'music': 'lib/sound/clock3.mp3',
+    'voice': 'lib/sound/voice.mp3',
+    '太鼓': 'lib/sound/taiko.mp3',
+    'コーリング': 'lib/sound/emargency_calling.mp3',
+    'アラーム': 'lib/sound/clockbell.mp3',
+    '掃除機': 'lib/sound/cleaner.mp3',
+    '電子レンジ': 'lib/sound/microwave.mp3',
+    '扇風機': 'lib/sound/fan.mp3',
+    '洗濯機': 'lib/sound/washing.mp3',
+    'プリンタ': 'lib/sound/printer.mp3',
+    'ポッド注ぐ': 'lib/sound/pod.mp3',
+    '炒める': 'lib/sound/roasting.mp3',
+    '足音（走る）': 'lib/sound/dashing.mp3',
+    '足音（スリッパ）': 'lib/sound/walking.mp3',
+    '雨音': 'lib/sound/rain.mp3'
+}
+
+let soundNameList = []
+for (let name in soundList) {
+    soundNameList.push(name)
+}
+
+exports.start = (element, context, socket, clientTime, config) => {
+    element.style.margin = '30px'
+
+    console.log(config)
+
+    let clientID = uuid.v4() // This is temporary. When websocket connected, this is replaced new id
+
+
+    let htmlText = HtmlText(element)
+    let fromList = SelectList(element, 'from', 'From')
+    let toList = SelectList(element, 'to', 'To')
+
+    let notificationButton = NotificationButton(element)
+
+    /*
+     *  SwitchButton
+     */
+
+    let switchButton = SwitchButton(element)
+    switchButton.onGyroSwitch((toggle) => {
+        if (!canUse) {
+            switchButton.gyroButton.innerHTML = 'Can not use Gyro Sensor'
+            return
+        }
+        gyroSwitch = toggle
+    })
+
+
+    let dopplerSwitch = true
+    switchButton.onDopplerSwitch((toggle) => {
+        dopplerSwitch = toggle
+    })
+
+    let radioButton = RadioButton(element, 'tone', 'Tone Select')
+    radioButton.setList(soundNameList)
+    radioButton.onSelect((name) => {
+        console.log(name)
+        let name2 = radioButton.getSelected()
+        console.log(name == name2)
+    })
+
+    homeButton(element, config.user)
+    // let canvas = Canvas(element)
+    // let field = Field(canvas)
+
+    socket.on(socketDir + 'user_list', (list) => {
+        toList.setList(list)
+        fromList.setList(list)
+        fromList.check(config.user)
+    })
+
+    socket.on(socketDir + 'user_add', (user) => {
+        toList.addUser(user)
+        fromList.addUser(user)
+    })
+
+    socket.on(socketDir + 'user_remove', (user) => {
+        toList.removeUser(user)
+        fromList.removeUser(user)
+    })
+
+    let syncPlay = SyncPlay(context)
+    let syncNoteList = {}
+    let pannerList = {}
+    let isPlaying = false
+
+    // 人固定
+    context.listener.setPosition(0, 0, -0.1)
+
+    let createSyncNote = (bufferName, time, offset, duration) => {
+        let music_offset = offset || 0
+        duration = duration || null
+        let correctionTime = clientTime.correctionServerTime(time)
+        let left = correctionTime - Date.now()
+
+        // htmlText.log.innerHTML = 'start playback after: ' + left.toFixed(4) + 'ms'
+
+        return syncPlay.createSyncNote(bufferName, correctionTime, music_offset, duration)
+    }
+
+    /*
+     * Evary EventLister are in this Method
+     * socket
+     * canvas
+     * button
+     */
+
+    // socket
+
+    syncPlay.loadBuffer(soundList, () => {
+
+    })
+
+    socket.call.on('connect', () => {
+        clientID = uuid.v4()
+
+        // field.setClientID(clientID)
+
+        socket.emit(socketDir + 'register', {
+            type: socketType,
+            id: clientID,
+            user: config.user
+        })
+
+        socket.on(socketDir + 'register', (body) => {
+            if (body.id === clientID && body.name) {
+                clientName = body.name
+            }
+
+            htmlText.status.innerHTML = 'user: ' + clientName
+        })
+
+        /**
+         * voice
+         */
+
+        socket.on(socketDir + 'voice_from', (res) => {
+            context.createBufferSource().start(0)
+            notificationButton.notificationText.innerHTML = '♪'
+            let toUserList = toList.getSelectUser()
+            let fromUserList = fromList.getSelectUser()
+            let soundName = radioButton.getSelected()
+            let doppler = dopplerSwitch
+            let editer = connect.get('editerValue')
+            let position = connect.get('positionValue')
+            let body = {
+                id: clientID,
+                type: socketType,
+                user: config.user,
+                from: res.from,
+                to: res.to,
+                sound: res.voiceName,
+                doppler: doppler,
+                editer: editer,
+                position: position
+            }
+            socket.emit(socketDir + 'notification_common', body)
+        })
+
+        socket.on(socketDir + 'voice', (buffer) => {
+            console.log('getBuffer  ' + 'voice')
+            syncPlay.addBuffer('voice', buffer, () => {
+                socket.emit(socketDir + 'voice_ready', {
+                    id: clientID,
+                    user: config.user,
+                    type: socketType,
+                    voiceName: 'voice'
+                })
+                console.log('set Buffer')
+            })
+        })
+
+        socket.on(socketDir + 'voice_play', (body) => {
+            let notes = body.notes
+            console.log(body)
+            notes.forEach((nt) => {
+                syncNote = createSyncNote(nt.bufferName, nt.time, nt.offset || 0, nt.duration || null)
+                syncNote = setCommonSyncNote(syncNote, nt.name)
+                let panner = createIndividualPanner(nt.name)
+                syncPlay.play(panner, syncNote)
+                // field.toPlayStatus(nt.name)
+                console.log(nt.name)
+            })
+        })
+
+
+        socket.on(socketDir + 'notification_common', (body) => {
+            console.log(body)
+            let from = body.from.indexOf(config.user) >= 0 ? true : false
+            let to = body.to.indexOf(config.user) >= 0 ? true : false
+
+            let fromText = ''
+            body.from.forEach((n) => {
+                fromText += n + ' '
+            })
+            let toText = ''
+            body.to.forEach((n) => {
+                toText += n + ' '
+            })
+            htmlText.log.innerHTML = 'From: ' + fromText + '　To: ' + toText
+            if (!from && !to) {
+                return
+            }
+
+            body.notes.forEach((note) => {
+                play(body, note, from, to)
+            })
+        })
+    })
+
+    function play(body, note, from, to) {
+        syncNote = createSyncNote(note.sound, note.time, note.offset, note.duration)
+        let ev = body.editer || connect.get('editerValue')
+        if (!ev) {
+            ev = []
+        }
+
+        let gainNode = context.createGain()
+        gainNode.connect(context.destination)
+
+        let doppler = body.doppler
+
+        let consol = (t, duration) => {
+            htmlText.log.innerHTML = 'Volume[0-1]: ' + gainNode.gain.value.toFixed(4) + ',  Doppler: ' + syncNote.source.playbackRate.value.toFixed(4)
+            // gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
+            setTimeout(() => {
+                t += 100
+                if (t < duration) {
+                    consol(t, duration)
+                }
+            }, 100)
+        }
+
+        syncNote.started((leftTime) => {
+
+            // ms -> s
+            let duration = syncNote.duration / 1000
+            // ms -> s
+            let st = syncPlay.getCurrentTime() + leftTime / 1000
+            consol(0, syncNote.duration + leftTime)
+
+            // viewStart
+            connect.set('viewStart', {
+                duration: syncNote.duration,
+                leftTime: leftTime
+            })
+
+            let position = body.position || {}
+
+            ev.forEach((d, i) => {
+                let v = d.value
+                let t = d.div
+                if (from) {
+                    v = v
+                } else if (to) {
+                    v = 1 - v
+                }
+                if (i == 0) {
+                    gainNode.gain.value = v
+                }
+                gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
+
+                // s
+                // 0 - 1 -> 0.1
+                let interT = i >= 1 ? ev[i].div - ev[i - 1].div : ev[i].div
+                // 0 - duration -> duration * 0.1
+                interT *= duration
+                // m
+                let dist = position.d || 1
+
+
+                // m/s fromからtoに向かうときプラス方向
+                let vs = d.velocity * dist / duration
+                // km/h
+                // vs = vs * 60 * 60 / 1000
+                vs = vs * 3.6
+
+                // vcos
+                // 音源位置
+                // from 0[m] - dist[m] to
+                let meter = (1 - d.value) * dist
+                let ang = 0
+                let px = meter
+                let py = 0
+                if (position.target == 'from') {
+                    let lx = position.offsetX
+                    let ly = position.offsetY
+                    ang = Math.atan2(ly - py, lx - px)
+                }
+                if (position.target == 'to') {
+                    let lx = dist + position.offsetX
+                    let ly = position.offsetY
+                    ang = Math.atan2(ly - py, lx - px)
+                }
+
+                let rate = 340 / (340 - vs * Math.cos(ang))
+                if (i == 0) {
+                    gainNode.gain.value = rate
+                }
+                if (doppler && !isNaN(vs)) {
+                    syncNote.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t)
+                } else {
+                    syncNote.source.playbackRate.value = 1
+                }
+                // fromを自分とすると
+                // from 1 to 0
+                // マイナス方向が離れる
+                // v0 = 0 観測者は静止
+                // V = 340
+                // let rate = 340 / (340 - vs)
+                //
+                // // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
+                // // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
+            })
+        })
+        syncPlay.play(gainNode, syncNote)
+
+        syncNote.finished(() => {
+            notificationButton.notificationText.innerHTML = '　'
+        })
+    }
+
+
+    // button
+
+    notificationButton.test.onclick = () => {
+
+        console.log('Test Play')
+
+        // ios対策
+        context.createBufferSource().start(0)
+
+        let soundName = radioButton.getSelected()
+
+        let note = syncPlay.createSyncNote(soundName, Date.now())
+        syncPlay.play(context.destination, note)
+
+        // htmlText.status.innerHTML = 'volume on'
+    }
+
+    notificationButton.notification.onclick = () => {
+        context.createBufferSource().start(0)
+        notificationButton.notificationText.innerHTML = '♪'
+        let toUserList = toList.getSelectUser()
+        let fromUserList = fromList.getSelectUser()
+        let soundName = radioButton.getSelected()
+        // let pannerValues = pannerSlider.getValues()
+        // let pannerDistance = distanceSlider.getValue()
+        let doppler = dopplerSwitch
+        let editer = connect.get('editerValue')
+        let position = connect.get('positionValue')
+        console.log(position)
+
+        console.log(toUserList)
+        console.log(fromUserList)
+        let body = {
+            id: clientID,
+            type: socketType,
+            user: config.user,
+            from: fromUserList,
+            to: toUserList,
+            sound: soundName,
+            // panner: pannerValues,
+            // distance: pannerDistance,
+            doppler: doppler,
+            editer: editer,
+            position: position
+        }
+        console.log(body)
+        socket.emit(socketDir + 'notification_common', body)
+    }
+}
+
+},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../exCall-module/config":235,"./canvas/field.js":171,"./canvas/icon-note.js":172,"./canvas/icon-speaker.js":173,"./graph/connect.js":175,"./graph/index.js":178,"./gyro.js":182,"./html/html-text.js":183,"./html/switchButton.js":184,"./sync-play.js":186,"node-uuid":275}],186:[function(require,module,exports){
+arguments[4][153][0].apply(exports,arguments)
+},{"dup":153}],187:[function(require,module,exports){
+module.exports = (element) => {
+    let button = {
+        test: null,
+        notification: null,
+        notificationText: null
+    }
+
+    let notification = document.createElement('button')
+    notification.setAttribute('class', 'btn btn-hg btn-primary')
+    notification.innerHTML = 'Notification'
+    let notificationText = document.createElement('h5')
+    notificationText.innerHTML = '　'
+
+    let p = document.createElement('p')
+    p.setAttribute('class', 'mbl')
+    let p2 = document.createElement('p')
+    p2.innerHTML = '<br>iosは一度ボタンを押さないと音がなりません<br>'
+
+    let test = document.createElement('button')
+    test.setAttribute('class', 'btn btn-default')
+    test.innerHTML = 'Test: この端末だけで鳴らす'
+
+
+    button.test = test
+    // button.stop = stop
+    button.notification = notification
+    button.notificationText = notificationText
+
+
+    // p.appendChild(stop)
+    p.appendChild(notification)
+    p.appendChild(notificationText)
+    p.appendChild(p2)
+    p.appendChild(test)
+    element.appendChild(p)
+
+    return button
+}
+
+},{}],188:[function(require,module,exports){
+// <button class="btn btn-default">Default</button>
+module.exports = (element, user) => {
+    let p = document.createElement('p')
+    p.setAttribute('class', 'mbl')
+    p.innerHTML = '<br>'
+
+    let button = document.createElement('button')
+    button.setAttribute('class', 'btn btn-default')
+    button.innerHTML = 'Homeに戻る'
+
+    button.onclick = () => {
+        let href = window.location.href
+        let http = 'http://'
+        if (href.indexOf('http://') >= 0) {
+            href = href.slice(7)
+        }
+        if (href.indexOf('https://') >= 0) {
+            href = href.slice(8)
+            http = 'https://'
+        }
+        let query_idx = href.indexOf('/')
+        if (query_idx >= 1) {
+            href = href.slice(0, query_idx)
+        }
+        let query = user ? '?user=' + user : ''
+        location.href = http + href + query
+    }
+
+    p.appendChild(button)
+    element.appendChild(p)
+
+
+}
+
+},{}],189:[function(require,module,exports){
+module.exports = (element, id, text) => {
+    return new RadioButton(element, id, text)
+}
+
+function RadioButton(element, id, text) {
+    this.div = null
+    this.selectStatus = {}
+    this.id = id || ''
+    this.onSelectCall = () => {}
+
+    this.init(element, text)
+}
+
+RadioButton.prototype.init = function(element, text) {
+    this.div = document.createElement('div')
+    let h = document.createElement('h5')
+    h.innerHTML = text || ''
+
+    element.appendChild(h)
+    element.appendChild(this.div)
+}
+
+
+RadioButton.prototype.setList = function(nameList) {
+    let div = this.div
+    let selectStatus = this.selectStatus
+    let id = this.id
+
+    let radio = {
+        start: null,
+        stop: null
+    }
+
+    nameList.forEach((name, i) => {
+
+        let label = document.createElement('label')
+        label.setAttribute('class', 'radio')
+        label.setAttribute('for', 'radio' + id + i)
+        label.setAttribute('data-name', name)
+
+        let input = document.createElement('input')
+        input.setAttribute('type', 'radio')
+        input.setAttribute('name', id)
+        // input.setAttribute('class', 'radio')
+        input.setAttribute('value', name)
+        input.setAttribute('id', 'radio' + id + i)
+        input.setAttribute('data-id', id)
+        input.setAttribute('data-toggle', 'radio')
+        if (i == 0) {
+            input.setAttribute('checked', 'checked')
+            selectStatus[name] = true
+        } else {
+            // input.setAttribute('disabled', '')
+            selectStatus[name] = false
+        }
+        label.innerHTML = name
+        label.appendChild(input)
+        div.appendChild(label)
+    })
+
+    // element.appendChild(div)
+
+    $(':radio').radiocheck()
+
+    let Radio = this
+    $(':radio').on('change.radiocheck', function(e) {
+        let dataID = e.target.getAttribute('data-id')
+        if (id == dataID) {
+            for (let name in selectStatus) {
+                if (name == e.target.value) {
+                    selectStatus[name] = true
+                } else {
+                    selectStatus[name] = false
+                }
+            }
+            Radio.onSelectCall(e.target.value)
+        }
+    })
+
+    return radio
+}
+
+RadioButton.prototype.onSelect = function(callback = () => {}) {
+    this.onSelectCall = callback
+}
+
+RadioButton.prototype.getSelected = function() {
+    for (let name in this.selectStatus) {
+        if (this.selectStatus[name]) {
+            return name
+        }
+    }
+    return ''
+}
+
+},{}],190:[function(require,module,exports){
+// let div = null
+//
+// let selectStatus = {}
+// let number = 0
+
+module.exports = (element, id, text) => {
+    return new SelectList(element, id, text)
+}
+
+function SelectList(element, id, text) {
+    this.div = null
+    this.selectStatus = {}
+    this.userList = {}
+    this.number = 0
+    this.id = id
+    this.init(element, text)
+    this.changeCall = () => {}
+}
+
+SelectList.prototype.init = function(element, text) {
+    this.div = document.createElement('div')
+    let h = document.createElement('h5')
+    h.innerHTML = text || ''
+
+    element.appendChild(h)
+    element.appendChild(this.div)
+}
+
+SelectList.prototype.selectUser = function() {
+    let list = []
+    for (let name in this.selectStatus) {
+        if (this.selectStatus[name]) {
+            list.push(name)
+        }
+    }
+    return list
+}
+
+SelectList.prototype.getSelectUser = function() {
+    return this.selectUser()
+}
+
+SelectList.prototype.getUserList = function() {
+    let list = []
+    for (let name in this.userList) {
+        if (this.userList[name]) {
+            list.push(name)
+        }
+    }
+    return list
+}
+
+SelectList.prototype.onChange = function(callback = () => {}) {
+    this.changeCall = callback
+}
+
+SelectList.prototype.setList = function(nameList) {
+    let id = this.id
+    let sl = this
+
+    nameList.forEach((name) => {
+        if (name in sl.selectStatus) {
+            return
+        }
+
+        let label = document.createElement('label')
+        label.setAttribute('class', 'checkbox')
+        label.setAttribute('for', 'checkbox' + id + sl.number)
+        label.setAttribute('data-name', name)
+
+        let input = document.createElement('input')
+        input.setAttribute('type', 'checkbox')
+        input.setAttribute('value', name)
+        input.setAttribute('data-id', id)
+        input.setAttribute('class', 'checkbox')
+        input.setAttribute('id', 'checkbox' + id + sl.number)
+        input.setAttribute('data-toggle', 'checkbox')
+        label.innerHTML = name
+        label.appendChild(input)
+        sl.div.appendChild(label)
+
+        sl.selectStatus[name] = false
+        sl.userList[name] = true
+        sl.number += 1
+    })
+
+    $(':checkbox').radiocheck()
+
+    $(':checkbox').on('change.radiocheck', function(e) {
+        // e.target.value
+        let dataID = e.target.getAttribute('data-id')
+        if (id == dataID && sl.selectStatus[e.target.value] != e.target.checked) {
+            sl.selectStatus[e.target.value] = e.target.checked
+            sl.changeCall()
+        }
+    })
+}
+
+SelectList.prototype.addUser = function(nameList) {
+    let id = this.id
+    let sl = this
+    if (!Array.isArray(nameList) && nameList) {
+        let temp = nameList
+        nameList = []
+        nameList.push(temp)
+    }
+
+    nameList.forEach((name, i) => {
+        if (name in sl.selectStatus) {
+            sl.enable(name)
+            return
+        }
+        let label = document.createElement('label')
+        label.setAttribute('class', 'checkbox')
+        label.setAttribute('for', 'checkbox' + id + sl.number)
+        label.setAttribute('data-name', name)
+
+        let input = document.createElement('input')
+        input.setAttribute('type', 'checkbox')
+        input.setAttribute('value', name)
+        input.setAttribute('data-id', id)
+        input.setAttribute('class', 'checkbox')
+        input.setAttribute('id', 'checkbox' + id + sl.number)
+        input.setAttribute('data-toggle', 'checkbox')
+        label.innerHTML = name
+        label.appendChild(input)
+        sl.div.appendChild(label)
+
+        sl.selectStatus[name] = false
+        sl.userList[name] = true
+        sl.number += 1
+    })
+
+    $(':checkbox').radiocheck()
+
+    $(':checkbox').on('change.radiocheck', function(e) {
+        let dataID = e.target.getAttribute('data-id')
+        if (id == dataID && sl.selectStatus[e.target.value] != e.target.checked) {
+            sl.selectStatus[e.target.value] = e.target.checked
+            sl.changeCall()
+        }
+    })
+}
+
+SelectList.prototype.removeUser = function(nameList) {
+    let sl = this
+    if (!Array.isArray(nameList) && nameList) {
+        let temp = nameList
+        nameList = []
+        nameList.push(temp)
+    }
+    nameList.forEach((targetName) => {
+        sl.disable(targetName)
+        sl.userList[targetName] = false
+    })
+}
+
+SelectList.prototype.disable = function(targetName) {
+    let children = this.div.children || []
+    for (var i = 0; i < children.length; i++) {
+        let name = children[i].getAttribute('data-name')
+        if (targetName === name) {
+            this.selectStatus[name] = false
+            let htmlFor = children[i].htmlFor
+            $('#' + htmlFor).radiocheck('indeterminate')
+            $('#' + htmlFor).radiocheck('disable')
+            return
+        }
+    }
+}
+
+SelectList.prototype.enable = function(targetName) {
+    let children = this.div.children || []
+    for (var i = 0; i < children.length; i++) {
+        let name = children[i].getAttribute('data-name')
+        if (targetName === name) {
+            this.selectStatus[name] = false
+            let htmlFor = children[i].htmlFor
+            $('#' + htmlFor).radiocheck('enable')
+            $('#' + htmlFor).radiocheck('determinate')
+            return
+        }
+    }
+}
+
+SelectList.prototype.check = function(targetName) {
+    let children = this.div.children || []
+    for (var i = 0; i < children.length; i++) {
+        let name = children[i].getAttribute('data-name')
+        if (targetName === name) {
+            this.selectStatus[name] = true
+            let htmlFor = children[i].htmlFor
+            $('#' + htmlFor).radiocheck('check')
+            return
+        }
+    }
+}
+
+// let getRadio = (targetName) => {
+//     let children = div.children || []
+//     for (var i = 0; i < children.length; i++) {
+//         let name = children[i].getAttribute('data-name')
+//         console.log(name)
+//         if (targetName === name) {
+//             let htmlFor = children[i].htmlFor
+//             return $('#' + htmlFor)
+//         }
+//     }
+//     return null
+// }
+
+},{}],191:[function(require,module,exports){
+// <div id="slider"></div>
+
+
+module.exports = (element, id, text) => {
+    return new Slider(element, id, text)
+}
+
+function Slider(element, id, text) {
+    this.div = null
+    this.value = {}
+    this.id = id || ''
+    this.onChangeCall = () => {}
+
+    this.init(element, text)
+}
+
+Slider.prototype.init = function(element, text) {
+    this.div = document.createElement('div')
+    this.div.setAttribute('id', 'slider' + this.id)
+    let h = document.createElement('h5')
+    h.innerHTML = text || ''
+
+    element.appendChild(h)
+    element.appendChild(this.div)
+}
+
+Slider.prototype.setList = function(nameList) {
+    var slider = $('#slider' + this.id)
+    if (slider.length > 0) {
+        slider.slider({
+            animate: 'fast',
+            min: 1,
+            max: 100,
+            value: 30,
+            orientation: 'horizontal'
+            // range: true
+        })
+        // }).addSliderSegments($slider.slider("option").max);
+    }
+}
+
+
+Slider.prototype.getValue = function() {
+    var slider = $('#slider' + this.id).slider('value')
+    return slider
+}
+
+},{}],192:[function(require,module,exports){
+// <div id="slider"></div>
+
+
+module.exports = (element, id, text) => {
+    return new Slider(element, id, text)
+}
+
+function Slider(element, id, text) {
+    this.div = null
+    this.value = {}
+    this.id = id || ''
+    this.onChangeCall = () => {}
+
+    this.init(element, text)
+}
+
+Slider.prototype.init = function(element, text) {
+    this.div = document.createElement('div')
+    this.div.setAttribute('id', 'slider' + this.id)
+    let h = document.createElement('h5')
+    h.innerHTML = text || ''
+
+    element.appendChild(h)
+    element.appendChild(this.div)
+}
+
+Slider.prototype.setList = function(nameList) {
+    var slider = $('#slider' + this.id)
+    if (slider.length > 0) {
+        slider.slider({
+            animate: 'fast',
+            min: 1,
+            max: 100,
+            values: [20, 60],
+            orientation: 'horizontal',
+            range: true
+        })
+        // }).addSliderSegments($slider.slider("option").max);
+    }
+}
+
+
+Slider.prototype.getValues = function() {
+    var slider = $('#slider' + this.id).slider('values')
+    return slider
+}
+
+},{}],193:[function(require,module,exports){
+// <input type="checkbox" checked data-toggle="switch" name="default-switch" id="switch-01" />
+
+// data-on-color
+//  primary
+//  info
+//  success
+//  warning
+//  danger
+
+// <input type="checkbox" checked data-toggle="switch" name="info-square-switch" data-on-color="success" id="switch-05" />
+
+module.exports = (element, id, text) => {
+    return new Switch(element, id, text)
+}
+
+function Switch(element, id, text) {
+    this.div = null
+    this.id = id || ''
+
+    this.init(element, text)
+}
+
+Switch.prototype.init = function(element, text) {
+    this.div = document.createElement('div')
+    // this.div.setAttribute('id', 'switch' + this.id)
+    // this.div.setAttribute('id', 'switch' + this.id)
+    let sw = document.createElement('input')
+    sw.setAttribute('type', 'checkbox')
+    sw.setAttribute('checked', '')
+    sw.setAttribute('class', 'checkbox')
+    sw.setAttribute('data-toggle', 'switch')
+    sw.setAttribute('name', 'default-switch')
+    // sw.setAttribute('data-on-color', 'success')
+    sw.setAttribute('id', 'switch' + this.id)
+
+    let h = document.createElement('h6')
+    h.innerHTML = text || ''
+
+    this.div.appendChild(sw)
+    element.appendChild(h)
+    element.appendChild(this.div)
+
+    $(':checkbox').radiocheck()
+}
+
+// Slider.prototype.set = function() {
+//     var slider = $('#slider' + this.id)
+// }
+
+
+Switch.prototype.getValues = function() {
+    var switchCheck = $('#switch' + this.id).slider('checked')
+    return switchCheck
+}
+
+},{}],194:[function(require,module,exports){
+exports.userNameCheck = (user, callback = () => {}) => {
+    if (!user || typeof user != 'string' || user == 'unknown') {
+        module.exports.userNameInput(callback)
+    }else{
+        callback(user)
+    }
+}
+
+exports.userNameInput = (callback = () => {}, caution = '') => {
+
+    // 入力ダイアログを表示 ＋ 入力内容を user に代入
+    // let user = window.prompt('ユーザー名を入力してください．slackでの名前を推奨（連携できます）' + caution, '')
+    let user = window.prompt('ユーザー名を入力してください．' + caution, '')
+
+    if (typeof user == 'string' && user.trim().length >= 1) {
+        let href = window.location.href
+        let query_idx = href.indexOf('?')
+        if(query_idx >= 1){
+            href = href.slice(0, query_idx)
+        }
+        location.href = href + '?user=' + user
+        callback(user)
+    } else if (user != "" && user != null) {
+        caution = '\n入力しないと進めません'
+        module.exports.userNameInput(callback, caution)
+    } else {
+        caution = '\n入力しないと進めません'
+        callback('unknown')
+        // module.exports.userNameInput(callback, caution)
+    }
+
+}
+
+},{}],195:[function(require,module,exports){
+arguments[4][146][0].apply(exports,arguments)
+},{"dup":146}],196:[function(require,module,exports){
+arguments[4][147][0].apply(exports,arguments)
+},{"dup":147}],197:[function(require,module,exports){
+arguments[4][148][0].apply(exports,arguments)
+},{"dup":148}],198:[function(require,module,exports){
+arguments[4][174][0].apply(exports,arguments)
+},{"dup":174}],199:[function(require,module,exports){
+arguments[4][175][0].apply(exports,arguments)
+},{"dup":175}],200:[function(require,module,exports){
+arguments[4][176][0].apply(exports,arguments)
+},{"dup":176}],201:[function(require,module,exports){
+arguments[4][177][0].apply(exports,arguments)
+},{"./../connect.js":199,"./bezier.js":200,"dup":177}],202:[function(require,module,exports){
+arguments[4][178][0].apply(exports,arguments)
+},{"./canvas.js":198,"./editer/field.js":201,"./listenerPosition/listenerField.js":203,"./tool/toolField.js":205,"dup":178}],203:[function(require,module,exports){
+arguments[4][179][0].apply(exports,arguments)
+},{"./../connect.js":199,"dup":179}],204:[function(require,module,exports){
+arguments[4][180][0].apply(exports,arguments)
+},{"dup":180}],205:[function(require,module,exports){
+arguments[4][181][0].apply(exports,arguments)
+},{"./../connect.js":199,"./tool.js":204,"dup":181}],206:[function(require,module,exports){
+arguments[4][182][0].apply(exports,arguments)
+},{"dup":182}],207:[function(require,module,exports){
+arguments[4][150][0].apply(exports,arguments)
+},{"dup":150}],208:[function(require,module,exports){
+arguments[4][184][0].apply(exports,arguments)
+},{"dup":184}],209:[function(require,module,exports){
 let uuid = require('node-uuid')
 // let job = require('./../Job/cron.js')
 
@@ -27462,54 +27202,6 @@ exports.start = (element, context, socket, clientTime, config) => {
         // htmlText.log.innerHTML = 'start playback after: ' + left.toFixed(4) + 'ms'
 
         return syncPlay.createSyncNote(bufferName, correctionTime, music_offset, duration)
-    }
-
-    let setCommonSyncNote = (syncNote, noteName) => {
-        syncNote.started(() => {
-            console.log('syncPlay: start')
-            syncNoteList[noteName] = syncNote
-        })
-
-        syncNote.stoped(() => {
-            console.log('syncPlay: stop')
-            if (syncNoteList[noteName]) {
-                delete syncNoteList[noteName]
-            }
-        })
-
-        syncNote.finished(() => {
-            console.log('syncPlay: finish')
-            if (isPlaying && syncNoteList[noteName]) {
-                isPlaying = false
-                syncNoteList[noteName].stop()
-                // field.toStopStatus(noteName)
-                delete syncNoteList[noteName]
-
-                // htmlText.status.innerHTML = 'finish'
-            }
-        })
-
-        return syncNote
-    }
-
-    let createIndividualPanner = (name) => {
-        if (name == 'music') {
-            let gainNode = context.createGain()
-            gainNode.gain.value = 20.0
-            gainNode.connect(context.destination)
-            let panner = createPanner(true)
-            panner.connect(gainNode)
-            pannerList[name] = panner
-            return panner
-        } else {
-            let gainNode = context.createGain()
-            gainNode.gain.value = 20.0
-            gainNode.connect(context.destination)
-            let panner = createPanner(true)
-            panner.connect(gainNode)
-            pannerList[name] = panner
-            return panner
-        }
     }
 
     /*
@@ -27732,23 +27424,23 @@ exports.start = (element, context, socket, clientTime, config) => {
     }
 }
 
-},{"./../demo-common/html/button-notification.js":177,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./../demo-common/html/select-list.js":180,"./../demo-common/html/slider-single.js":181,"./../demo-common/html/slider.js":182,"./../exCall-module/config":225,"./canvas/field.js":185,"./canvas/icon-note.js":186,"./canvas/icon-speaker.js":187,"./graph/connect.js":189,"./graph/index.js":192,"./gyro.js":196,"./html/html-text.js":197,"./html/switchButton.js":198,"./sync-play.js":200,"node-uuid":265}],200:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../exCall-module/config":235,"./canvas/field.js":195,"./canvas/icon-note.js":196,"./canvas/icon-speaker.js":197,"./graph/connect.js":199,"./graph/index.js":202,"./gyro.js":206,"./html/html-text.js":207,"./html/switchButton.js":208,"./sync-play.js":210,"node-uuid":275}],210:[function(require,module,exports){
 arguments[4][153][0].apply(exports,arguments)
-},{"dup":153}],201:[function(require,module,exports){
+},{"dup":153}],211:[function(require,module,exports){
 arguments[4][154][0].apply(exports,arguments)
-},{"dup":154}],202:[function(require,module,exports){
+},{"dup":154}],212:[function(require,module,exports){
 arguments[4][155][0].apply(exports,arguments)
-},{"dup":155}],203:[function(require,module,exports){
+},{"dup":155}],213:[function(require,module,exports){
 arguments[4][156][0].apply(exports,arguments)
-},{"dup":156}],204:[function(require,module,exports){
+},{"dup":156}],214:[function(require,module,exports){
 arguments[4][157][0].apply(exports,arguments)
-},{"dup":157}],205:[function(require,module,exports){
+},{"dup":157}],215:[function(require,module,exports){
 arguments[4][158][0].apply(exports,arguments)
-},{"dup":158}],206:[function(require,module,exports){
+},{"dup":158}],216:[function(require,module,exports){
 arguments[4][147][0].apply(exports,arguments)
-},{"dup":147}],207:[function(require,module,exports){
+},{"dup":147}],217:[function(require,module,exports){
 arguments[4][148][0].apply(exports,arguments)
-},{"dup":148}],208:[function(require,module,exports){
+},{"dup":148}],218:[function(require,module,exports){
 let uuid = require('node-uuid')
 let job = require('./../Job/cron.js')
 
@@ -28198,17 +27890,310 @@ let createPanner = () => {
     return panner
 }
 
-},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./biquad.js":201,"./button.js":202,"./canvas.js":203,"./field.js":204,"./html-text.js":205,"./icon-note.js":206,"./icon-speaker.js":207,"./sync-play.js":209,"node-uuid":265}],209:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./biquad.js":211,"./button.js":212,"./canvas.js":213,"./field.js":214,"./html-text.js":215,"./icon-note.js":216,"./icon-speaker.js":217,"./sync-play.js":219,"node-uuid":275}],219:[function(require,module,exports){
 arguments[4][162][0].apply(exports,arguments)
-},{"dup":162}],210:[function(require,module,exports){
-arguments[4][171][0].apply(exports,arguments)
-},{"dup":171}],211:[function(require,module,exports){
+},{"dup":162}],220:[function(require,module,exports){
+module.exports = (canvas) => {
+    return new Field(canvas)
+}
+
+
+function Field(canvas) {
+    this.canvas = canvas
+    this.clientID = ''
+    this.center = {
+        x: canvas.width / 2,
+        y: canvas.height / 2
+    }
+    this.w = canvas.width
+    this.h = canvas.height
+    this.size = this.w / 2
+
+    this.otherSpeakers = []
+    this.notes = {}
+
+    this.callStart = () => {}
+    this.callSendSpeakerInfo = () => {}
+    this.callSendNoteInfo = () => {}
+    this.callUpdatePannerPosition = () => {}
+}
+
+Field.prototype.setClientID = function(clientID) {
+    this.clientID = clientID
+}
+
+
+Field.prototype.setNote = function(note) {
+    let name = note.name
+    note.x = note.x * this.w
+    note.y = note.y * this.h
+    note.size = Math.round(this.w / 15)
+    this.notes[name] = note
+
+    // this.note = note
+    this.updatePannerPosition(this.notes[name], this.speaker)
+    this.render()
+    let field = this
+    this.notes[name].icon.onload = function() {
+        field.render()
+    }
+}
+
+Field.prototype.updateNote = function(note) {
+    let name = note.name
+    if (this.notes[name]) {
+        let nt = this.notes[name]
+        nt.x = note.x * this.w
+        nt.y = note.y * this.h
+        nt.over = note.over
+        nt.isMove = note.isMove
+        nt.isOtherMove = note.isOtherMove
+        this.updatePannerPosition(nt, this.speaker)
+        console.log(name, 'update')
+    }
+    this.render()
+
+}
+
+
+Field.prototype.setThisSpeaker = function(speaker) {
+    this.speaker = speaker
+    this.speaker.x = this.center.x
+    this.speaker.y = this.center.y
+    this.speaker.size = Math.round(this.w / 15)
+    let field = this
+    this.speaker.icon.onload = function() {
+        field.render()
+        field.sendSpeakerInfoToServer(field.speaker)
+    }
+}
+
+Field.prototype.setOtherSpeaker = function(SpeakerIcon, speakers) {
+    let speakerArray = []
+    if (typeof speakers == 'object') {
+        for (let id in speakers) {
+            if (id === this.clientID) {
+                continue
+            }
+            let sp = speakers[id]
+            let speaker = SpeakerIcon(this.speaker.icon)
+            speaker.x = sp.x * this.w
+            speaker.y = sp.y * this.h
+            speaker.size = Math.round(this.w / 15)
+            speaker.over = sp.over
+            speaker.isMove = sp.isMove
+            speaker.isThis = false
+            speaker.isPlay = sp.isPlay
+            speakerArray.push(speaker)
+        }
+    }
+    this.otherSpeakers = speakerArray
+    this.render()
+}
+
+Field.prototype.toPlayStatus = function(name = 'default') {
+    if (this.notes[name]) {
+        this.notes[name].isPlay = true
+        // this.updatePannerPosition(this.notes[name], this.speaker)
+    }
+    if (this.speaker) {
+        this.speaker.isPlay = true
+        this.sendSpeakerInfoToServer(this.speaker)
+    }
+    this.render()
+}
+
+Field.prototype.toStopStatus = function(name = 'default') {
+    if (this.notes[name]) {
+        this.notes[name].isPlay = false
+    }
+    if (this.speaker) {
+        this.speaker.isPlay = false
+        this.sendSpeakerInfoToServer(this.speaker)
+    }
+    this.render()
+}
+
+
+
+Field.prototype.render = function() {
+    // Draw points onto the canvas element.
+    var ctx = this.canvas.getContext('2d');
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    ctx.save()
+    // grid
+    let size = this.size
+    let cnt = 0
+    ctx.strokeStyle = 'rgba(0,0,0,0.1)'
+    for (let r = 0; r <= size; r += size / 4) {
+        let alpha = 0.5 - cnt * 0.1
+        ctx.strokeStyle = 'rgba(0,0,0,' + alpha + ')'
+        cnt++
+        ctx.beginPath()
+        ctx.arc(this.center.x, this.center.y, r, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.strokeStyle = 'rgba(0,0,0,' + alpha + ')'
+
+        this.line(ctx, 0, this.center.y - r, this.w, this.center.y - r)
+        if (cnt > 1) {
+            this.line(ctx, 0, this.center.y + r, this.w, this.center.y + r)
+            this.line(ctx, this.center.x - r, 0, this.center.x - r, this.h)
+        }
+        this.line(ctx, this.center.x + r, 0, this.center.x + r, this.h)
+    }
+
+    this.speaker.draw(ctx)
+    if (this.otherSpeakers) {
+        this.otherSpeakers.forEach((sp) => {
+            sp.draw(ctx)
+        })
+    }
+    // this.note.draw(ctx)
+    for (let name in this.notes) {
+        this.notes[name].draw(ctx)
+    }
+    ctx.restore()
+}
+
+Field.prototype.started = function(callback) {
+    this.callStart = callback
+}
+
+
+Field.prototype.mousePressed = function(x, y) {
+    if (this.speaker.isOver(x, y)) {
+        this.speaker.isMove = true
+        this.speaker.over = true
+        this.speaker.x = x
+        this.speaker.y = y
+    } else {
+        for (let name in this.notes) {
+            let note = this.notes[name]
+            if (!note.isOtherMove && note.isOver(x, y)) {
+                note.isSync = true
+                note.click()
+                break
+            }
+        }
+    }
+    // this.updatePannerPosition(this.note, this.speaker)
+    this.render()
+}
+
+
+Field.prototype.mouseReleased = function(x, y) {
+    if (this.speaker.isMove) {
+        this.speaker.x = x
+        this.speaker.y = y
+        this.speaker.isMove = false
+        this.speaker.over = false
+    }
+    for (let name in this.notes) {
+        let note = this.notes[name]
+        if (!note.isOtherMove && note.isMove) {
+            note.x = x
+            note.y = y
+            note.isMove = false
+            note.over = false
+            note.isSync = false
+            this.sendNoteInfoToServer(note, true)
+        }
+        this.updatePannerPosition(note, this.speaker)
+    }
+    this.sendSpeakerInfoToServer(this.speaker)
+    this.render()
+}
+
+Field.prototype.mouseMoved = function(x, y) {
+    if (this.speaker.isMove) {
+        this.speaker.x = x
+        this.speaker.y = y - 2
+        this.sendSpeakerInfoToServer(this.speaker)
+    }
+    for (let name in this.notes) {
+        let note = this.notes[name]
+        if (!note.isOtherMove && note.isMove) {
+            note.over = true
+            note.x = x
+            note.y = y - 2
+            this.sendNoteInfoToServer(note, false)
+          }
+        this.updatePannerPosition(note, this.speaker)
+
+    }
+    this.render()
+}
+
+Field.prototype.pannerPosition = function(callback) {
+    this.callUpdatePannerPosition = callback
+}
+
+Field.prototype.updatePannerPosition = function(note, speaker) {
+    // 音源が原点
+    let x = note.x - speaker.x
+    let y = note.y - speaker.y
+    let dx = x / this.size
+    let dy = y / this.size
+    let body = {
+        name: note.name,
+        position: {
+            x: dx,
+            y: dy,
+            z: 0
+        }
+    }
+    this.callUpdatePannerPosition(body)
+}
+
+Field.prototype.sendSpeakerInfo = function(callback) {
+    this.sendSpeakerInfo = callback
+}
+
+Field.prototype.sendSpeakerInfoToServer = function(speaker) {
+    let sp = Object.assign({}, speaker)
+    sp.icon = null
+    sp.draw = null
+    sp.isOver = null
+    sp.x = sp.x / this.w
+    sp.y = sp.y / this.h
+    this.sendSpeakerInfo(sp)
+}
+
+Field.prototype.sendNoteInfo = function(callback) {
+    this.sendNoteInfo = callback
+}
+
+Field.prototype.sendNoteInfoToServer = function(note, release) {
+    let nt = Object.assign({}, note)
+    nt.icon = null
+    nt.draw = null
+    nt.isOver = null
+    nt.setParentNote = null
+    nt.idMove = false
+    nt.isOtherMove = release ? false : true
+    nt.x = nt.x / this.w
+    nt.y = nt.y / this.h
+    nt.id = this.clientID
+    nt.release = release
+    this.sendNoteInfo(nt)
+}
+
+
+Field.prototype.line = (ctx, x1, y1, x2, y2) => {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+}
+
+},{}],221:[function(require,module,exports){
 arguments[4][147][0].apply(exports,arguments)
-},{"dup":147}],212:[function(require,module,exports){
+},{"dup":147}],222:[function(require,module,exports){
 arguments[4][148][0].apply(exports,arguments)
-},{"dup":148}],213:[function(require,module,exports){
+},{"dup":148}],223:[function(require,module,exports){
 arguments[4][150][0].apply(exports,arguments)
-},{"dup":150}],214:[function(require,module,exports){
+},{"dup":150}],224:[function(require,module,exports){
 let uuid = require('node-uuid')
 // let job = require('./../Job/cron.js')
 
@@ -28628,9 +28613,9 @@ let createPanner = (side = 'from') => {
     return panner
 }
 
-},{"./../demo-common/html/button-notification.js":177,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./../demo-common/html/select-list.js":180,"./../demo-common/html/slider-single.js":181,"./../demo-common/html/slider.js":182,"./../exCall-module/config":225,"./canvas/field.js":210,"./canvas/icon-note.js":211,"./canvas/icon-speaker.js":212,"./html/html-text.js":213,"./sync-play.js":215,"node-uuid":265}],215:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../exCall-module/config":235,"./canvas/field.js":220,"./canvas/icon-note.js":221,"./canvas/icon-speaker.js":222,"./html/html-text.js":223,"./sync-play.js":225,"node-uuid":275}],225:[function(require,module,exports){
 arguments[4][153][0].apply(exports,arguments)
-},{"dup":153}],216:[function(require,module,exports){
+},{"dup":153}],226:[function(require,module,exports){
 let isMove = false
 let timeout = 10000
 
@@ -28668,15 +28653,15 @@ exports.moved = (text, callback = () => {}) => {
     })
 }
 
-},{}],217:[function(require,module,exports){
-arguments[4][171][0].apply(exports,arguments)
-},{"dup":171}],218:[function(require,module,exports){
+},{}],227:[function(require,module,exports){
+arguments[4][220][0].apply(exports,arguments)
+},{"dup":220}],228:[function(require,module,exports){
 arguments[4][147][0].apply(exports,arguments)
-},{"dup":147}],219:[function(require,module,exports){
+},{"dup":147}],229:[function(require,module,exports){
 arguments[4][148][0].apply(exports,arguments)
-},{"dup":148}],220:[function(require,module,exports){
+},{"dup":148}],230:[function(require,module,exports){
 arguments[4][150][0].apply(exports,arguments)
-},{"dup":150}],221:[function(require,module,exports){
+},{"dup":150}],231:[function(require,module,exports){
 let uuid = require('node-uuid')
 // let job = require('./../Job/cron.js')
 
@@ -29209,7 +29194,7 @@ let createPanner = () => {
     return panner
 }
 
-},{"./../demo-common/html/button-notification.js":177,"./../demo-common/html/homeButton.js":178,"./../demo-common/html/radio-button.js":179,"./../demo-common/html/select-list.js":180,"./../demo-common/html/slider-single.js":181,"./../demo-common/html/slider.js":182,"./../demo-common/html/switch.js":183,"./../exCall-module/config":225,"./accel.js":216,"./canvas/field.js":217,"./canvas/icon-note.js":218,"./canvas/icon-speaker.js":219,"./html/html-text.js":220,"./random-notification.js":222,"./sync-play.js":223,"node-uuid":265}],222:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../demo-common/html/switch.js":193,"./../exCall-module/config":235,"./accel.js":226,"./canvas/field.js":227,"./canvas/icon-note.js":228,"./canvas/icon-speaker.js":229,"./html/html-text.js":230,"./random-notification.js":232,"./sync-play.js":233,"node-uuid":275}],232:[function(require,module,exports){
 let first = false
 let isRandom = false
 let randomRange = [5000, 30000]
@@ -29241,9 +29226,9 @@ exports.off = () => {
     isRandom = false
 }
 
-},{}],223:[function(require,module,exports){
+},{}],233:[function(require,module,exports){
 arguments[4][153][0].apply(exports,arguments)
-},{"dup":153}],224:[function(require,module,exports){
+},{"dup":153}],234:[function(require,module,exports){
 // JSONファイルのdirectory
 // let json = './../../local-env/config.json'
 // return
@@ -29255,7 +29240,7 @@ try {
 
 module.exports = env
 
-},{"./../../local-env/config.json":228}],225:[function(require,module,exports){
+},{"./../../local-env/config.json":238}],235:[function(require,module,exports){
 (function (process){
 
 let config = {}
@@ -29271,7 +29256,7 @@ for(let key in local){
 module.exports = config
 
 }).call(this,require('_process'))
-},{"./config-local.js":224,"_process":111}],226:[function(require,module,exports){
+},{"./config-local.js":234,"_process":111}],236:[function(require,module,exports){
 let div
 let user = null
 let userName = null
@@ -29341,7 +29326,7 @@ exports.setNameChangeButton = (callback = () => {}) => {
     }
 }
 
-},{}],227:[function(require,module,exports){
+},{}],237:[function(require,module,exports){
 window.addEventListener('load', init, false);
 
 /*
@@ -29546,13 +29531,13 @@ function init() {
         let config = {
             user: user
         }
-        let demo_mention = require('./demo-doppler-notification/main.js')
+        let demo = require('./demo-doppler-notification/main.js')
         let graph = require('./demo-doppler-notification/graph')
         // let demo_mention = require('./concept-image/main.js')
         let inputUserName = require('./demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {
             config.user = user
-            demo_mention.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            demo.start(document.getElementById('canvas_div'), context, socket, ntp, config)
             graph.init(document.getElementById('canvas_graph'))
 
             socket.call.on('connect', () => {
@@ -29568,12 +29553,14 @@ function init() {
         let config = {
             user: user
         }
-        let demo_mention = require('./demo-chat/main.js')
-        // let demo_mention = require('./concept-image/main.js')
+        let demo = require('./demo-chat/main.js')
+        let graph = require('./demo-chat/graph')
         let inputUserName = require('./demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {
             config.user = user
-            demo_mention.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            demo.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            graph.init(document.getElementById('canvas_graph'))
+
             socket.call.on('connect', () => {
                 if (demo_argument.getAttribute('data-reset')) {
                     socket.emit('demo_motivation_reset', {})
@@ -29627,13 +29614,13 @@ function init() {
 
 }
 
-},{"./demo-accel-notification/main.js":152,"./demo-accel-sensor/main.js":161,"./demo-alarm/main.js":169,"./demo-chat/main.js":175,"./demo-common/prompt.js":184,"./demo-doppler-notification/graph":192,"./demo-doppler-notification/main.js":199,"./demo-motivation/main.js":208,"./demo-simple-notification/main.js":214,"./demo-task-notification/main.js":221,"./home/home.js":226,"./ntp-client.js":229,"./socket-client":230,"./sync-music/sync-music-surround.js":231}],228:[function(require,module,exports){
+},{"./demo-accel-notification/main.js":152,"./demo-accel-sensor/main.js":161,"./demo-alarm/main.js":169,"./demo-chat/graph":178,"./demo-chat/main.js":185,"./demo-common/prompt.js":194,"./demo-doppler-notification/graph":202,"./demo-doppler-notification/main.js":209,"./demo-motivation/main.js":218,"./demo-simple-notification/main.js":224,"./demo-task-notification/main.js":231,"./home/home.js":236,"./ntp-client.js":239,"./socket-client":240,"./sync-music/sync-music-surround.js":241}],238:[function(require,module,exports){
 module.exports={
   "PORT": 8118,
   "SERVER_URL": "https://excall.herokuapp.com"
 }
 
-},{}],229:[function(require,module,exports){
+},{}],239:[function(require,module,exports){
 let socket
 let dateDiff = 0
 
@@ -29756,7 +29743,7 @@ let emit = () => {
     }, 1000 * 1 + Math.floor((Math.random() * 500)))
 }
 
-},{}],230:[function(require,module,exports){
+},{}],240:[function(require,module,exports){
 const io = require('socket.io-client')
 // let url = 'http://192.168.144.126:8001'
 // let url = 'http://192.168.100.16:8001'
@@ -29805,7 +29792,7 @@ socket.on('disconnect', () => {
     call.emit('disconnect', url)
 })
 
-},{"./../../../exCall-module/simpleCall":283,"socket.io-client":269}],231:[function(require,module,exports){
+},{"./../../../exCall-module/simpleCall":293,"socket.io-client":279}],241:[function(require,module,exports){
 let uuid = require('node-uuid')
 let job = require('./../Job/cron.js')
 
@@ -30471,7 +30458,7 @@ Field.prototype.sendNoteInfoToServer = function(note, release) {
     })
 }
 
-},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":178,"node-uuid":265}],232:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":188,"node-uuid":275}],242:[function(require,module,exports){
 module.exports = after
 
 function after(count, callback, err_cb) {
@@ -30501,7 +30488,7 @@ function after(count, callback, err_cb) {
 
 function noop() {}
 
-},{}],233:[function(require,module,exports){
+},{}],243:[function(require,module,exports){
 /**
  * An abstraction for slicing an arraybuffer even when
  * ArrayBuffer.prototype.slice is not supported
@@ -30532,7 +30519,7 @@ module.exports = function(arraybuffer, start, end) {
   return result.buffer;
 };
 
-},{}],234:[function(require,module,exports){
+},{}],244:[function(require,module,exports){
 
 /**
  * Expose `Backoff`.
@@ -30619,7 +30606,7 @@ Backoff.prototype.setJitter = function(jitter){
 };
 
 
-},{}],235:[function(require,module,exports){
+},{}],245:[function(require,module,exports){
 /*
  * base64-arraybuffer
  * https://github.com/niklasvh/base64-arraybuffer
@@ -30688,7 +30675,7 @@ Backoff.prototype.setJitter = function(jitter){
   };
 })();
 
-},{}],236:[function(require,module,exports){
+},{}],246:[function(require,module,exports){
 (function (global){
 /**
  * Create a blob builder even when vendor prefixes exist
@@ -30788,7 +30775,7 @@ module.exports = (function() {
 })();
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],237:[function(require,module,exports){
+},{}],247:[function(require,module,exports){
 /**
  * Slice reference.
  */
@@ -30813,7 +30800,7 @@ module.exports = function(obj, fn){
   }
 };
 
-},{}],238:[function(require,module,exports){
+},{}],248:[function(require,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -30978,7 +30965,7 @@ Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
 };
 
-},{}],239:[function(require,module,exports){
+},{}],249:[function(require,module,exports){
 
 module.exports = function(a, b){
   var fn = function(){};
@@ -30986,7 +30973,7 @@ module.exports = function(a, b){
   a.prototype = new fn;
   a.prototype.constructor = a;
 };
-},{}],240:[function(require,module,exports){
+},{}],250:[function(require,module,exports){
 (function (root, factory) {
 	if (typeof define === 'function' && define.amd) {
 		define(['moment-timezone'], factory);
@@ -31528,7 +31515,7 @@ return exports;
 
 }));
 
-},{"child_process":44,"moment-timezone":261}],241:[function(require,module,exports){
+},{"child_process":44,"moment-timezone":271}],251:[function(require,module,exports){
 (function (process){
 /**
  * This is the web browser implementation of `debug()`.
@@ -31717,7 +31704,7 @@ function localstorage() {
 }
 
 }).call(this,require('_process'))
-},{"./debug":242,"_process":111}],242:[function(require,module,exports){
+},{"./debug":252,"_process":111}],252:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -31921,11 +31908,11 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":264}],243:[function(require,module,exports){
+},{"ms":274}],253:[function(require,module,exports){
 
 module.exports = require('./lib/index');
 
-},{"./lib/index":244}],244:[function(require,module,exports){
+},{"./lib/index":254}],254:[function(require,module,exports){
 
 module.exports = require('./socket');
 
@@ -31937,7 +31924,7 @@ module.exports = require('./socket');
  */
 module.exports.parser = require('engine.io-parser');
 
-},{"./socket":245,"engine.io-parser":253}],245:[function(require,module,exports){
+},{"./socket":255,"engine.io-parser":263}],255:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -32685,7 +32672,7 @@ Socket.prototype.filterUpgrades = function (upgrades) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./transport":246,"./transports/index":247,"component-emitter":238,"debug":241,"engine.io-parser":253,"indexof":258,"parsejson":266,"parseqs":267,"parseuri":268}],246:[function(require,module,exports){
+},{"./transport":256,"./transports/index":257,"component-emitter":248,"debug":251,"engine.io-parser":263,"indexof":268,"parsejson":276,"parseqs":277,"parseuri":278}],256:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -32844,7 +32831,7 @@ Transport.prototype.onClose = function () {
   this.emit('close');
 };
 
-},{"component-emitter":238,"engine.io-parser":253}],247:[function(require,module,exports){
+},{"component-emitter":248,"engine.io-parser":263}],257:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies
@@ -32901,7 +32888,7 @@ function polling (opts) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling-jsonp":248,"./polling-xhr":249,"./websocket":251,"xmlhttprequest-ssl":252}],248:[function(require,module,exports){
+},{"./polling-jsonp":258,"./polling-xhr":259,"./websocket":261,"xmlhttprequest-ssl":262}],258:[function(require,module,exports){
 (function (global){
 
 /**
@@ -33136,7 +33123,7 @@ JSONPPolling.prototype.doWrite = function (data, fn) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":250,"component-inherit":239}],249:[function(require,module,exports){
+},{"./polling":260,"component-inherit":249}],259:[function(require,module,exports){
 (function (global){
 /**
  * Module requirements.
@@ -33553,7 +33540,7 @@ function unloadHandler () {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":250,"component-emitter":238,"component-inherit":239,"debug":241,"xmlhttprequest-ssl":252}],250:[function(require,module,exports){
+},{"./polling":260,"component-emitter":248,"component-inherit":249,"debug":251,"xmlhttprequest-ssl":262}],260:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -33800,7 +33787,7 @@ Polling.prototype.uri = function () {
   return schema + '://' + (ipv6 ? '[' + this.hostname + ']' : this.hostname) + port + this.path + query;
 };
 
-},{"../transport":246,"component-inherit":239,"debug":241,"engine.io-parser":253,"parseqs":267,"xmlhttprequest-ssl":252,"yeast":278}],251:[function(require,module,exports){
+},{"../transport":256,"component-inherit":249,"debug":251,"engine.io-parser":263,"parseqs":277,"xmlhttprequest-ssl":262,"yeast":288}],261:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -34090,7 +34077,7 @@ WS.prototype.check = function () {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../transport":246,"component-inherit":239,"debug":241,"engine.io-parser":253,"parseqs":267,"ws":18,"yeast":278}],252:[function(require,module,exports){
+},{"../transport":256,"component-inherit":249,"debug":251,"engine.io-parser":263,"parseqs":277,"ws":18,"yeast":288}],262:[function(require,module,exports){
 (function (global){
 // browser shim for xmlhttprequest module
 
@@ -34131,7 +34118,7 @@ module.exports = function (opts) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"has-cors":257}],253:[function(require,module,exports){
+},{"has-cors":267}],263:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -34741,7 +34728,7 @@ exports.decodePayloadAsBinary = function (data, binaryType, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./keys":254,"./utf8":255,"after":232,"arraybuffer.slice":233,"base64-arraybuffer":235,"blob":236,"has-binary2":256}],254:[function(require,module,exports){
+},{"./keys":264,"./utf8":265,"after":242,"arraybuffer.slice":243,"base64-arraybuffer":245,"blob":246,"has-binary2":266}],264:[function(require,module,exports){
 
 /**
  * Gets the keys for an object.
@@ -34762,7 +34749,7 @@ module.exports = Object.keys || function keys (obj){
   return arr;
 };
 
-},{}],255:[function(require,module,exports){
+},{}],265:[function(require,module,exports){
 (function (global){
 /*! https://mths.be/utf8js v2.1.2 by @mathias */
 ;(function(root) {
@@ -35021,7 +35008,7 @@ module.exports = Object.keys || function keys (obj){
 }(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],256:[function(require,module,exports){
+},{}],266:[function(require,module,exports){
 (function (global){
 /* global Blob File */
 
@@ -35087,7 +35074,7 @@ function hasBinary (obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"isarray":259}],257:[function(require,module,exports){
+},{"isarray":269}],267:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -35106,11 +35093,11 @@ try {
   module.exports = false;
 }
 
-},{}],258:[function(require,module,exports){
+},{}],268:[function(require,module,exports){
 arguments[4][93][0].apply(exports,arguments)
-},{"dup":93}],259:[function(require,module,exports){
+},{"dup":93}],269:[function(require,module,exports){
 arguments[4][96][0].apply(exports,arguments)
-},{"dup":96}],260:[function(require,module,exports){
+},{"dup":96}],270:[function(require,module,exports){
 module.exports={
 	"version": "2017b",
 	"zones": [
@@ -35711,11 +35698,11 @@ module.exports={
 		"Pacific/Tarawa|Pacific/Wallis"
 	]
 }
-},{}],261:[function(require,module,exports){
+},{}],271:[function(require,module,exports){
 var moment = module.exports = require("./moment-timezone");
 moment.tz.load(require('./data/packed/latest.json'));
 
-},{"./data/packed/latest.json":260,"./moment-timezone":262}],262:[function(require,module,exports){
+},{"./data/packed/latest.json":270,"./moment-timezone":272}],272:[function(require,module,exports){
 //! moment-timezone.js
 //! version : 0.5.13
 //! Copyright (c) JS Foundation and other contributors
@@ -36318,7 +36305,7 @@ moment.tz.load(require('./data/packed/latest.json'));
 	return moment;
 }));
 
-},{"moment":263}],263:[function(require,module,exports){
+},{"moment":273}],273:[function(require,module,exports){
 //! moment.js
 //! version : 2.18.1
 //! authors : Tim Wood, Iskren Chernev, Moment.js contributors
@@ -40783,7 +40770,7 @@ return hooks;
 
 })));
 
-},{}],264:[function(require,module,exports){
+},{}],274:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -40937,7 +40924,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],265:[function(require,module,exports){
+},{}],275:[function(require,module,exports){
 (function (Buffer){
 //     uuid.js
 //
@@ -41213,7 +41200,7 @@ function plural(ms, n, name) {
 })('undefined' !== typeof window ? window : null);
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":46,"crypto":55}],266:[function(require,module,exports){
+},{"buffer":46,"crypto":55}],276:[function(require,module,exports){
 (function (global){
 /**
  * JSON parse.
@@ -41248,7 +41235,7 @@ module.exports = function parsejson(data) {
   }
 };
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],267:[function(require,module,exports){
+},{}],277:[function(require,module,exports){
 /**
  * Compiles a querystring
  * Returns string representation of the object
@@ -41287,7 +41274,7 @@ exports.decode = function(qs){
   return qry;
 };
 
-},{}],268:[function(require,module,exports){
+},{}],278:[function(require,module,exports){
 /**
  * Parses an URI
  *
@@ -41328,7 +41315,7 @@ module.exports = function parseuri(str) {
     return uri;
 };
 
-},{}],269:[function(require,module,exports){
+},{}],279:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -41424,7 +41411,7 @@ exports.connect = lookup;
 exports.Manager = require('./manager');
 exports.Socket = require('./socket');
 
-},{"./manager":270,"./socket":272,"./url":273,"debug":241,"socket.io-parser":275}],270:[function(require,module,exports){
+},{"./manager":280,"./socket":282,"./url":283,"debug":251,"socket.io-parser":285}],280:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -41999,7 +41986,7 @@ Manager.prototype.onreconnect = function () {
   this.emitAll('reconnect', attempt);
 };
 
-},{"./on":271,"./socket":272,"backo2":234,"component-bind":237,"component-emitter":238,"debug":241,"engine.io-client":243,"indexof":258,"socket.io-parser":275}],271:[function(require,module,exports){
+},{"./on":281,"./socket":282,"backo2":244,"component-bind":247,"component-emitter":248,"debug":251,"engine.io-client":253,"indexof":268,"socket.io-parser":285}],281:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -42025,7 +42012,7 @@ function on (obj, ev, fn) {
   };
 }
 
-},{}],272:[function(require,module,exports){
+},{}],282:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -42445,7 +42432,7 @@ Socket.prototype.compress = function (compress) {
   return this;
 };
 
-},{"./on":271,"component-bind":237,"component-emitter":238,"debug":241,"parseqs":267,"socket.io-parser":275,"to-array":277}],273:[function(require,module,exports){
+},{"./on":281,"component-bind":247,"component-emitter":248,"debug":251,"parseqs":277,"socket.io-parser":285,"to-array":287}],283:[function(require,module,exports){
 (function (global){
 
 /**
@@ -42524,7 +42511,7 @@ function url (uri, loc) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"debug":241,"parseuri":268}],274:[function(require,module,exports){
+},{"debug":251,"parseuri":278}],284:[function(require,module,exports){
 (function (global){
 /*global Blob,File*/
 
@@ -42669,7 +42656,7 @@ exports.removeBlobs = function(data, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./is-buffer":276,"isarray":259}],275:[function(require,module,exports){
+},{"./is-buffer":286,"isarray":269}],285:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -43071,7 +43058,7 @@ function error() {
   };
 }
 
-},{"./binary":274,"./is-buffer":276,"component-emitter":238,"debug":241,"has-binary2":256}],276:[function(require,module,exports){
+},{"./binary":284,"./is-buffer":286,"component-emitter":248,"debug":251,"has-binary2":266}],286:[function(require,module,exports){
 (function (global){
 
 module.exports = isBuf;
@@ -43088,7 +43075,7 @@ function isBuf(obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],277:[function(require,module,exports){
+},{}],287:[function(require,module,exports){
 module.exports = toArray
 
 function toArray(list, index) {
@@ -43103,7 +43090,7 @@ function toArray(list, index) {
     return array
 }
 
-},{}],278:[function(require,module,exports){
+},{}],288:[function(require,module,exports){
 'use strict';
 
 var alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_'.split('')
@@ -43173,7 +43160,7 @@ yeast.encode = encode;
 yeast.decode = decode;
 module.exports = yeast;
 
-},{}],279:[function(require,module,exports){
+},{}],289:[function(require,module,exports){
 const CallbackChild = require('./CallbackChild.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -43351,7 +43338,7 @@ let keyCheck = (key) => {
     return key
 }
 
-},{"./CallOperator.js":281,"./CallbackChild.js":282}],280:[function(require,module,exports){
+},{"./CallOperator.js":291,"./CallbackChild.js":292}],290:[function(require,module,exports){
 /**
  * 一連の流れで連続するcallback
  * contextInfoを受け継ぐ
@@ -43507,7 +43494,7 @@ CallMeasure.prototype.Operator = function(num, next) {
     }
 }
 
-},{}],281:[function(require,module,exports){
+},{}],291:[function(require,module,exports){
 // CallOperator
 
 module.exports = (Child, num) => {
@@ -43527,7 +43514,7 @@ module.exports = (Child, num) => {
     }
 }
 
-},{}],282:[function(require,module,exports){
+},{}],292:[function(require,module,exports){
 const CallMeasure = require('./CallMeasure.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -43706,7 +43693,7 @@ CallbackChild.prototype.emit = function(...option) {
     callMeasure.start()
 }
 
-},{"./CallMeasure.js":280,"./CallOperator.js":281}],283:[function(require,module,exports){
+},{"./CallMeasure.js":290,"./CallOperator.js":291}],293:[function(require,module,exports){
 module.exports = require('./Call/Call.js')()
 
-},{"./Call/Call.js":279}]},{},[227]);
+},{"./Call/Call.js":289}]},{},[237]);

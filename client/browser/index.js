@@ -202,13 +202,13 @@ function init() {
         let config = {
             user: user
         }
-        let demo_mention = require('./demo-doppler-notification/main.js')
+        let demo = require('./demo-doppler-notification/main.js')
         let graph = require('./demo-doppler-notification/graph')
         // let demo_mention = require('./concept-image/main.js')
         let inputUserName = require('./demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {
             config.user = user
-            demo_mention.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            demo.start(document.getElementById('canvas_div'), context, socket, ntp, config)
             graph.init(document.getElementById('canvas_graph'))
 
             socket.call.on('connect', () => {
@@ -224,12 +224,14 @@ function init() {
         let config = {
             user: user
         }
-        let demo_mention = require('./demo-chat/main.js')
-        // let demo_mention = require('./concept-image/main.js')
+        let demo = require('./demo-chat/main.js')
+        let graph = require('./demo-chat/graph')
         let inputUserName = require('./demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {
             config.user = user
-            demo_mention.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            demo.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            graph.init(document.getElementById('canvas_graph'))
+
             socket.call.on('connect', () => {
                 if (demo_argument.getAttribute('data-reset')) {
                     socket.emit('demo_motivation_reset', {})

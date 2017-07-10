@@ -134,54 +134,6 @@ exports.start = (element, context, socket, clientTime, config) => {
         return syncPlay.createSyncNote(bufferName, correctionTime, music_offset, duration)
     }
 
-    let setCommonSyncNote = (syncNote, noteName) => {
-        syncNote.started(() => {
-            console.log('syncPlay: start')
-            syncNoteList[noteName] = syncNote
-        })
-
-        syncNote.stoped(() => {
-            console.log('syncPlay: stop')
-            if (syncNoteList[noteName]) {
-                delete syncNoteList[noteName]
-            }
-        })
-
-        syncNote.finished(() => {
-            console.log('syncPlay: finish')
-            if (isPlaying && syncNoteList[noteName]) {
-                isPlaying = false
-                syncNoteList[noteName].stop()
-                // field.toStopStatus(noteName)
-                delete syncNoteList[noteName]
-
-                // htmlText.status.innerHTML = 'finish'
-            }
-        })
-
-        return syncNote
-    }
-
-    let createIndividualPanner = (name) => {
-        if (name == 'music') {
-            let gainNode = context.createGain()
-            gainNode.gain.value = 20.0
-            gainNode.connect(context.destination)
-            let panner = createPanner(true)
-            panner.connect(gainNode)
-            pannerList[name] = panner
-            return panner
-        } else {
-            let gainNode = context.createGain()
-            gainNode.gain.value = 20.0
-            gainNode.connect(context.destination)
-            let panner = createPanner(true)
-            panner.connect(gainNode)
-            pannerList[name] = panner
-            return panner
-        }
-    }
-
     /*
      * Evary EventLister are in this Method
      * socket

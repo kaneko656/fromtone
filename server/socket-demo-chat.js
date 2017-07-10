@@ -1,4 +1,5 @@
 let clientList = {}
+let clientNameToID = {}
 let speakerList = {}
 let socketDir = 'demo_chat_'
 let socketType = 'demo_chat'
@@ -21,43 +22,57 @@ let myBot = require('./../exCall-module/exBot')({
     pass: '1108'
 })
 
+let voiceReady = {}
+
 myBot.connect((exBot) => {
     // test
     exBot.on('slack/event/message', (operator, context) => {
 
-        console.log(context.user, context.text)
-        if(context.user.name != 'kaneko'){
+        let from = context.user.name
+        if (!clientNameToID[from]) {
             return
         }
+        let fromID = clientNameToID[from]
+        let toMatch = context.text.match(/@(\S+)/g)
+        let toList = []
+        let toIDList = []
         let text = context.text
+        if (toMatch) {
+            toMatch.forEach((name) => {
+                let n = name.substring(1, name.length)
+                if (clientNameToID[n]) {
+                    toList.push(n)
+                    toIDList.push(clientNameToID[n])
+                }
+                text = text.replace(name, ' ')
+            })
+        }
+
+        console.log(from, toList, text)
+        // let text = context.text
         let body = {
             text: text
         }
         let voiceName = 'voice'
-        // Voice.create(body, (buffer) => {
-        //     console.log(buffer)
-        //     voiceReady[voiceName] = []
-        //     emitAllClient(socketDir + 'voice', buffer)
-        // })
-        // let st = serverTime()
-        // call.on('change_voiceReady', (operator) => {
-        //     if (voiceReady[voiceName].length >= Object.keys(clientList).length) {
-        //         emitAllClient(socketDir + 'voice_play', {
-        //             st: st,
-        //             time: st + 500,
-        //             offset: 0,
-        //             duration: 10000,
-        //             notes: [{
-        //                 bufferName: voiceName,
-        //                 name: 'voice',
-        //                 duration: 10000,
-        //                 time: st + 500,
-        //                 offset: 0
-        //             }]
-        //         })
-        //         operator.Call.remove()
-        //     }
-        // })
+        Voice.create(body, (buffer) => {
+            voiceReady[voiceName] = []
+            emitFromToClient(socketDir + 'voice', fromID, toIDList, buffer)
+        })
+        let st = serverTime()
+        call.on('change_voiceReady', (operator) => {
+            if (voiceReady[voiceName].length >= toList.length + 1) {
+                if (clientList[fromID].socket) {
+                    let fromList = []
+                    fromList.push(from)
+                    clientList[fromID].socket.emit(socketDir + 'voice_from', {
+                        from: fromList,
+                        to: toList,
+                        voiceName: voiceName
+                    })
+                }
+                operator.Call.remove()
+            }
+        })
     })
 })
 
@@ -67,6 +82,19 @@ let emitAllClient = (key, body) => {
         if (clientList[id].socket) {
             clientList[id].socket.emit(key, body)
         }
+    }
+}
+
+let emitFromToClient = (key, from, to, body) => {
+    if (clientList[from].socket) {
+        clientList[from].socket.emit(key, body)
+    }
+    if (Array.isArray(to)) {
+        to.forEach((t) => {
+            if (clientList[t].socket) {
+                clientList[t].socket.emit(key, body)
+            }
+        })
     }
 }
 
@@ -93,6 +121,7 @@ exports.start = (socket, disconnect, _serverTime) => {
             socket: socket,
             name: body.user
         }
+        clientNameToID[body.user] = id
         socket.emit(socketDir + 'register', {
             id: id,
             name: body.user
@@ -109,6 +138,7 @@ exports.start = (socket, disconnect, _serverTime) => {
             let name = clientList[id].name
             emitAllClient(socketDir + 'user_remove', name)
             delete clientList[id]
+            delete clientNameToID[name]
         }
 
         for (let name in noteClient) {
@@ -128,9 +158,26 @@ exports.start = (socket, disconnect, _serverTime) => {
         }
     })
 
+    socket.on(socketDir + 'voice', (body) => {
+        Voice.create(body, (buffer) => {
+            socket.emit(socketDir + 'voice', buffer)
+        })
+    })
+
+    socket.on(socketDir + 'voice_ready', (body) => {
+        let name = body.voiceName
+        if (!voiceReady[name]) {
+            voiceReady[name] = []
+        }
+        voiceReady[name].push({
+            id: body.id,
+            user: body.user
+        })
+        call.emit('change_voiceReady')
+    })
+
 
     socket.on(socketDir + 'notification_common', (body) => {
-        console.log(body)
         if (!Array.isArray(body.to)) {
             let ar = []
             ar.push(body.to)
@@ -145,6 +192,9 @@ exports.start = (socket, disconnect, _serverTime) => {
         emitAllClient(socketDir + 'notification_common', {
             from: body.from,
             to: body.to,
+            doppler: body.doppler || false,
+            editer: body.editer,
+            position: body.position,
             notes: [{
                 st: st,
                 time: st + 1500,

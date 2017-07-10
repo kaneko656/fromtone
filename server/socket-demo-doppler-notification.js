@@ -48,7 +48,6 @@ exports.start = (socket, disconnect, _serverTime) => {
             name: body.user
         })
         let list = getClientList()
-        console.log(list)
         socket.emit(socketDir + 'user_list', list)
 
         emitAllClient(socketDir + 'user_add', body.user)
