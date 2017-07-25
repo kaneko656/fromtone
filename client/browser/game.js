@@ -5,8 +5,9 @@ window.addEventListener('load', init, false)
  * そんな変わらない   websocketが重いんだな
  */
 
-let socket = require('./socket-client')
+let socket = require('./socket-client/index.js')
 let ntp = require('./ntp-client.js')
+
 
 function init() {
 
@@ -16,7 +17,6 @@ function init() {
     }
 
     try {
-        // Fix up for prefixing
         window.AudioContext = window.AudioContext || window.webkitAudioContext
         context = new AudioContext()
         startTime = Date.now()

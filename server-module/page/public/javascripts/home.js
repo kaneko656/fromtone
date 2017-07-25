@@ -149,7 +149,7 @@ function init() {
             home.setLink(url + 'demo-accel-notification', 'Accel-Notification')
             home.setLink(url + 'demo-doppler-notification', 'Doppler-Notification')
             home.setLink(url + 'demo-orchestra', 'Orchestra')
-
+            home.setLink(url + 'game', 'Board Game')
 
             home.setNameChangeButton(() => {
                 inputUserName.userNameCheck(null, (user) => {
