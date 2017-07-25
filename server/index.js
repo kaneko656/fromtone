@@ -14,7 +14,8 @@ const demo_accel_sensor = require('./socket-demo-accel-sensor.js')
 const demo_task_notification = require('./socket-demo-task-notification.js')
 const demo_accel_notification = require('./socket-demo-accel-notification.js')
 const demo_doppler_notification = require('./socket-demo-doppler-notification.js')
-
+const demo_orchestra = require('./socket-demo-orchestra.js')
+const board_game = require('./board-game.js')
 
 let socket_io = app.socket()
 
@@ -45,6 +46,9 @@ socket_io.connect((obj) => {
     demo_accel_sensor.start(socket, disconnect, serverTime)
     demo_accel_notification.start(socket, disconnect, serverTime)
     demo_doppler_notification.start(socket, disconnect, serverTime)
+    demo_orchestra.start(socket, disconnect, serverTime)
+
+    board_game.start(socket, disconnect, serverTime)
 
     socket.on('test', (body) => {
         console.log('test', body)

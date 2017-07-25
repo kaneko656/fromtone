@@ -1,8 +1,7 @@
 let clientList = {}
-let clientNameToID = {}
 let speakerList = {}
-let socketDir = 'demo_chat_'
-let socketType = 'demo_chat'
+let socketDir = 'demo_orchestra_'
+let socketType = 'demo_orchestra'
 
 let noteClient = {}
 let tempNote = {}
@@ -13,88 +12,11 @@ let resTime = 800
 
 let serverTime
 
-let config = require('./../exCall-module/config')
-let Voice = require('./createVoice.js')(config.VOICE_TEXT_API)
-
-let call = require('./../exCall-module/Call').Call()
-let myBot = require('./../exCall-module/exBot')({
-    team: 'keitalab',
-    pass: '1108'
-})
-
-let voiceReady = {}
-
-myBot.connect((exBot) => {
-    // test
-    exBot.on('slack/event/message', (operator, context) => {
-
-        let from = context.user.name
-        if (!clientNameToID[from]) {
-            return
-        }
-        let fromID = clientNameToID[from]
-        let toMatch = context.text.match(/@(\S+)/g)
-        let toList = []
-        let toIDList = []
-        let text = context.text
-        if (toMatch) {
-            toMatch.forEach((name) => {
-                let n = name.substring(1, name.length)
-                if (clientNameToID[n]) {
-                    toList.push(n)
-                    toIDList.push(clientNameToID[n])
-                }
-                text = text.replace(name, ' ')
-            })
-        }
-
-        console.log(from, toList, text)
-        // let text = context.text
-        let body = {
-            text: text
-        }
-        let voiceName = 'voice'
-        Voice.create(body, (buffer) => {
-            voiceReady[voiceName] = []
-            emitFromToClient(socketDir + 'voice', fromID, toIDList, buffer)
-        })
-        let st = serverTime()
-        call.on('change_voiceReady', (operator) => {
-            if (voiceReady[voiceName].length >= toList.length + 1) {
-                if (clientList[fromID] && clientList[fromID].socket) {
-                    let fromList = []
-                    fromList.push(from)
-                    clientList[fromID].socket.emit(socketDir + 'voice_from', {
-                        from: fromList,
-                        to: toList,
-                        voiceName: voiceName
-                    })
-                }
-                operator.Call.remove()
-            }
-        })
-    })
-})
-
-
 let emitAllClient = (key, body) => {
     for (let id in clientList) {
         if (clientList[id].socket) {
             clientList[id].socket.emit(key, body)
         }
-    }
-}
-
-let emitFromToClient = (key, from, to, body) => {
-    if (clientList[from].socket) {
-        clientList[from].socket.emit(key, body)
-    }
-    if (Array.isArray(to)) {
-        to.forEach((t) => {
-            if (clientList[t].socket) {
-                clientList[t].socket.emit(key, body)
-            }
-        })
     }
 }
 
@@ -121,16 +43,19 @@ exports.start = (socket, disconnect, _serverTime) => {
             socket: socket,
             name: body.user
         }
-        clientNameToID[body.user] = id
         socket.emit(socketDir + 'register', {
             id: id,
             name: body.user
         })
         let list = getClientList()
-        console.log(list)
         socket.emit(socketDir + 'user_list', list)
 
         emitAllClient(socketDir + 'user_add', body.user)
+    })
+
+    socket.on(socketDir + 'gyro', (body) => {
+        // console.log(body)
+        emitAllClient(socketDir + 'gyro_value', body)
     })
 
     disconnect(() => {
@@ -138,7 +63,6 @@ exports.start = (socket, disconnect, _serverTime) => {
             let name = clientList[id].name
             emitAllClient(socketDir + 'user_remove', name)
             delete clientList[id]
-            delete clientNameToID[name]
         }
 
         for (let name in noteClient) {
@@ -148,32 +72,11 @@ exports.start = (socket, disconnect, _serverTime) => {
                 emitAllClient(socketDir + 'surround_note', Object.assign({}, tempNote[name]))
                 delete noteClient[name]
                 delete tempNote[name]
-
             }
         }
-
-
         if (id in speakerList) {
             delete speakerList[id]
         }
-    })
-
-    socket.on(socketDir + 'voice', (body) => {
-        Voice.create(body, (buffer) => {
-            socket.emit(socketDir + 'voice', buffer)
-        })
-    })
-
-    socket.on(socketDir + 'voice_ready', (body) => {
-        let name = body.voiceName
-        if (!voiceReady[name]) {
-            voiceReady[name] = []
-        }
-        voiceReady[name].push({
-            id: body.id,
-            user: body.user
-        })
-        call.emit('change_voiceReady')
     })
 
 

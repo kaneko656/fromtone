@@ -148,6 +148,7 @@ function init() {
             // home.setLink(url + 'demo-accel-sensor', 'Accel Sensor')
             home.setLink(url + 'demo-accel-notification', 'Accel-Notification')
             home.setLink(url + 'demo-doppler-notification', 'Doppler-Notification')
+            home.setLink(url + 'demo-orchestra', 'Orchestra')
 
 
             home.setNameChangeButton(() => {
@@ -159,6 +160,7 @@ function init() {
 
         })
     }
+
 }
 
 },{"./../demo-common/prompt.js":1,"./home.js":2}]},{},[3]);

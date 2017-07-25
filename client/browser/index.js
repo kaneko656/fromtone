@@ -219,6 +219,28 @@ function init() {
         })
     }
 
+    if (demo_type == 'demo-orchestra') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        let demo = require('./demo-orchestra/main.js')
+        let graph = require('./demo-orchestra/graph')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            demo.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            graph.init(document.getElementById('canvas_graph'))
+
+            socket.call.on('connect', () => {
+                if (demo_argument.getAttribute('data-reset')) {
+                    socket.emit('demo_motivation_reset', {})
+                }
+            })
+        })
+    }
+
     if (demo_type == 'demo-chat') {
         let user = demo_argument.getAttribute('data-user')
         let config = {

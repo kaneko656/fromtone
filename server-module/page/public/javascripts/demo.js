@@ -21372,7 +21372,7 @@ module.exports = (onTick, callback, start = true) => {
     })
 }
 
-},{"cron":250}],146:[function(require,module,exports){
+},{"cron":266}],146:[function(require,module,exports){
 module.exports = (canvas) => {
     return new Field(canvas)
 }
@@ -22515,7 +22515,7 @@ let createPanner = (side = 'from') => {
     return panner
 }
 
-},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../exCall-module/config":235,"./canvas/field.js":146,"./canvas/icon-note.js":147,"./canvas/icon-speaker.js":148,"./gyro.js":149,"./html/html-text.js":150,"./html/switchButton.js":151,"./sync-play.js":153,"node-uuid":275}],153:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../exCall-module/config":251,"./canvas/field.js":146,"./canvas/icon-note.js":147,"./canvas/icon-speaker.js":148,"./gyro.js":149,"./html/html-text.js":150,"./html/switchButton.js":151,"./sync-play.js":153,"node-uuid":291}],153:[function(require,module,exports){
 module.exports = (context) => {
     return new SyncPlay(context)
 }
@@ -23592,7 +23592,7 @@ let createPanner = () => {
     return panner
 }
 
-},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./biquad.js":154,"./button.js":155,"./canvas.js":156,"./field.js":157,"./html-text.js":158,"./icon-note.js":159,"./icon-speaker.js":160,"./sync-play.js":162,"node-uuid":275}],162:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./biquad.js":154,"./button.js":155,"./canvas.js":156,"./field.js":157,"./html-text.js":158,"./icon-note.js":159,"./icon-speaker.js":160,"./sync-play.js":162,"node-uuid":291}],162:[function(require,module,exports){
 module.exports = (context) => {
     return new SyncPlay(context)
 }
@@ -24461,7 +24461,7 @@ let createPanner = (side = 'from') => {
     return panner
 }
 
-},{"./../Job/cron.js":145,"./button.js":163,"./canvas.js":164,"./field.js":165,"./html-text.js":166,"./icon-note.js":167,"./icon-speaker.js":168,"./sync-play.js":170,"node-uuid":275}],170:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./button.js":163,"./canvas.js":164,"./field.js":165,"./html-text.js":166,"./icon-note.js":167,"./icon-speaker.js":168,"./sync-play.js":170,"node-uuid":291}],170:[function(require,module,exports){
 module.exports = (context) => {
     return new SyncPlay(context)
 }
@@ -26094,6 +26094,7 @@ let soundList = {
     '和風メロディ': 'lib/sound/wafuringtone.mp3',
     'ウィンドチャイム': 'lib/sound/windchime.mp3',
     'music': 'lib/sound/clock3.mp3',
+    'voice_change': 'lib/sound/voice_change.mp3',
     'voice': 'lib/sound/voice.mp3',
     '太鼓': 'lib/sound/taiko.mp3',
     'コーリング': 'lib/sound/emargency_calling.mp3',
@@ -26468,7 +26469,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     }
 }
 
-},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../exCall-module/config":235,"./canvas/field.js":171,"./canvas/icon-note.js":172,"./canvas/icon-speaker.js":173,"./graph/connect.js":175,"./graph/index.js":178,"./gyro.js":182,"./html/html-text.js":183,"./html/switchButton.js":184,"./sync-play.js":186,"node-uuid":275}],186:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../exCall-module/config":251,"./canvas/field.js":171,"./canvas/icon-note.js":172,"./canvas/icon-speaker.js":173,"./graph/connect.js":175,"./graph/index.js":178,"./gyro.js":182,"./html/html-text.js":183,"./html/switchButton.js":184,"./sync-play.js":186,"node-uuid":291}],186:[function(require,module,exports){
 arguments[4][153][0].apply(exports,arguments)
 },{"dup":153}],187:[function(require,module,exports){
 module.exports = (element) => {
@@ -27116,7 +27117,8 @@ let soundList = {
     '炒める': 'lib/sound/roasting.mp3',
     '足音（走る）': 'lib/sound/dashing.mp3',
     '足音（スリッパ）': 'lib/sound/walking.mp3',
-    '雨音': 'lib/sound/rain.mp3'
+    '雨音': 'lib/sound/rain.mp3',
+    'ピッ': 'lib/sound/p.wav'
 }
 
 let soundNameList = []
@@ -27269,12 +27271,25 @@ exports.start = (element, context, socket, clientTime, config) => {
         }
 
         let gainNode = context.createGain()
-        gainNode.connect(context.destination)
+
+        // delay
+        if (from) {
+            delay = context.createDelay(1.0)
+            gainNode.connect(context.destination)
+            delay.connect(gainNode)
+
+        } else {
+            gainNode.connect(context.destination)
+        }
 
         let doppler = body.doppler
 
         let consol = (t, duration) => {
             htmlText.log.innerHTML = 'Volume[0-1]: ' + gainNode.gain.value.toFixed(4) + ',  Doppler: ' + syncNote.source.playbackRate.value.toFixed(4)
+            if (from) {
+                htmlText.log.innerHTML += ' Delay: ' + delay.delayTime.value.toFixed(4)
+                // console.log(delay)
+            }
             // gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
             setTimeout(() => {
                 t += 100
@@ -27283,14 +27298,40 @@ exports.start = (element, context, socket, clientTime, config) => {
                 }
             }, 100)
         }
+        // syncNote.source.loop = true
 
         syncNote.started((leftTime) => {
+
+            syncNote.source.loop = true
 
             // ms -> s
             let duration = syncNote.duration / 1000
             // ms -> s
             let st = syncPlay.getCurrentTime() + leftTime / 1000
             consol(0, syncNote.duration + leftTime)
+
+            setTimeout(() => {
+                syncNote.source.loop = false
+            }, 10000)
+
+            if (from) {
+                console.log(delay)
+                delay.delayTime.value = 0
+                // delay.delayTime.linearRampToValueAtTime(delay.delayTime.maxValue, st + duration * 0.3)
+                // delay.delayTime.linearRampToValueAtTime(0, st + duration * 0.7)
+                document.onkeydown = function(e) {
+                    if (!e) e = window.event
+                    // 出力テスト
+                    for (let t = 0; t <= 9; t++) {
+                        if (e.key == t) {
+                            delay.delayTime.value = t * 0.1
+                            console.log(delay.delayTime.value)
+                        }
+                    }
+                }
+            }
+
+
 
             // viewStart
             connect.set('viewStart', {
@@ -27299,6 +27340,8 @@ exports.start = (element, context, socket, clientTime, config) => {
             })
 
             let position = body.position || {}
+
+            gainNode.gain.value = 1.0
 
             ev.forEach((d, i) => {
                 let v = d.value
@@ -27311,8 +27354,11 @@ exports.start = (element, context, socket, clientTime, config) => {
                 if (i == 0) {
                     gainNode.gain.value = v
                 }
-                gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
+                for (let r = 0; r <= 9; r++) {
+                    gainNode.gain.linearRampToValueAtTime(v, st + duration * t + duration * r)
+                }
 
+                console.log(v)
                 // s
                 // 0 - 1 -> 0.1
                 let interT = i >= 1 ? ev[i].div - ev[i - 1].div : ev[i].div
@@ -27351,7 +27397,10 @@ exports.start = (element, context, socket, clientTime, config) => {
                     gainNode.gain.value = rate
                 }
                 if (doppler && !isNaN(vs)) {
-                    syncNote.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t)
+                  for (let r = 0; r <= 9; r++) {
+                    syncNote.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t + duration * r)
+
+                    }
                 } else {
                     syncNote.source.playbackRate.value = 1
                 }
@@ -27366,7 +27415,12 @@ exports.start = (element, context, socket, clientTime, config) => {
                 // // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
             })
         })
-        syncPlay.play(gainNode, syncNote)
+        if (from) {
+            syncPlay.play(delay, syncNote)
+        } else {
+            syncPlay.play(gainNode, syncNote)
+        }
+
 
         syncNote.finished(() => {
             notificationButton.notificationText.innerHTML = '　'
@@ -27424,7 +27478,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     }
 }
 
-},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../exCall-module/config":235,"./canvas/field.js":195,"./canvas/icon-note.js":196,"./canvas/icon-speaker.js":197,"./graph/connect.js":199,"./graph/index.js":202,"./gyro.js":206,"./html/html-text.js":207,"./html/switchButton.js":208,"./sync-play.js":210,"node-uuid":275}],210:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../exCall-module/config":251,"./canvas/field.js":195,"./canvas/icon-note.js":196,"./canvas/icon-speaker.js":197,"./graph/connect.js":199,"./graph/index.js":202,"./gyro.js":206,"./html/html-text.js":207,"./html/switchButton.js":208,"./sync-play.js":210,"node-uuid":291}],210:[function(require,module,exports){
 arguments[4][153][0].apply(exports,arguments)
 },{"dup":153}],211:[function(require,module,exports){
 arguments[4][154][0].apply(exports,arguments)
@@ -27890,9 +27944,412 @@ let createPanner = () => {
     return panner
 }
 
-},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./biquad.js":211,"./button.js":212,"./canvas.js":213,"./field.js":214,"./html-text.js":215,"./icon-note.js":216,"./icon-speaker.js":217,"./sync-play.js":219,"node-uuid":275}],219:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./biquad.js":211,"./button.js":212,"./canvas.js":213,"./field.js":214,"./html-text.js":215,"./icon-note.js":216,"./icon-speaker.js":217,"./sync-play.js":219,"node-uuid":291}],219:[function(require,module,exports){
 arguments[4][162][0].apply(exports,arguments)
 },{"dup":162}],220:[function(require,module,exports){
+arguments[4][146][0].apply(exports,arguments)
+},{"dup":146}],221:[function(require,module,exports){
+arguments[4][147][0].apply(exports,arguments)
+},{"dup":147}],222:[function(require,module,exports){
+arguments[4][148][0].apply(exports,arguments)
+},{"dup":148}],223:[function(require,module,exports){
+arguments[4][174][0].apply(exports,arguments)
+},{"dup":174}],224:[function(require,module,exports){
+arguments[4][175][0].apply(exports,arguments)
+},{"dup":175}],225:[function(require,module,exports){
+arguments[4][176][0].apply(exports,arguments)
+},{"dup":176}],226:[function(require,module,exports){
+arguments[4][177][0].apply(exports,arguments)
+},{"./../connect.js":224,"./bezier.js":225,"dup":177}],227:[function(require,module,exports){
+arguments[4][178][0].apply(exports,arguments)
+},{"./canvas.js":223,"./editer/field.js":226,"./listenerPosition/listenerField.js":228,"./tool/toolField.js":230,"dup":178}],228:[function(require,module,exports){
+arguments[4][179][0].apply(exports,arguments)
+},{"./../connect.js":224,"dup":179}],229:[function(require,module,exports){
+arguments[4][180][0].apply(exports,arguments)
+},{"dup":180}],230:[function(require,module,exports){
+arguments[4][181][0].apply(exports,arguments)
+},{"./../connect.js":224,"./tool.js":229,"dup":181}],231:[function(require,module,exports){
+arguments[4][182][0].apply(exports,arguments)
+},{"dup":182}],232:[function(require,module,exports){
+arguments[4][150][0].apply(exports,arguments)
+},{"dup":150}],233:[function(require,module,exports){
+arguments[4][184][0].apply(exports,arguments)
+},{"dup":184}],234:[function(require,module,exports){
+let uuid = require('node-uuid')
+// let job = require('./../Job/cron.js')
+
+// let Canvas = require('./canvas/canvas.js')
+let Field = require('./canvas/field.js')
+let NoteIcon = require('./canvas/icon-note.js')
+let SpeakerIcon = require('./canvas/icon-speaker.js')
+let SyncPlay = require('./sync-play.js')
+let NotificationButton = require('./../demo-common/html/button-notification.js')
+let RadioButton = require('./../demo-common/html/radio-button.js')
+let Slider = require('./../demo-common/html/slider.js')
+let SliderSingle = require('./../demo-common/html/slider-single.js')
+let HtmlText = require('./html/html-text.js')
+let SelectList = require('./../demo-common/html/select-list.js')
+let gyro = require('./gyro.js')
+let SwitchButton = require('./html/switchButton.js')
+let graph = require('./graph/index.js')
+let connect = require('./graph/connect.js')
+
+// let Biquad = require('./biquad.js')
+
+let socketDir = 'demo_orchestra_'
+let socketType = 'demo_orchestra'
+
+let config = require('./../exCall-module/config')
+
+let homeButton = require('./../demo-common/html/homeButton.js')
+
+// let Voice = require('./createVoice.js')(config.VOICE_TEXT_API)
+// let Slack = require('./slack.js')
+let soundList = {
+    '３音': 'lib/sound/notification-common.mp3',
+    'Violin1': 'lib/sound/orchestra/beethoven/No5_Mov3_Violin1.mp3',
+    'Violin2': 'lib/sound/orchestra/beethoven/No5_Mov3_Violin2.mp3',
+    'Viola': 'lib/sound/orchestra/beethoven/No5_Mov3_Viola.mp3',
+    'Cello': 'lib/sound/orchestra/beethoven/No5_Mov3_Cello.mp3',
+    'DoubleBass': 'lib/sound/orchestra/beethoven/No5_Mov3_DoubleBass.mp3'
+    // '和風メロディ': 'lib/sound/wafuringtone.mp3',
+    // 'ウィンドチャイム': 'lib/sound/windchime.mp3',
+    // 'music': 'lib/sound/clock3.mp3',
+    // 'voice': 'lib/sound/voice.mp3',
+    // '太鼓': 'lib/sound/taiko.mp3',
+    // 'コーリング': 'lib/sound/emargency_calling.mp3',
+    // 'アラーム': 'lib/sound/clockbell.mp3',
+    // '掃除機': 'lib/sound/cleaner.mp3',
+    // '電子レンジ': 'lib/sound/microwave.mp3',
+    // '扇風機': 'lib/sound/fan.mp3',
+    // '洗濯機': 'lib/sound/washing.mp3',
+    // 'プリンタ': 'lib/sound/printer.mp3',
+    // 'ポッド注ぐ': 'lib/sound/pod.mp3',
+    // '炒める': 'lib/sound/roasting.mp3',
+    // '足音（走る）': 'lib/sound/dashing.mp3',
+    // '足音（スリッパ）': 'lib/sound/walking.mp3',
+    // '雨音': 'lib/sound/rain.mp3'
+}
+
+let soundNameList = []
+for (let name in soundList) {
+    soundNameList.push(name)
+}
+
+exports.start = (element, context, socket, clientTime, config) => {
+    element.style.margin = '30px'
+
+    console.log(config)
+
+    let clientID = uuid.v4() // This is temporary. When websocket connected, this is replaced new id
+
+
+    let htmlText = HtmlText(element)
+    let fromList = SelectList(element, 'from', 'From')
+    let toList = SelectList(element, 'to', 'To')
+
+    let notificationButton = NotificationButton(element)
+
+    /*
+     *  SwitchButton
+     */
+
+    let switchButton = SwitchButton(element)
+    switchButton.onGyroSwitch((toggle) => {
+        if (!canUse) {
+            switchButton.gyroButton.innerHTML = 'Can not use Gyro Sensor'
+            return
+        }
+        gyroSwitch = toggle
+    })
+
+
+    let dopplerSwitch = true
+    switchButton.onDopplerSwitch((toggle) => {
+        dopplerSwitch = toggle
+    })
+
+    let radioButton = RadioButton(element, 'tone', 'Tone Select')
+    radioButton.setList(soundNameList)
+    radioButton.onSelect((name) => {
+        console.log(name)
+        let name2 = radioButton.getSelected()
+        console.log(name == name2)
+    })
+
+    homeButton(element, config.user)
+    // let canvas = Canvas(element)
+    // let field = Field(canvas)
+
+    socket.on(socketDir + 'user_list', (list) => {
+        toList.setList(list)
+        fromList.setList(list)
+        fromList.check(config.user)
+    })
+
+    socket.on(socketDir + 'user_add', (user) => {
+        toList.addUser(user)
+        fromList.addUser(user)
+    })
+
+    socket.on(socketDir + 'user_remove', (user) => {
+        toList.removeUser(user)
+        fromList.removeUser(user)
+    })
+
+    let syncPlay = SyncPlay(context)
+    let syncNoteList = {}
+    let pannerList = {}
+    let isPlaying = false
+
+    // 人固定
+    context.listener.setPosition(0, 0, -0.1)
+
+    let createSyncNote = (bufferName, time, offset, duration) => {
+        let music_offset = offset || 0
+        duration = duration || null
+        let correctionTime = clientTime.correctionServerTime(time)
+        let left = correctionTime - Date.now()
+
+        // htmlText.log.innerHTML = 'start playback after: ' + left.toFixed(4) + 'ms'
+
+        return syncPlay.createSyncNote(bufferName, correctionTime, music_offset, duration)
+    }
+
+    /*
+     * Evary EventLister are in this Method
+     * socket
+     * canvas
+     * button
+     */
+
+    // socket
+
+    syncPlay.loadBuffer(soundList, () => {
+
+    })
+
+    socket.call.on('connect', () => {
+        clientID = uuid.v4()
+
+        // field.setClientID(clientID)
+
+        socket.emit(socketDir + 'register', {
+            type: socketType,
+            id: clientID,
+            user: config.user
+        })
+
+        socket.on(socketDir + 'register', (body) => {
+            if (body.id === clientID && body.name) {
+                clientName = body.name
+            }
+
+            htmlText.status.innerHTML = 'user: ' + clientName
+        })
+
+
+        socket.on(socketDir + 'notification_common', (body) => {
+            console.log(body)
+            let from = body.from.indexOf(config.user) >= 0 ? true : false
+            let to = body.to.indexOf(config.user) >= 0 ? true : false
+
+            let fromText = ''
+            body.from.forEach((n) => {
+                fromText += n + ' '
+            })
+            let toText = ''
+            body.to.forEach((n) => {
+                toText += n + ' '
+            })
+            htmlText.log.innerHTML = 'From: ' + fromText + '　To: ' + toText
+            if (!from && !to) {
+                return
+            }
+
+            body.notes.forEach((note) => {
+                play(body, note, from, to)
+            })
+        })
+    })
+
+    function play(body, note, from, to) {
+        syncNote = createSyncNote(note.sound, note.time, note.offset, note.duration)
+        let ev = body.editer || connect.get('editerValue')
+        if (!ev) {
+            ev = []
+        }
+
+        let gainNode = context.createGain()
+        gainNode.connect(context.destination)
+
+        let doppler = body.doppler
+
+        let consol = (t, duration) => {
+            htmlText.log.innerHTML = 'Volume[0-1]: ' + gainNode.gain.value.toFixed(4) + ',  Doppler: ' + syncNote.source.playbackRate.value.toFixed(4)
+            // gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
+            setTimeout(() => {
+                t += 100
+                if (t < duration) {
+                    consol(t, duration)
+                }
+            }, 100)
+        }
+
+        if (from) {
+            // 別楽器を鳴らす
+            for (let name in soundList) {
+                if (name == note.sound || name == '３音') {
+                    continue
+                }
+                let syncNote = createSyncNote(name, note.time, note.offset, note.duration)
+                syncPlay.play(gainNode, syncNote)
+            }
+        }
+
+        syncNote.started((leftTime) => {
+
+            // ms -> s
+            let duration = syncNote.duration / 1000
+            // ms -> s
+            let st = syncPlay.getCurrentTime() + leftTime / 1000
+            consol(0, syncNote.duration + leftTime)
+
+            // viewStart
+            connect.set('viewStart', {
+                duration: syncNote.duration,
+                leftTime: leftTime
+            })
+
+            let position = body.position || {}
+
+            ev.forEach((d, i) => {
+                let v = d.value
+                let t = d.div
+                if (from) {
+                    v = v
+                } else if (to) {
+                    v = 1 - v
+                }
+                if (i == 0) {
+                    gainNode.gain.value = v
+                }
+                gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
+
+                // s
+                // 0 - 1 -> 0.1
+                let interT = i >= 1 ? ev[i].div - ev[i - 1].div : ev[i].div
+                // 0 - duration -> duration * 0.1
+                interT *= duration
+                // m
+                let dist = position.d || 1
+
+
+                // m/s fromからtoに向かうときプラス方向
+                let vs = d.velocity * dist / duration
+                // km/h
+                // vs = vs * 60 * 60 / 1000
+                vs = vs * 3.6
+
+                // vcos
+                // 音源位置
+                // from 0[m] - dist[m] to
+                let meter = (1 - d.value) * dist
+                let ang = 0
+                let px = meter
+                let py = 0
+                if (position.target == 'from') {
+                    let lx = position.offsetX
+                    let ly = position.offsetY
+                    ang = Math.atan2(ly - py, lx - px)
+                }
+                if (position.target == 'to') {
+                    let lx = dist + position.offsetX
+                    let ly = position.offsetY
+                    ang = Math.atan2(ly - py, lx - px)
+                }
+
+                let rate = 340 / (340 - vs * Math.cos(ang))
+                if (i == 0) {
+                    gainNode.gain.value = rate
+                }
+                if (doppler && !isNaN(vs)) {
+                    syncNote.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t)
+                } else {
+                    syncNote.source.playbackRate.value = 1
+                }
+                // fromを自分とすると
+                // from 1 to 0
+                // マイナス方向が離れる
+                // v0 = 0 観測者は静止
+                // V = 340
+                // let rate = 340 / (340 - vs)
+                //
+                // // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
+                // // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
+            })
+        })
+        syncPlay.play(gainNode, syncNote)
+
+        syncNote.finished(() => {
+            notificationButton.notificationText.innerHTML = '　'
+        })
+    }
+
+
+    // button
+
+    notificationButton.test.onclick = () => {
+
+        console.log('Test Play')
+
+        // ios対策
+        context.createBufferSource().start(0)
+
+        let soundName = radioButton.getSelected()
+
+        let note = syncPlay.createSyncNote(soundName, Date.now())
+        syncPlay.play(context.destination, note)
+
+        // htmlText.status.innerHTML = 'volume on'
+    }
+
+    notificationButton.notification.onclick = () => {
+        context.createBufferSource().start(0)
+        notificationButton.notificationText.innerHTML = '♪'
+        let toUserList = toList.getSelectUser()
+        let fromUserList = fromList.getSelectUser()
+        let soundName = radioButton.getSelected()
+        // let pannerValues = pannerSlider.getValues()
+        // let pannerDistance = distanceSlider.getValue()
+        let doppler = dopplerSwitch
+        let editer = connect.get('editerValue')
+        let position = connect.get('positionValue')
+        console.log(position)
+
+        console.log(toUserList)
+        console.log(fromUserList)
+        let body = {
+            id: clientID,
+            type: socketType,
+            user: config.user,
+            from: fromUserList,
+            to: toUserList,
+            sound: soundName,
+            // panner: pannerValues,
+            // distance: pannerDistance,
+            doppler: doppler,
+            editer: editer,
+            position: position
+        }
+        console.log(body)
+        socket.emit(socketDir + 'notification_common', body)
+    }
+}
+
+},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../exCall-module/config":251,"./canvas/field.js":220,"./canvas/icon-note.js":221,"./canvas/icon-speaker.js":222,"./graph/connect.js":224,"./graph/index.js":227,"./gyro.js":231,"./html/html-text.js":232,"./html/switchButton.js":233,"./sync-play.js":235,"node-uuid":291}],235:[function(require,module,exports){
+arguments[4][153][0].apply(exports,arguments)
+},{"dup":153}],236:[function(require,module,exports){
 module.exports = (canvas) => {
     return new Field(canvas)
 }
@@ -28187,13 +28644,13 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{}],221:[function(require,module,exports){
+},{}],237:[function(require,module,exports){
 arguments[4][147][0].apply(exports,arguments)
-},{"dup":147}],222:[function(require,module,exports){
+},{"dup":147}],238:[function(require,module,exports){
 arguments[4][148][0].apply(exports,arguments)
-},{"dup":148}],223:[function(require,module,exports){
+},{"dup":148}],239:[function(require,module,exports){
 arguments[4][150][0].apply(exports,arguments)
-},{"dup":150}],224:[function(require,module,exports){
+},{"dup":150}],240:[function(require,module,exports){
 let uuid = require('node-uuid')
 // let job = require('./../Job/cron.js')
 
@@ -28613,9 +29070,9 @@ let createPanner = (side = 'from') => {
     return panner
 }
 
-},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../exCall-module/config":235,"./canvas/field.js":220,"./canvas/icon-note.js":221,"./canvas/icon-speaker.js":222,"./html/html-text.js":223,"./sync-play.js":225,"node-uuid":275}],225:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../exCall-module/config":251,"./canvas/field.js":236,"./canvas/icon-note.js":237,"./canvas/icon-speaker.js":238,"./html/html-text.js":239,"./sync-play.js":241,"node-uuid":291}],241:[function(require,module,exports){
 arguments[4][153][0].apply(exports,arguments)
-},{"dup":153}],226:[function(require,module,exports){
+},{"dup":153}],242:[function(require,module,exports){
 let isMove = false
 let timeout = 10000
 
@@ -28653,15 +29110,15 @@ exports.moved = (text, callback = () => {}) => {
     })
 }
 
-},{}],227:[function(require,module,exports){
-arguments[4][220][0].apply(exports,arguments)
-},{"dup":220}],228:[function(require,module,exports){
+},{}],243:[function(require,module,exports){
+arguments[4][236][0].apply(exports,arguments)
+},{"dup":236}],244:[function(require,module,exports){
 arguments[4][147][0].apply(exports,arguments)
-},{"dup":147}],229:[function(require,module,exports){
+},{"dup":147}],245:[function(require,module,exports){
 arguments[4][148][0].apply(exports,arguments)
-},{"dup":148}],230:[function(require,module,exports){
+},{"dup":148}],246:[function(require,module,exports){
 arguments[4][150][0].apply(exports,arguments)
-},{"dup":150}],231:[function(require,module,exports){
+},{"dup":150}],247:[function(require,module,exports){
 let uuid = require('node-uuid')
 // let job = require('./../Job/cron.js')
 
@@ -29194,7 +29651,7 @@ let createPanner = () => {
     return panner
 }
 
-},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../demo-common/html/switch.js":193,"./../exCall-module/config":235,"./accel.js":226,"./canvas/field.js":227,"./canvas/icon-note.js":228,"./canvas/icon-speaker.js":229,"./html/html-text.js":230,"./random-notification.js":232,"./sync-play.js":233,"node-uuid":275}],232:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":187,"./../demo-common/html/homeButton.js":188,"./../demo-common/html/radio-button.js":189,"./../demo-common/html/select-list.js":190,"./../demo-common/html/slider-single.js":191,"./../demo-common/html/slider.js":192,"./../demo-common/html/switch.js":193,"./../exCall-module/config":251,"./accel.js":242,"./canvas/field.js":243,"./canvas/icon-note.js":244,"./canvas/icon-speaker.js":245,"./html/html-text.js":246,"./random-notification.js":248,"./sync-play.js":249,"node-uuid":291}],248:[function(require,module,exports){
 let first = false
 let isRandom = false
 let randomRange = [5000, 30000]
@@ -29226,9 +29683,9 @@ exports.off = () => {
     isRandom = false
 }
 
-},{}],233:[function(require,module,exports){
+},{}],249:[function(require,module,exports){
 arguments[4][153][0].apply(exports,arguments)
-},{"dup":153}],234:[function(require,module,exports){
+},{"dup":153}],250:[function(require,module,exports){
 // JSONファイルのdirectory
 // let json = './../../local-env/config.json'
 // return
@@ -29240,7 +29697,7 @@ try {
 
 module.exports = env
 
-},{"./../../local-env/config.json":238}],235:[function(require,module,exports){
+},{"./../../local-env/config.json":254}],251:[function(require,module,exports){
 (function (process){
 
 let config = {}
@@ -29256,7 +29713,7 @@ for(let key in local){
 module.exports = config
 
 }).call(this,require('_process'))
-},{"./config-local.js":234,"_process":111}],236:[function(require,module,exports){
+},{"./config-local.js":250,"_process":111}],252:[function(require,module,exports){
 let div
 let user = null
 let userName = null
@@ -29326,7 +29783,7 @@ exports.setNameChangeButton = (callback = () => {}) => {
     }
 }
 
-},{}],237:[function(require,module,exports){
+},{}],253:[function(require,module,exports){
 window.addEventListener('load', init, false);
 
 /*
@@ -29548,6 +30005,28 @@ function init() {
         })
     }
 
+    if (demo_type == 'demo-orchestra') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        let demo = require('./demo-orchestra/main.js')
+        let graph = require('./demo-orchestra/graph')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            demo.start(document.getElementById('canvas_div'), context, socket, ntp, config)
+            graph.init(document.getElementById('canvas_graph'))
+
+            socket.call.on('connect', () => {
+                if (demo_argument.getAttribute('data-reset')) {
+                    socket.emit('demo_motivation_reset', {})
+                }
+            })
+        })
+    }
+
     if (demo_type == 'demo-chat') {
         let user = demo_argument.getAttribute('data-user')
         let config = {
@@ -29614,13 +30093,13 @@ function init() {
 
 }
 
-},{"./demo-accel-notification/main.js":152,"./demo-accel-sensor/main.js":161,"./demo-alarm/main.js":169,"./demo-chat/graph":178,"./demo-chat/main.js":185,"./demo-common/prompt.js":194,"./demo-doppler-notification/graph":202,"./demo-doppler-notification/main.js":209,"./demo-motivation/main.js":218,"./demo-simple-notification/main.js":224,"./demo-task-notification/main.js":231,"./home/home.js":236,"./ntp-client.js":239,"./socket-client":240,"./sync-music/sync-music-surround.js":241}],238:[function(require,module,exports){
+},{"./demo-accel-notification/main.js":152,"./demo-accel-sensor/main.js":161,"./demo-alarm/main.js":169,"./demo-chat/graph":178,"./demo-chat/main.js":185,"./demo-common/prompt.js":194,"./demo-doppler-notification/graph":202,"./demo-doppler-notification/main.js":209,"./demo-motivation/main.js":218,"./demo-orchestra/graph":227,"./demo-orchestra/main.js":234,"./demo-simple-notification/main.js":240,"./demo-task-notification/main.js":247,"./home/home.js":252,"./ntp-client.js":255,"./socket-client":256,"./sync-music/sync-music-surround.js":257}],254:[function(require,module,exports){
 module.exports={
   "PORT": 8118,
   "SERVER_URL": "https://excall.herokuapp.com"
 }
 
-},{}],239:[function(require,module,exports){
+},{}],255:[function(require,module,exports){
 let socket
 let dateDiff = 0
 
@@ -29743,9 +30222,9 @@ let emit = () => {
     }, 1000 * 1 + Math.floor((Math.random() * 500)))
 }
 
-},{}],240:[function(require,module,exports){
+},{}],256:[function(require,module,exports){
 const io = require('socket.io-client')
-// let url = 'http://192.168.144.126:8001'
+let url = 'http://192.168.144.110:8001'
 // let url = 'http://192.168.100.16:8001'
 // let url = 'http://133.26.45.88:8001'
 // let url = 'http://localhost:8001'
@@ -29753,7 +30232,7 @@ const io = require('socket.io-client')
 // demo5  demoでも一緒
 // let url = 'http://192.168.10.14:8001'
 //
-let url = 'https://fromtone.herokuapp.com'
+// let url = 'https://fromtone.herokuapp.com'
 
 
 let socket = io.connect(url)
@@ -29792,7 +30271,7 @@ socket.on('disconnect', () => {
     call.emit('disconnect', url)
 })
 
-},{"./../../../exCall-module/simpleCall":293,"socket.io-client":279}],241:[function(require,module,exports){
+},{"./../../../exCall-module/simpleCall":309,"socket.io-client":295}],257:[function(require,module,exports){
 let uuid = require('node-uuid')
 let job = require('./../Job/cron.js')
 
@@ -30458,7 +30937,7 @@ Field.prototype.sendNoteInfoToServer = function(note, release) {
     })
 }
 
-},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":188,"node-uuid":275}],242:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../demo-common/html/homeButton.js":188,"node-uuid":291}],258:[function(require,module,exports){
 module.exports = after
 
 function after(count, callback, err_cb) {
@@ -30488,7 +30967,7 @@ function after(count, callback, err_cb) {
 
 function noop() {}
 
-},{}],243:[function(require,module,exports){
+},{}],259:[function(require,module,exports){
 /**
  * An abstraction for slicing an arraybuffer even when
  * ArrayBuffer.prototype.slice is not supported
@@ -30519,7 +30998,7 @@ module.exports = function(arraybuffer, start, end) {
   return result.buffer;
 };
 
-},{}],244:[function(require,module,exports){
+},{}],260:[function(require,module,exports){
 
 /**
  * Expose `Backoff`.
@@ -30606,7 +31085,7 @@ Backoff.prototype.setJitter = function(jitter){
 };
 
 
-},{}],245:[function(require,module,exports){
+},{}],261:[function(require,module,exports){
 /*
  * base64-arraybuffer
  * https://github.com/niklasvh/base64-arraybuffer
@@ -30675,7 +31154,7 @@ Backoff.prototype.setJitter = function(jitter){
   };
 })();
 
-},{}],246:[function(require,module,exports){
+},{}],262:[function(require,module,exports){
 (function (global){
 /**
  * Create a blob builder even when vendor prefixes exist
@@ -30775,7 +31254,7 @@ module.exports = (function() {
 })();
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],247:[function(require,module,exports){
+},{}],263:[function(require,module,exports){
 /**
  * Slice reference.
  */
@@ -30800,7 +31279,7 @@ module.exports = function(obj, fn){
   }
 };
 
-},{}],248:[function(require,module,exports){
+},{}],264:[function(require,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -30965,7 +31444,7 @@ Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
 };
 
-},{}],249:[function(require,module,exports){
+},{}],265:[function(require,module,exports){
 
 module.exports = function(a, b){
   var fn = function(){};
@@ -30973,7 +31452,7 @@ module.exports = function(a, b){
   a.prototype = new fn;
   a.prototype.constructor = a;
 };
-},{}],250:[function(require,module,exports){
+},{}],266:[function(require,module,exports){
 (function (root, factory) {
 	if (typeof define === 'function' && define.amd) {
 		define(['moment-timezone'], factory);
@@ -31515,7 +31994,7 @@ return exports;
 
 }));
 
-},{"child_process":44,"moment-timezone":271}],251:[function(require,module,exports){
+},{"child_process":44,"moment-timezone":287}],267:[function(require,module,exports){
 (function (process){
 /**
  * This is the web browser implementation of `debug()`.
@@ -31704,7 +32183,7 @@ function localstorage() {
 }
 
 }).call(this,require('_process'))
-},{"./debug":252,"_process":111}],252:[function(require,module,exports){
+},{"./debug":268,"_process":111}],268:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -31908,11 +32387,11 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":274}],253:[function(require,module,exports){
+},{"ms":290}],269:[function(require,module,exports){
 
 module.exports = require('./lib/index');
 
-},{"./lib/index":254}],254:[function(require,module,exports){
+},{"./lib/index":270}],270:[function(require,module,exports){
 
 module.exports = require('./socket');
 
@@ -31924,7 +32403,7 @@ module.exports = require('./socket');
  */
 module.exports.parser = require('engine.io-parser');
 
-},{"./socket":255,"engine.io-parser":263}],255:[function(require,module,exports){
+},{"./socket":271,"engine.io-parser":279}],271:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -32672,7 +33151,7 @@ Socket.prototype.filterUpgrades = function (upgrades) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./transport":256,"./transports/index":257,"component-emitter":248,"debug":251,"engine.io-parser":263,"indexof":268,"parsejson":276,"parseqs":277,"parseuri":278}],256:[function(require,module,exports){
+},{"./transport":272,"./transports/index":273,"component-emitter":264,"debug":267,"engine.io-parser":279,"indexof":284,"parsejson":292,"parseqs":293,"parseuri":294}],272:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -32831,7 +33310,7 @@ Transport.prototype.onClose = function () {
   this.emit('close');
 };
 
-},{"component-emitter":248,"engine.io-parser":263}],257:[function(require,module,exports){
+},{"component-emitter":264,"engine.io-parser":279}],273:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies
@@ -32888,7 +33367,7 @@ function polling (opts) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling-jsonp":258,"./polling-xhr":259,"./websocket":261,"xmlhttprequest-ssl":262}],258:[function(require,module,exports){
+},{"./polling-jsonp":274,"./polling-xhr":275,"./websocket":277,"xmlhttprequest-ssl":278}],274:[function(require,module,exports){
 (function (global){
 
 /**
@@ -33123,7 +33602,7 @@ JSONPPolling.prototype.doWrite = function (data, fn) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":260,"component-inherit":249}],259:[function(require,module,exports){
+},{"./polling":276,"component-inherit":265}],275:[function(require,module,exports){
 (function (global){
 /**
  * Module requirements.
@@ -33540,7 +34019,7 @@ function unloadHandler () {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":260,"component-emitter":248,"component-inherit":249,"debug":251,"xmlhttprequest-ssl":262}],260:[function(require,module,exports){
+},{"./polling":276,"component-emitter":264,"component-inherit":265,"debug":267,"xmlhttprequest-ssl":278}],276:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -33787,7 +34266,7 @@ Polling.prototype.uri = function () {
   return schema + '://' + (ipv6 ? '[' + this.hostname + ']' : this.hostname) + port + this.path + query;
 };
 
-},{"../transport":256,"component-inherit":249,"debug":251,"engine.io-parser":263,"parseqs":277,"xmlhttprequest-ssl":262,"yeast":288}],261:[function(require,module,exports){
+},{"../transport":272,"component-inherit":265,"debug":267,"engine.io-parser":279,"parseqs":293,"xmlhttprequest-ssl":278,"yeast":304}],277:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -34077,7 +34556,7 @@ WS.prototype.check = function () {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../transport":256,"component-inherit":249,"debug":251,"engine.io-parser":263,"parseqs":277,"ws":18,"yeast":288}],262:[function(require,module,exports){
+},{"../transport":272,"component-inherit":265,"debug":267,"engine.io-parser":279,"parseqs":293,"ws":18,"yeast":304}],278:[function(require,module,exports){
 (function (global){
 // browser shim for xmlhttprequest module
 
@@ -34118,7 +34597,7 @@ module.exports = function (opts) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"has-cors":267}],263:[function(require,module,exports){
+},{"has-cors":283}],279:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -34728,7 +35207,7 @@ exports.decodePayloadAsBinary = function (data, binaryType, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./keys":264,"./utf8":265,"after":242,"arraybuffer.slice":243,"base64-arraybuffer":245,"blob":246,"has-binary2":266}],264:[function(require,module,exports){
+},{"./keys":280,"./utf8":281,"after":258,"arraybuffer.slice":259,"base64-arraybuffer":261,"blob":262,"has-binary2":282}],280:[function(require,module,exports){
 
 /**
  * Gets the keys for an object.
@@ -34749,7 +35228,7 @@ module.exports = Object.keys || function keys (obj){
   return arr;
 };
 
-},{}],265:[function(require,module,exports){
+},{}],281:[function(require,module,exports){
 (function (global){
 /*! https://mths.be/utf8js v2.1.2 by @mathias */
 ;(function(root) {
@@ -35008,7 +35487,7 @@ module.exports = Object.keys || function keys (obj){
 }(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],266:[function(require,module,exports){
+},{}],282:[function(require,module,exports){
 (function (global){
 /* global Blob File */
 
@@ -35074,7 +35553,7 @@ function hasBinary (obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"isarray":269}],267:[function(require,module,exports){
+},{"isarray":285}],283:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -35093,11 +35572,11 @@ try {
   module.exports = false;
 }
 
-},{}],268:[function(require,module,exports){
+},{}],284:[function(require,module,exports){
 arguments[4][93][0].apply(exports,arguments)
-},{"dup":93}],269:[function(require,module,exports){
+},{"dup":93}],285:[function(require,module,exports){
 arguments[4][96][0].apply(exports,arguments)
-},{"dup":96}],270:[function(require,module,exports){
+},{"dup":96}],286:[function(require,module,exports){
 module.exports={
 	"version": "2017b",
 	"zones": [
@@ -35698,11 +36177,11 @@ module.exports={
 		"Pacific/Tarawa|Pacific/Wallis"
 	]
 }
-},{}],271:[function(require,module,exports){
+},{}],287:[function(require,module,exports){
 var moment = module.exports = require("./moment-timezone");
 moment.tz.load(require('./data/packed/latest.json'));
 
-},{"./data/packed/latest.json":270,"./moment-timezone":272}],272:[function(require,module,exports){
+},{"./data/packed/latest.json":286,"./moment-timezone":288}],288:[function(require,module,exports){
 //! moment-timezone.js
 //! version : 0.5.13
 //! Copyright (c) JS Foundation and other contributors
@@ -36305,7 +36784,7 @@ moment.tz.load(require('./data/packed/latest.json'));
 	return moment;
 }));
 
-},{"moment":273}],273:[function(require,module,exports){
+},{"moment":289}],289:[function(require,module,exports){
 //! moment.js
 //! version : 2.18.1
 //! authors : Tim Wood, Iskren Chernev, Moment.js contributors
@@ -40770,7 +41249,7 @@ return hooks;
 
 })));
 
-},{}],274:[function(require,module,exports){
+},{}],290:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -40924,7 +41403,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],275:[function(require,module,exports){
+},{}],291:[function(require,module,exports){
 (function (Buffer){
 //     uuid.js
 //
@@ -41200,7 +41679,7 @@ function plural(ms, n, name) {
 })('undefined' !== typeof window ? window : null);
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":46,"crypto":55}],276:[function(require,module,exports){
+},{"buffer":46,"crypto":55}],292:[function(require,module,exports){
 (function (global){
 /**
  * JSON parse.
@@ -41235,7 +41714,7 @@ module.exports = function parsejson(data) {
   }
 };
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],277:[function(require,module,exports){
+},{}],293:[function(require,module,exports){
 /**
  * Compiles a querystring
  * Returns string representation of the object
@@ -41274,7 +41753,7 @@ exports.decode = function(qs){
   return qry;
 };
 
-},{}],278:[function(require,module,exports){
+},{}],294:[function(require,module,exports){
 /**
  * Parses an URI
  *
@@ -41315,7 +41794,7 @@ module.exports = function parseuri(str) {
     return uri;
 };
 
-},{}],279:[function(require,module,exports){
+},{}],295:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -41411,7 +41890,7 @@ exports.connect = lookup;
 exports.Manager = require('./manager');
 exports.Socket = require('./socket');
 
-},{"./manager":280,"./socket":282,"./url":283,"debug":251,"socket.io-parser":285}],280:[function(require,module,exports){
+},{"./manager":296,"./socket":298,"./url":299,"debug":267,"socket.io-parser":301}],296:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -41986,7 +42465,7 @@ Manager.prototype.onreconnect = function () {
   this.emitAll('reconnect', attempt);
 };
 
-},{"./on":281,"./socket":282,"backo2":244,"component-bind":247,"component-emitter":248,"debug":251,"engine.io-client":253,"indexof":268,"socket.io-parser":285}],281:[function(require,module,exports){
+},{"./on":297,"./socket":298,"backo2":260,"component-bind":263,"component-emitter":264,"debug":267,"engine.io-client":269,"indexof":284,"socket.io-parser":301}],297:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -42012,7 +42491,7 @@ function on (obj, ev, fn) {
   };
 }
 
-},{}],282:[function(require,module,exports){
+},{}],298:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -42432,7 +42911,7 @@ Socket.prototype.compress = function (compress) {
   return this;
 };
 
-},{"./on":281,"component-bind":247,"component-emitter":248,"debug":251,"parseqs":277,"socket.io-parser":285,"to-array":287}],283:[function(require,module,exports){
+},{"./on":297,"component-bind":263,"component-emitter":264,"debug":267,"parseqs":293,"socket.io-parser":301,"to-array":303}],299:[function(require,module,exports){
 (function (global){
 
 /**
@@ -42511,7 +42990,7 @@ function url (uri, loc) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"debug":251,"parseuri":278}],284:[function(require,module,exports){
+},{"debug":267,"parseuri":294}],300:[function(require,module,exports){
 (function (global){
 /*global Blob,File*/
 
@@ -42656,7 +43135,7 @@ exports.removeBlobs = function(data, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./is-buffer":286,"isarray":269}],285:[function(require,module,exports){
+},{"./is-buffer":302,"isarray":285}],301:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -43058,7 +43537,7 @@ function error() {
   };
 }
 
-},{"./binary":284,"./is-buffer":286,"component-emitter":248,"debug":251,"has-binary2":266}],286:[function(require,module,exports){
+},{"./binary":300,"./is-buffer":302,"component-emitter":264,"debug":267,"has-binary2":282}],302:[function(require,module,exports){
 (function (global){
 
 module.exports = isBuf;
@@ -43075,7 +43554,7 @@ function isBuf(obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],287:[function(require,module,exports){
+},{}],303:[function(require,module,exports){
 module.exports = toArray
 
 function toArray(list, index) {
@@ -43090,7 +43569,7 @@ function toArray(list, index) {
     return array
 }
 
-},{}],288:[function(require,module,exports){
+},{}],304:[function(require,module,exports){
 'use strict';
 
 var alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_'.split('')
@@ -43160,7 +43639,7 @@ yeast.encode = encode;
 yeast.decode = decode;
 module.exports = yeast;
 
-},{}],289:[function(require,module,exports){
+},{}],305:[function(require,module,exports){
 const CallbackChild = require('./CallbackChild.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -43338,7 +43817,7 @@ let keyCheck = (key) => {
     return key
 }
 
-},{"./CallOperator.js":291,"./CallbackChild.js":292}],290:[function(require,module,exports){
+},{"./CallOperator.js":307,"./CallbackChild.js":308}],306:[function(require,module,exports){
 /**
  * 一連の流れで連続するcallback
  * contextInfoを受け継ぐ
@@ -43494,7 +43973,7 @@ CallMeasure.prototype.Operator = function(num, next) {
     }
 }
 
-},{}],291:[function(require,module,exports){
+},{}],307:[function(require,module,exports){
 // CallOperator
 
 module.exports = (Child, num) => {
@@ -43514,7 +43993,7 @@ module.exports = (Child, num) => {
     }
 }
 
-},{}],292:[function(require,module,exports){
+},{}],308:[function(require,module,exports){
 const CallMeasure = require('./CallMeasure.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -43693,7 +44172,7 @@ CallbackChild.prototype.emit = function(...option) {
     callMeasure.start()
 }
 
-},{"./CallMeasure.js":290,"./CallOperator.js":291}],293:[function(require,module,exports){
+},{"./CallMeasure.js":306,"./CallOperator.js":307}],309:[function(require,module,exports){
 module.exports = require('./Call/Call.js')()
 
-},{"./Call/Call.js":289}]},{},[237]);
+},{"./Call/Call.js":305}]},{},[253]);

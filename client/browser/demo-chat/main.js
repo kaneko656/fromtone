@@ -33,6 +33,7 @@ let soundList = {
     '和風メロディ': 'lib/sound/wafuringtone.mp3',
     'ウィンドチャイム': 'lib/sound/windchime.mp3',
     'music': 'lib/sound/clock3.mp3',
+    'voice_change': 'lib/sound/voice_change.mp3',
     'voice': 'lib/sound/voice.mp3',
     '太鼓': 'lib/sound/taiko.mp3',
     'コーリング': 'lib/sound/emargency_calling.mp3',

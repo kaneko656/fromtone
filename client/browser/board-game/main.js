@@ -19,8 +19,8 @@ let connect = require('./graph/connect.js')
 
 // let Biquad = require('./biquad.js')
 
-let socketDir = 'demo_doppler_notification_'
-let socketType = 'demo_doppler_notification'
+let socketDir = 'demo_orchestra_'
+let socketType = 'demo_orchestra'
 
 let config = require('./../exCall-module/config')
 
@@ -30,24 +30,28 @@ let homeButton = require('./../demo-common/html/homeButton.js')
 // let Slack = require('./slack.js')
 let soundList = {
     '３音': 'lib/sound/notification-common.mp3',
-    '和風メロディ': 'lib/sound/wafuringtone.mp3',
-    'ウィンドチャイム': 'lib/sound/windchime.mp3',
-    'music': 'lib/sound/clock3.mp3',
-    'voice': 'lib/sound/voice.mp3',
-    '太鼓': 'lib/sound/taiko.mp3',
-    'コーリング': 'lib/sound/emargency_calling.mp3',
-    'アラーム': 'lib/sound/clockbell.mp3',
-    '掃除機': 'lib/sound/cleaner.mp3',
-    '電子レンジ': 'lib/sound/microwave.mp3',
-    '扇風機': 'lib/sound/fan.mp3',
-    '洗濯機': 'lib/sound/washing.mp3',
-    'プリンタ': 'lib/sound/printer.mp3',
-    'ポッド注ぐ': 'lib/sound/pod.mp3',
-    '炒める': 'lib/sound/roasting.mp3',
-    '足音（走る）': 'lib/sound/dashing.mp3',
-    '足音（スリッパ）': 'lib/sound/walking.mp3',
-    '雨音': 'lib/sound/rain.mp3',
-    'ピッ': 'lib/sound/p.wav'
+    'Violin1': 'lib/sound/orchestra/beethoven/No5_Mov3_Violin1.mp3',
+    'Violin2': 'lib/sound/orchestra/beethoven/No5_Mov3_Violin2.mp3',
+    'Viola': 'lib/sound/orchestra/beethoven/No5_Mov3_Viola.mp3',
+    'Cello': 'lib/sound/orchestra/beethoven/No5_Mov3_Cello.mp3',
+    'DoubleBass': 'lib/sound/orchestra/beethoven/No5_Mov3_DoubleBass.mp3'
+    // '和風メロディ': 'lib/sound/wafuringtone.mp3',
+    // 'ウィンドチャイム': 'lib/sound/windchime.mp3',
+    // 'music': 'lib/sound/clock3.mp3',
+    // 'voice': 'lib/sound/voice.mp3',
+    // '太鼓': 'lib/sound/taiko.mp3',
+    // 'コーリング': 'lib/sound/emargency_calling.mp3',
+    // 'アラーム': 'lib/sound/clockbell.mp3',
+    // '掃除機': 'lib/sound/cleaner.mp3',
+    // '電子レンジ': 'lib/sound/microwave.mp3',
+    // '扇風機': 'lib/sound/fan.mp3',
+    // '洗濯機': 'lib/sound/washing.mp3',
+    // 'プリンタ': 'lib/sound/printer.mp3',
+    // 'ポッド注ぐ': 'lib/sound/pod.mp3',
+    // '炒める': 'lib/sound/roasting.mp3',
+    // '足音（走る）': 'lib/sound/dashing.mp3',
+    // '足音（スリッパ）': 'lib/sound/walking.mp3',
+    // '雨音': 'lib/sound/rain.mp3'
 }
 
 let soundNameList = []
@@ -200,25 +204,12 @@ exports.start = (element, context, socket, clientTime, config) => {
         }
 
         let gainNode = context.createGain()
-
-        // delay
-        if (from) {
-            delay = context.createDelay(1.0)
-            gainNode.connect(context.destination)
-            delay.connect(gainNode)
-
-        } else {
-            gainNode.connect(context.destination)
-        }
+        gainNode.connect(context.destination)
 
         let doppler = body.doppler
 
         let consol = (t, duration) => {
             htmlText.log.innerHTML = 'Volume[0-1]: ' + gainNode.gain.value.toFixed(4) + ',  Doppler: ' + syncNote.source.playbackRate.value.toFixed(4)
-            if (from) {
-                htmlText.log.innerHTML += ' Delay: ' + delay.delayTime.value.toFixed(4)
-                // console.log(delay)
-            }
             // gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
             setTimeout(() => {
                 t += 100
@@ -227,40 +218,25 @@ exports.start = (element, context, socket, clientTime, config) => {
                 }
             }, 100)
         }
-        // syncNote.source.loop = true
+
+        if (from) {
+            // 別楽器を鳴らす
+            for (let name in soundList) {
+                if (name == note.sound || name == '３音') {
+                    continue
+                }
+                let syncNote = createSyncNote(name, note.time, note.offset, note.duration)
+                syncPlay.play(gainNode, syncNote)
+            }
+        }
 
         syncNote.started((leftTime) => {
-
-            syncNote.source.loop = true
 
             // ms -> s
             let duration = syncNote.duration / 1000
             // ms -> s
             let st = syncPlay.getCurrentTime() + leftTime / 1000
             consol(0, syncNote.duration + leftTime)
-
-            setTimeout(() => {
-                syncNote.source.loop = false
-            }, 10000)
-
-            if (from) {
-                console.log(delay)
-                delay.delayTime.value = 0
-                // delay.delayTime.linearRampToValueAtTime(delay.delayTime.maxValue, st + duration * 0.3)
-                // delay.delayTime.linearRampToValueAtTime(0, st + duration * 0.7)
-                document.onkeydown = function(e) {
-                    if (!e) e = window.event
-                    // 出力テスト
-                    for (let t = 0; t <= 9; t++) {
-                        if (e.key == t) {
-                            delay.delayTime.value = t * 0.1
-                            console.log(delay.delayTime.value)
-                        }
-                    }
-                }
-            }
-
-
 
             // viewStart
             connect.set('viewStart', {
@@ -269,8 +245,6 @@ exports.start = (element, context, socket, clientTime, config) => {
             })
 
             let position = body.position || {}
-
-            gainNode.gain.value = 1.0
 
             ev.forEach((d, i) => {
                 let v = d.value
@@ -283,11 +257,8 @@ exports.start = (element, context, socket, clientTime, config) => {
                 if (i == 0) {
                     gainNode.gain.value = v
                 }
-                for (let r = 0; r <= 9; r++) {
-                    gainNode.gain.linearRampToValueAtTime(v, st + duration * t + duration * r)
-                }
+                gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
 
-                console.log(v)
                 // s
                 // 0 - 1 -> 0.1
                 let interT = i >= 1 ? ev[i].div - ev[i - 1].div : ev[i].div
@@ -326,10 +297,7 @@ exports.start = (element, context, socket, clientTime, config) => {
                     gainNode.gain.value = rate
                 }
                 if (doppler && !isNaN(vs)) {
-                  for (let r = 0; r <= 9; r++) {
-                    syncNote.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t + duration * r)
-
-                    }
+                    syncNote.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t)
                 } else {
                     syncNote.source.playbackRate.value = 1
                 }
@@ -344,12 +312,7 @@ exports.start = (element, context, socket, clientTime, config) => {
                 // // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
             })
         })
-        if (from) {
-            syncPlay.play(delay, syncNote)
-        } else {
-            syncPlay.play(gainNode, syncNote)
-        }
-
+        syncPlay.play(gainNode, syncNote)
 
         syncNote.finished(() => {
             notificationButton.notificationText.innerHTML = '　'
