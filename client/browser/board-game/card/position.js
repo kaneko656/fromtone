@@ -24,6 +24,19 @@ GlobalPosition.prototype.clip = function(cx, cy, halfW, halfH) {
             halfH: 1
         },
         rotate: 0.0,
+        getPositionInfo: (gx, gy) => {
+            let d = Math.sqrt((gx - clip.cx) * (gx - clip.cx) + (gy - clip.cy) * (gy - clip.cy))
+            let maxD = Math.sqrt(halfW * halfW + halfH * halfH)
+            let p = clip.encodeToGloval(gx, gy)
+            return {
+               dist: d,
+               maxDist: maxD,
+               clipX: clip.cx,
+               clipY: clip.cy,
+               gx: gx,
+               gy: gy
+            }
+        },
         setLocalPosition: (x, y, w, h) => {
             let p = clip.localPosition
             p.cx = x + w / 2
@@ -54,6 +67,8 @@ GlobalPosition.prototype.clip = function(cx, cy, halfW, halfH) {
             let encode = {
                 x: lp.cx + ex * lp.halfW,
                 y: lp.cy + ey * lp.halfH,
+                clipX: ex,
+                clipY: ey
             }
             return encode
         },

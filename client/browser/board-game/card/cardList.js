@@ -19,6 +19,8 @@ module.exports = () => {
         let icon = new Image(304, 430)
         icon.src = cardList[name]
         card[name] = Card(icon)
+        card[name].name = name
+        card[name].id = name
     }
     return card
 }

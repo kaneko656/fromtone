@@ -12,6 +12,8 @@ let resTime = 800
 
 let serverTime
 
+const CronJob = require('cron').CronJob
+
 let emitAllClient = (key, body) => {
     for (let id in clientList) {
         if (clientList[id].socket) {
@@ -49,7 +51,6 @@ exports.start = (socket, disconnect, _serverTime) => {
         })
         let list = getClientList()
         socket.emit(socketDir + 'user_list', list)
-        console.log(clientList)
         emitAllClient(socketDir + 'user_add', body.user)
     })
 
@@ -79,13 +80,47 @@ exports.start = (socket, disconnect, _serverTime) => {
         }
     })
 
-    socket.on(socketDir + 'sendObjectInfo', (body) => {
-        console.log(body)
-        let objects = []
-        objects.push(body)
-        emitAllClient(socketDir + 'sendObjectInfo', objects)
-    })
+    let objectInfoBuffer = []
+    let bufferTime = 30
 
+    let newJob = (onTick, callback, start = true) => {
+        let job = new CronJob({
+            cronTime: onTick,
+            onTick: () => {
+                callback()
+            },
+            start: true,
+            timeZone: 'Asia/Tokyo'
+        })
+    }
+
+    socket.on(socketDir + 'sendObjectInfo', (body) => {
+        let start = (objectInfoBuffer.length == 0)
+        objectInfoBuffer.push(body)
+        body.time = serverTime() + bufferTime
+        let now = new Date()
+        let date1 = new Date(Math.floor(now.getTime() / bufferTime) * bufferTime + bufferTime)
+        let date2 = new Date(Math.floor(now.getTime() / bufferTime) * bufferTime + bufferTime * 2)
+        console.log(objectInfoBuffer.length)
+        if (start) {
+            newJob(date1, () => {
+
+                if (objectInfoBuffer.length >= 1) {
+                    emitAllClient(socketDir + 'sendObjectInfo', objectInfoBuffer)
+                    console.log('emit')
+                    objectInfoBuffer = []
+                }
+            })
+
+            newJob(date2, () => {
+                if (objectInfoBuffer.length >= 1) {
+                    emitAllClient(socketDir + 'sendObjectInfo', objectInfoBuffer)
+                    console.log('emit2')
+                    objectInfoBuffer = []
+                }
+            })
+        }
+    })
 
     socket.on(socketDir + 'notification_common', (body) => {
         if (!Array.isArray(body.to)) {

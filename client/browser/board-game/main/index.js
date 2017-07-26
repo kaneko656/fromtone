@@ -5,6 +5,7 @@ const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
 
 const loginWindow = require('./loginWindow.js')
+const Job = require('./../Job/cron.js')
 
 let socketDir = 'board_game_'
 let socketType = 'board_game'
@@ -37,55 +38,51 @@ exports.start = (element, context, socket, clientTime, config) => {
 
     // loginWindow.start(element, context, socket, clientTime, config)
     let canvas = Canvas(element)
-    let field = CardField(canvas)
+    let field = CardField(canvas, context)
     let card = Card()
     card['アリバイ'].scale = 0.5
     field.setObject(card['アリバイ'])
+    field.setClientID(clientID)
 
-    // let globalPosition = GlobalPositon()
-    // 中心 0.5, 0.6 halfW 0.3 halfH 0.2
-    // Main
-    // let area1 = globalPosition.clip(0, 0, 0.4, 0.3)
-    // let area2 = globalPosition.clip(0.7, 0.7, 0.15, 0.3)
+    // sound
+    setTimeout(() => {
+        field.startSound(card['アリバイ'].id)
 
-    // socket.on(socketDir + '', () => {
-    //
-    // })
-    //
-    // field.setClip(0.2, 0.2, 0.5, 0.5)
-    // field.setLocalPosition(300, 100, 400, 400)
+    }, 3000)
+
     field.sendObjectInfo((sendObj) => {
-        // console.log(sendObj)
         socket.emit(socketDir + 'sendObjectInfo', sendObj)
-        // let cards = []
-        // cards.push(sendObj)
-        // field.updateObjects(cards)
+        field.updateObjects(sendObj)
     })
 
     socket.on(socketDir + 'sendObjectInfo', (objects) => {
-        console.log(objects)
-        field.updateObjects(objects)
+        objects.forEach((obj) => {
+            obj.time = clientTime.correctionServerTime(obj.time)
+            if (obj.clientID == clientID) {
+                return
+            }
+            let date = new Date(obj.time)
+            Job(date, () => {
+                field.updateObjects(obj)
+            })
+        })
+        field.updateSounds(objects)
     })
-
 
 
     let moved = (x, y) => {
         field.mouseMoved(x, y)
-        // var ctx = canvas.getContext('2d')
-        // let gx = (x / canvas.width) * 2 - 1
-        // let gy = (y / canvas.height) * 2 - 1
-        // area1.render(ctx, canvas.width, canvas.height, gx, gy)
     }
 
     let clicked = (x, y) => {
+        // ios対策
+        context.createBufferSource().start(0)
         field.mousePressed(x, y)
     }
 
     let released = (x, y) => {
         field.mouseReleased(x, y)
     }
-
-
 
 
     canvas.addEventListener('mousemove', function(e) {
@@ -126,4 +123,12 @@ exports.start = (element, context, socket, clientTime, config) => {
         released(x, y)
         return false
     })
+
+    return {
+        socketDir: socketDir,
+        socketType: socketType,
+        clientID: clientID,
+        canvas: canvas,
+        field: field
+    }
 }

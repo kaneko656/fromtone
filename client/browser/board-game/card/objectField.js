@@ -1,10 +1,11 @@
 const GlobalPosition = require('./position.js')
+const SoundManager = require('./../sound/soundManager.js')
 
-module.exports = (canvas) => {
-    return new Field(canvas)
+module.exports = (canvas, context) => {
+    return new Field(canvas, context)
 }
 
-function Field(canvas) {
+function Field(canvas, context) {
     this.canvas = canvas
     this.clientID = ''
     this.center = {
@@ -18,7 +19,10 @@ function Field(canvas) {
     this.clip = this.globalPosition.clip(0, 0, 1, 1)
     this.clip.setLocalPosition(0, 0, this.w, this.h)
 
+    this.sounds = {}
     this.objects = {}
+
+    SoundManager.init(context)
 
     this.callStart = () => {}
     this.callSendSpeakerInfo = () => {}
@@ -61,6 +65,11 @@ Field.prototype.setObject = function(obj) {
 }
 
 Field.prototype.updateObjects = function(objects) {
+    if (!Array.isArray(objects)) {
+        let temp = objects
+        objects = []
+        objects.push(temp)
+    }
     objects.forEach((obj) => {
         let id = obj.id
         if (this.objects[id]) {
@@ -72,6 +81,27 @@ Field.prototype.updateObjects = function(objects) {
         }
     })
     this.render()
+}
+
+Field.prototype.startSound = function(id, bufferName) {
+    // sound
+    this.sounds[id] = SoundManager.play('ウィンドチャイム', Date.now(), 0, true)
+}
+
+Field.prototype.updateSounds = function(objects) {
+    if (!Array.isArray(objects)) {
+        let temp = objects
+        objects = []
+        objects.push(temp)
+    }
+    objects.forEach((obj) => {
+        let id = obj.id
+        if (this.sounds[id]) {
+            let p = this.clip.getPositionInfo(obj.x, obj.y)
+            p.time = obj.time
+            this.sounds[id].setGain(p)
+        }
+    })
 }
 
 
@@ -141,6 +171,7 @@ Field.prototype.sendObjectInfoToServer = function(sendObj, release) {
     let globalPos = this.clip.encodeToGloval(sendObj.x, sendObj.y)
     sendObj.x = globalPos.x
     sendObj.y = globalPos.y
+    sendObj.clientID = this.clientID
     // console.log(sendObj)
     this.callSendObjectInfo(sendObj)
 }
