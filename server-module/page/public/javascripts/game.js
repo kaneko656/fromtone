@@ -21356,6 +21356,18 @@ exports.createContext = Script.createContext = function (context) {
 };
 
 },{"indexof":92}],144:[function(require,module,exports){
+
+module.exports = (element) => {
+    var canvas = document.createElement('canvas')
+    let width = window.innerWidth > 300 ? window.innerWidth : 300
+    let height = window.innerHeight > 300 ? window.innerHeight : 300
+    canvas.setAttribute('width', width)
+    canvas.setAttribute('height', height)
+    element.appendChild(canvas)
+    return canvas
+}
+
+},{}],145:[function(require,module,exports){
 module.exports = (canvas) => {
     return new Field(canvas)
 }
@@ -21650,7 +21662,7 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{}],145:[function(require,module,exports){
+},{}],146:[function(require,module,exports){
 module.exports = (noteIcon) => {
     let callClick = () => {}
     let note = {
@@ -21732,7 +21744,7 @@ module.exports = (noteIcon) => {
     return note
 }
 
-},{}],146:[function(require,module,exports){
+},{}],147:[function(require,module,exports){
 
 module.exports = (speakerIcon) => {
     let speaker = {
@@ -21810,7 +21822,349 @@ module.exports = (speakerIcon) => {
     return speaker
 }
 
-},{}],147:[function(require,module,exports){
+},{}],148:[function(require,module,exports){
+const Card = require('./object.js')
+
+const cardList = {
+    'アリバイ': 'lib/image/card/アリバイ.png',
+    'いぬ': 'lib/image/card/いぬ.png',
+    'うわさ': 'lib/image/card/うわさ.png',
+    'たくらみ': 'lib/image/card/たくらみ.png',
+    '一般人': 'lib/image/card/一般人.png',
+    '取り引き': 'lib/image/card/取り引き.png',
+    '情報交換': 'lib/image/card/情報交換.png',
+    '第一発見者': 'lib/image/card/第一発見者.png',
+    '犯人': 'lib/image/card/犯人.png',
+    '目撃者': 'lib/image/card/目撃者.png',
+    '裏': 'lib/image/card/裏.png'
+}
+module.exports = () => {
+    let card = {}
+    for (let name in cardList) {
+        let icon = new Image(304, 430)
+        icon.src = cardList[name]
+        card[name] = Card(icon)
+    }
+    return card
+}
+
+},{"./object.js":149}],149:[function(require,module,exports){
+module.exports = (icon) => {
+    let callClick = () => {}
+    let obj = {
+        name: 'default',
+        id: 'id',
+        icon: icon,
+        w: icon.width,
+        h: icon.height,
+        x: 0,
+        y: 0,
+        scale: 1.0,
+        isSync: false,
+
+        // over: false,
+        isMove: false,
+        isOtherMove: false,
+        isChild: false,
+        parentObject: null,
+        childPosition: null,
+        isOver: (x, y) => {
+            let cx = obj.x
+            let cy = obj.y
+            let tx = x - obj.x
+            let ty = y - obj.y
+            let objHalfW = obj.w * obj.scale / 2
+            let objHalfH = obj.h * obj.scale / 2
+            return (tx >= -objHalfW && tx <= objHalfW && ty >= -objHalfH && ty <= objHalfH)
+        },
+        clicked: (callback) => {
+            callClick = callback
+        },
+        click: () => {
+            callClick(obj.name)
+        },
+        draw: (ctx) => {
+            if (obj.isChild) {
+                obj.x = obj.parentObject.x + obj.childPosition.x * obj.canvasW
+                obj.y = obj.parentObject.y + obj.childPosition.y * obj.canvasH
+            }
+            ctx.save()
+            ctx.translate(obj.x, obj.y)
+            // image
+            ctx.scale(obj.scale, obj.scale)
+            ctx.drawImage(obj.icon, -obj.w / 2, -obj.h / 2, obj.w, obj.h)
+            ctx.restore()
+        },
+        output: () => {
+            let out = {
+                name: obj.name,
+                id: obj.id,
+                x: obj.x,
+                y: obj.y,
+                // scale: obj.scale,
+                isSync: obj.isSync
+            }
+            return out
+        },
+        update: (upObj) => {
+            if(upObj.id == obj.id){
+              obj.x = upObj.x
+              obj.y = upObj.y
+              // obj.scale = obj.scale
+              obj.isSync = upObj.isSync
+            }
+        }
+    }
+    return obj
+}
+
+},{}],150:[function(require,module,exports){
+const GlobalPosition = require('./position.js')
+
+module.exports = (canvas) => {
+    return new Field(canvas)
+}
+
+function Field(canvas) {
+    this.canvas = canvas
+    this.clientID = ''
+    this.center = {
+        x: canvas.width / 2,
+        y: canvas.height / 2
+    }
+    this.w = canvas.width
+    this.h = canvas.height
+
+    this.globalPosition = GlobalPosition()
+    this.clip = this.globalPosition.clip(0, 0, 1, 1)
+    this.clip.setLocalPosition(0, 0, this.w, this.h)
+
+    this.objects = {}
+
+    this.callStart = () => {}
+    this.callSendSpeakerInfo = () => {}
+    this.callSendNoteInfo = () => {}
+    this.callUpdatePannerPosition = () => {}
+
+    this.callSendObjectInfo = () => {}
+}
+
+Field.prototype.setClip = function(cx, cy, halfW, halfH) {
+    this.clip = this.globalPosition.clip(cx, cy, halfW, halfH)
+}
+
+Field.prototype.setClientID = function(clientID) {
+    this.clientID = clientID
+}
+
+
+Field.prototype.setObject = function(obj) {
+    let id = obj.id
+    this.objects[id] = obj
+    let encodePosition = this.clip.encodeToLocal(obj.x, obj.y)
+    this.objects[id].x = encodePosition.x
+    this.objects[id].y = encodePosition.y
+
+    this.render()
+    let field = this
+    this.objects[id].icon.onload = function() {
+        field.render()
+    }
+}
+
+Field.prototype.updateObjects = function(objects) {
+    objects.forEach((obj) => {
+        let id = obj.id
+        if (this.objects[id]) {
+            let encodePosition = this.clip.encodeToLocal(obj.x, obj.y)
+            obj.x = encodePosition.x
+            obj.y = encodePosition.y
+            this.objects[id].update(obj)
+            console.log(id, obj.name, 'update')
+        }
+    })
+    this.render()
+}
+
+
+Field.prototype.render = function() {
+    // Draw points onto the canvas element.
+    var ctx = this.canvas.getContext('2d')
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+
+    ctx.save()
+
+    for (let id in this.objects) {
+        this.objects[id].draw(ctx)
+    }
+    ctx.restore()
+}
+
+
+Field.prototype.mousePressed = function(x, y) {
+    for (let id in this.objects) {
+        let obj = this.objects[id]
+        if (!obj.isOtherMove && obj.isOver(x, y)) {
+            obj.isSync = true
+            obj.click()
+            break
+        }
+    }
+}
+
+
+Field.prototype.mouseReleased = function(x, y) {
+    for (let id in this.objects) {
+        let obj = this.objects[id]
+        if (!obj.isOtherMove && obj.isSync) {
+            // obj.x = x
+            // obj.y = y
+            obj.isMove = false
+            obj.over = false
+            obj.isSync = false
+            // this.sendObjectInfoToServer(obj, true)
+        }
+        // this.updatePannerPosition(obj, this.speaker)
+    }
+    // this.sendSpeakerInfoToServer(this.speaker)
+    this.render()
+}
+
+Field.prototype.mouseMoved = function(x, y) {
+    for (let id in this.objects) {
+        if (this.objects[id].isSync) {
+            let obj = this.objects[id]
+            let out = this.objects[id].output()
+            obj.over = true
+            out.x = x
+            out.y = y - 2
+            this.sendObjectInfoToServer(out, true)
+        }
+    }
+    this.render()
+}
+
+
+Field.prototype.sendObjectInfo = function(callback = () => {}) {
+    this.callSendObjectInfo = callback
+}
+
+Field.prototype.sendObjectInfoToServer = function(sendObj, release) {
+    let globalPos = this.clip.encodeToGloval(sendObj.x, sendObj.y)
+    sendObj.x = globalPos.x
+    sendObj.y = globalPos.y
+    // console.log(sendObj)
+    this.callSendObjectInfo(sendObj)
+}
+
+
+Field.prototype.line = (ctx, x1, y1, x2, y2) => {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+}
+
+},{"./position.js":151}],151:[function(require,module,exports){
+module.exports = () => {
+    return new GlobalPosition()
+}
+
+function GlobalPosition() {
+    this.size = 1.0
+    //
+    // center 0, 0
+    // 周囲にsize分広がる空間
+    // size = 1.0 なら　(-1.0, -1.0) ~ (1.0, 1.0)の空間
+}
+
+GlobalPosition.prototype.clip = function(cx, cy, halfW, halfH) {
+    let g = this
+    let clip = {
+        cx: cx,
+        cy: cy,
+        halfW: halfW,
+        halfH: halfH,
+        localPosition: {
+            cx: 0,
+            cy: 0,
+            halfW: 1,
+            halfH: 1
+        },
+        rotate: 0.0,
+        setLocalPosition: (x, y, w, h) => {
+            let p = clip.localPosition
+            p.cx = x + w / 2
+            p.cy = y + h / 2
+            p.halfW = w / 2
+            p.halfH = h / 2
+        },
+        encodeToLocal: (gx, gy) => {
+            // console.log(gx, gy)
+            let x = gx / g.size
+            let y = gy / g.size
+            let tx = x - clip.cx
+            let ty = y - clip.cy
+            let ex = 0
+            let ey = 0
+            if (clip.rotate != 0) {
+                let rotate = -clip.rotate
+                let x = (Math.cos(rotate) * tx - Math.sin(rotate) * ty) / clip.halfW
+                let y = (Math.sin(rotate) * tx + Math.cos(rotate) * ty) / clip.halfH
+                ex = x
+                ey = y
+            } else {
+                ex = (tx / clip.halfW)
+                ey = (ty / clip.halfH)
+            }
+            // ex, ey -1 ~ 1
+            let lp = clip.localPosition
+            let encode = {
+                x: lp.cx + ex * lp.halfW,
+                y: lp.cy + ey * lp.halfH,
+            }
+            return encode
+        },
+        encodeToGloval: (x, y) => {
+            let lp = clip.localPosition
+            let ex = (x - lp.cx) / lp.halfW
+            let ey = (y - lp.cy) / lp.halfH
+            let gx = 0
+            let gy = 0
+            if (clip.rotate != 0) {
+                let rotate = clip.rotate
+                let x = (Math.cos(rotate) * ex - Math.sin(rotate) * ey) * clip.halfW
+                let y = (Math.sin(rotate) * ex + Math.cos(rotate) * ey) * clip.halfH
+                gx = x + clip.cx
+                gy = y + clip.cy
+            } else {
+                gx = ex * clip.halfW + clip.cx
+                gy = ey * clip.halfH + clip.cy
+            }
+            gx *= g.size
+            gy *= g.size
+            return {
+                x: gx,
+                y: gy
+            }
+        },
+        // localArea
+        render: function(ctx) {
+            ctx.save()
+            let lp = clip.localPosition
+            ctx.translate(lp.cx, lp.cy)
+            ctx.rotate(clip.rotate)
+            ctx.rect(-lp.halfW, -lp.halfH, lp.halfW * 2, lp.halfH * 2)
+            let p = clip.encodeToLocal(gx, gy)
+            ctx.fillText(p.x + '    ' + p.y, 0, 0)
+            ctx.stroke()
+            ctx.restore()
+        }
+    }
+    return clip
+}
+
+},{}],152:[function(require,module,exports){
 
 module.exports = (element, width, height) => {
     var canvas = document.createElement('canvas')
@@ -21821,7 +22175,7 @@ module.exports = (element, width, height) => {
     return canvas
 }
 
-},{}],148:[function(require,module,exports){
+},{}],153:[function(require,module,exports){
 let value = {}
 let call = {}
 exports.set = (name, v) => {
@@ -21839,7 +22193,7 @@ exports.on = (name, callback) => {
     call[name] = callback
 }
 
-},{}],149:[function(require,module,exports){
+},{}],154:[function(require,module,exports){
 module.exports = (p) => {
     return new Bezier(p)
 }
@@ -22199,7 +22553,7 @@ Bezier.prototype.tCoe = function() {
     }
 }
 
-},{}],150:[function(require,module,exports){
+},{}],155:[function(require,module,exports){
 let connect = require('./../connect.js')
 let Bezier = require('./bezier.js')
 
@@ -22574,7 +22928,7 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{"./../connect.js":148,"./bezier.js":149}],151:[function(require,module,exports){
+},{"./../connect.js":153,"./bezier.js":154}],156:[function(require,module,exports){
 let Canvas = require('./canvas.js')
 let editer
 let tool
@@ -22607,7 +22961,7 @@ exports.init = (_element) => {
     listener.render()
 }
 
-},{"./canvas.js":147,"./editer/field.js":150,"./listenerPosition/listenerField.js":152,"./tool/toolField.js":154}],152:[function(require,module,exports){
+},{"./canvas.js":152,"./editer/field.js":155,"./listenerPosition/listenerField.js":157,"./tool/toolField.js":159}],157:[function(require,module,exports){
 let connect = require('./../connect.js')
 // let Tool = require('./tool.js')
 
@@ -22855,7 +23209,7 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{"./../connect.js":148}],153:[function(require,module,exports){
+},{"./../connect.js":153}],158:[function(require,module,exports){
 
 
 module.exports = (x, y, w, h) => {
@@ -22896,7 +23250,7 @@ Tool.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{}],154:[function(require,module,exports){
+},{}],159:[function(require,module,exports){
 let connect = require('./../connect.js')
 let Tool = require('./tool.js')
 
@@ -23079,7 +23433,7 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{"./../connect.js":148,"./tool.js":153}],155:[function(require,module,exports){
+},{"./../connect.js":153,"./tool.js":158}],160:[function(require,module,exports){
 let isMove = false
 let timeout = 10000
 
@@ -23145,7 +23499,7 @@ exports.moved = (text, callback = () => {}) => {
     // })
 }
 
-},{}],156:[function(require,module,exports){
+},{}],161:[function(require,module,exports){
 module.exports = (element) => {
     let text = {
         status: null,
@@ -23165,7 +23519,7 @@ module.exports = (element) => {
     return text
 }
 
-},{}],157:[function(require,module,exports){
+},{}],162:[function(require,module,exports){
 module.exports = (element) => {
     let s = new SwitchButton(element)
     s.create()
@@ -23248,7 +23602,7 @@ SwitchButton.prototype.onDopplerSwitch = function(callback = () => {}) {
     this.callDoppler = callback
 }
 
-},{}],158:[function(require,module,exports){
+},{}],163:[function(require,module,exports){
 let uuid = require('node-uuid')
 // let job = require('./../Job/cron.js')
 
@@ -23621,7 +23975,221 @@ exports.start = (element, context, socket, clientTime, config) => {
     }
 }
 
-},{"./../demo-common/html/button-notification.js":160,"./../demo-common/html/homeButton.js":161,"./../demo-common/html/radio-button.js":162,"./../demo-common/html/select-list.js":163,"./../demo-common/html/slider-single.js":164,"./../demo-common/html/slider.js":165,"./../exCall-module/config":168,"./canvas/field.js":144,"./canvas/icon-note.js":145,"./canvas/icon-speaker.js":146,"./graph/connect.js":148,"./graph/index.js":151,"./gyro.js":155,"./html/html-text.js":156,"./html/switchButton.js":157,"./sync-play.js":159,"node-uuid":173}],159:[function(require,module,exports){
+},{"./../demo-common/html/button-notification.js":167,"./../demo-common/html/homeButton.js":168,"./../demo-common/html/radio-button.js":169,"./../demo-common/html/select-list.js":170,"./../demo-common/html/slider-single.js":171,"./../demo-common/html/slider.js":172,"./../exCall-module/config":175,"./canvas/field.js":145,"./canvas/icon-note.js":146,"./canvas/icon-speaker.js":147,"./graph/connect.js":153,"./graph/index.js":156,"./gyro.js":160,"./html/html-text.js":161,"./html/switchButton.js":162,"./sync-play.js":166,"node-uuid":180}],164:[function(require,module,exports){
+const Canvas = require('./../canvas/canvas.js')
+const CardField = require('./../card/objectField.js')
+const Card = require('./../card/cardList.js')
+
+const loginWindow = require('./loginWindow.js')
+
+let socketDir = 'board_game_'
+let socketType = 'board_game'
+
+
+// const cardList = {
+//     'アリバイ': 'lib/image/card/アリバイ.png',
+//     'いぬ': 'lib/image/card/いぬ.png',
+//     'うわさ': 'lib/image/card/うわさ.png',
+//     'たくらみ': 'lib/image/card/たくらみ.png',
+//     '一般人': 'lib/image/card/一般人.png',
+//     '取り引き': 'lib/image/card/取り引き.png',
+//     '情報交換': 'lib/image/card/情報交換.png',
+//     '第一発見者': 'lib/image/card/第一発見者.png',
+//     '犯人': 'lib/image/card/犯人.png',
+//     '目撃者': 'lib/image/card/アリバイ.png',
+//     '裏': 'lib/image/card/裏.png'
+// }
+
+exports.start = (element, context, socket, clientTime, config) => {
+    // element.style.margin = '30px'
+    //
+    // loginWindow.start(element, context, socket, clientTime, config)
+    let canvas = Canvas(element)
+    let field = CardField(canvas)
+    let card = Card()
+    card['アリバイ'].scale = 0.5
+    field.setObject(card['アリバイ'])
+
+    // let globalPosition = GlobalPositon()
+    // 中心 0.5, 0.6 halfW 0.3 halfH 0.2
+    // Main
+    // let area1 = globalPosition.clip(0, 0, 0.4, 0.3)
+    // let area2 = globalPosition.clip(0.7, 0.7, 0.15, 0.3)
+
+    // socket.on(socketDir + '', () => {
+    //
+    // })
+    field.sendObjectInfo((sendObj) => {
+        console.log(sendObj)
+        let cards = []
+        cards.push(sendObj)
+        field.updateObjects(cards)
+    })
+
+
+
+    let moved = (x, y) => {
+        field.mouseMoved(x, y)
+        // var ctx = canvas.getContext('2d')
+        // let gx = (x / canvas.width) * 2 - 1
+        // let gy = (y / canvas.height) * 2 - 1
+        // area1.render(ctx, canvas.width, canvas.height, gx, gy)
+    }
+
+    let clicked = (x, y) => {
+        field.mousePressed(x, y)
+    }
+
+    let released = (x, y) => {
+        field.mouseReleased(x, y)
+    }
+
+
+
+
+    canvas.addEventListener('mousemove', function(e) {
+        moved(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        moved(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mousedown', function(e) {
+        clicked(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        clicked(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mouseup', function(e) {
+        released(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        released(x, y)
+        return false
+    })
+}
+
+},{"./../canvas/canvas.js":144,"./../card/cardList.js":148,"./../card/objectField.js":150,"./loginWindow.js":165}],165:[function(require,module,exports){
+const uuid = require('node-uuid')
+let HtmlText = require('./../html/html-text.js')
+let SelectList = require('./../../demo-common/html/select-list.js')
+let NotificationButton = require('./../../demo-common/html/button-notification.js')
+let SwitchButton = require('./../html/switchButton.js')
+let homeButton = require('./../../demo-common/html/homeButton.js')
+
+
+let socketDir = 'board_game_'
+let socketType = 'board_game'
+
+exports.start = (element, context, socket, clientTime, config) => {
+
+    let clientID = uuid.v4() // This is temporary. When websocket connected, this is replaced new id
+
+
+    let htmlText = HtmlText(element)
+    let fromList = SelectList(element, 'from', 'From')
+    let toList = SelectList(element, 'to', 'To')
+
+    let notificationButton = NotificationButton(element)
+
+    /*
+     *  SwitchButton
+     */
+
+    let switchButton = SwitchButton(element)
+    switchButton.onGyroSwitch((toggle) => {
+        if (!canUse) {
+            switchButton.gyroButton.innerHTML = 'Can not use Gyro Sensor'
+            return
+        }
+        gyroSwitch = toggle
+    })
+
+    homeButton(element, config.user)
+
+    socket.on(socketDir + 'user_list', (list) => {
+        toList.setList(list)
+        fromList.setList(list)
+        fromList.check(config.user)
+    })
+
+    socket.on(socketDir + 'user_add', (user) => {
+        toList.addUser(user)
+        fromList.addUser(user)
+    })
+
+    socket.on(socketDir + 'user_remove', (user) => {
+        toList.removeUser(user)
+        fromList.removeUser(user)
+    })
+
+    socket.call.on('connect', () => {
+        clientID = uuid.v4()
+        // field.setClientID(clientID)
+
+        socket.emit(socketDir + 'register', {
+            type: socketType,
+            id: clientID,
+            user: config.user
+        })
+
+        socket.on(socketDir + 'register', (body) => {
+            if (body.id === clientID && body.name) {
+                clientName = body.name
+            }
+
+            htmlText.status.innerHTML = 'user: ' + clientName
+        })
+
+
+        socket.on(socketDir + 'notification_common', (body) => {
+            console.log(body)
+            let from = body.from.indexOf(config.user) >= 0 ? true : false
+            let to = body.to.indexOf(config.user) >= 0 ? true : false
+
+            let fromText = ''
+            body.from.forEach((n) => {
+                fromText += n + ' '
+            })
+            let toText = ''
+            body.to.forEach((n) => {
+                toText += n + ' '
+            })
+            htmlText.log.innerHTML = 'From: ' + fromText + '　To: ' + toText
+            if (!from && !to) {
+                return
+            }
+
+            body.notes.forEach((note) => {
+                play(body, note, from, to)
+            })
+        })
+    })
+
+
+
+
+}
+
+},{"./../../demo-common/html/button-notification.js":167,"./../../demo-common/html/homeButton.js":168,"./../../demo-common/html/select-list.js":170,"./../html/html-text.js":161,"./../html/switchButton.js":162,"node-uuid":180}],166:[function(require,module,exports){
 module.exports = (context) => {
     return new SyncPlay(context)
 }
@@ -23844,7 +24412,7 @@ let loadSound = (url, callback = () => {}) => {
     request.send()
 }
 
-},{}],160:[function(require,module,exports){
+},{}],167:[function(require,module,exports){
 module.exports = (element) => {
     let button = {
         test: null,
@@ -23884,7 +24452,7 @@ module.exports = (element) => {
     return button
 }
 
-},{}],161:[function(require,module,exports){
+},{}],168:[function(require,module,exports){
 // <button class="btn btn-default">Default</button>
 module.exports = (element, user) => {
     let p = document.createElement('p')
@@ -23919,7 +24487,7 @@ module.exports = (element, user) => {
 
 }
 
-},{}],162:[function(require,module,exports){
+},{}],169:[function(require,module,exports){
 module.exports = (element, id, text) => {
     return new RadioButton(element, id, text)
 }
@@ -24015,7 +24583,7 @@ RadioButton.prototype.getSelected = function() {
     return ''
 }
 
-},{}],163:[function(require,module,exports){
+},{}],170:[function(require,module,exports){
 // let div = null
 //
 // let selectStatus = {}
@@ -24227,7 +24795,7 @@ SelectList.prototype.check = function(targetName) {
 //     return null
 // }
 
-},{}],164:[function(require,module,exports){
+},{}],171:[function(require,module,exports){
 // <div id="slider"></div>
 
 
@@ -24275,7 +24843,7 @@ Slider.prototype.getValue = function() {
     return slider
 }
 
-},{}],165:[function(require,module,exports){
+},{}],172:[function(require,module,exports){
 // <div id="slider"></div>
 
 
@@ -24323,7 +24891,7 @@ Slider.prototype.getValues = function() {
     return slider
 }
 
-},{}],166:[function(require,module,exports){
+},{}],173:[function(require,module,exports){
 exports.userNameCheck = (user, callback = () => {}) => {
     if (!user || typeof user != 'string' || user == 'unknown') {
         module.exports.userNameInput(callback)
@@ -24357,7 +24925,7 @@ exports.userNameInput = (callback = () => {}, caution = '') => {
 
 }
 
-},{}],167:[function(require,module,exports){
+},{}],174:[function(require,module,exports){
 // JSONファイルのdirectory
 // let json = './../../local-env/config.json'
 // return
@@ -24369,7 +24937,7 @@ try {
 
 module.exports = env
 
-},{"./../../local-env/config.json":170}],168:[function(require,module,exports){
+},{"./../../local-env/config.json":177}],175:[function(require,module,exports){
 (function (process){
 
 let config = {}
@@ -24385,7 +24953,7 @@ for(let key in local){
 module.exports = config
 
 }).call(this,require('_process'))
-},{"./config-local.js":167,"_process":110}],169:[function(require,module,exports){
+},{"./config-local.js":174,"_process":110}],176:[function(require,module,exports){
 window.addEventListener('load', init, false)
 
 /*
@@ -24444,6 +25012,20 @@ function init() {
         let config = {
             user: user
         }
+        let game = require('./board-game/main/index.js')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            game.start(document.getElementById('canvas'), context, socket, ntp, config)
+        })
+    }
+
+    if (demo_type == 'board-game-player') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
         let game = require('./board-game/main.js')
         // let demo_mention = require('./concept-image/main.js')
         let inputUserName = require('./demo-common/prompt.js')
@@ -24454,13 +25036,13 @@ function init() {
     }
 }
 
-},{"./board-game/main.js":158,"./demo-common/prompt.js":166,"./ntp-client.js":171,"./socket-client/index.js":172}],170:[function(require,module,exports){
+},{"./board-game/main.js":163,"./board-game/main/index.js":164,"./demo-common/prompt.js":173,"./ntp-client.js":178,"./socket-client/index.js":179}],177:[function(require,module,exports){
 module.exports={
   "PORT": 8118,
   "SERVER_URL": "https://excall.herokuapp.com"
 }
 
-},{}],171:[function(require,module,exports){
+},{}],178:[function(require,module,exports){
 let socket
 let dateDiff = 0
 
@@ -24583,7 +25165,7 @@ let emit = () => {
     }, 1000 * 1 + Math.floor((Math.random() * 500)))
 }
 
-},{}],172:[function(require,module,exports){
+},{}],179:[function(require,module,exports){
 // const io = require('socket.io-client')
 let url = 'http://192.168.144.110:8001'
 // let url = 'http://192.168.100.16:8001'
@@ -24632,7 +25214,7 @@ socket.on('disconnect', () => {
     call.emit('disconnect', url)
 })
 
-},{"./../../../exCall-module/simpleCall":178}],173:[function(require,module,exports){
+},{"./../../../exCall-module/simpleCall":185}],180:[function(require,module,exports){
 (function (Buffer){
 //     uuid.js
 //
@@ -24908,7 +25490,7 @@ socket.on('disconnect', () => {
 })('undefined' !== typeof window ? window : null);
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":45,"crypto":54}],174:[function(require,module,exports){
+},{"buffer":45,"crypto":54}],181:[function(require,module,exports){
 const CallbackChild = require('./CallbackChild.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -25086,7 +25668,7 @@ let keyCheck = (key) => {
     return key
 }
 
-},{"./CallOperator.js":176,"./CallbackChild.js":177}],175:[function(require,module,exports){
+},{"./CallOperator.js":183,"./CallbackChild.js":184}],182:[function(require,module,exports){
 /**
  * 一連の流れで連続するcallback
  * contextInfoを受け継ぐ
@@ -25242,7 +25824,7 @@ CallMeasure.prototype.Operator = function(num, next) {
     }
 }
 
-},{}],176:[function(require,module,exports){
+},{}],183:[function(require,module,exports){
 // CallOperator
 
 module.exports = (Child, num) => {
@@ -25262,7 +25844,7 @@ module.exports = (Child, num) => {
     }
 }
 
-},{}],177:[function(require,module,exports){
+},{}],184:[function(require,module,exports){
 const CallMeasure = require('./CallMeasure.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -25441,7 +26023,7 @@ CallbackChild.prototype.emit = function(...option) {
     callMeasure.start()
 }
 
-},{"./CallMeasure.js":175,"./CallOperator.js":176}],178:[function(require,module,exports){
+},{"./CallMeasure.js":182,"./CallOperator.js":183}],185:[function(require,module,exports){
 module.exports = require('./Call/Call.js')()
 
-},{"./Call/Call.js":174}]},{},[169]);
+},{"./Call/Call.js":181}]},{},[176]);

@@ -1,7 +1,7 @@
 let clientList = {}
 let speakerList = {}
-let socketDir = 'board_game_'
-let socketType = 'board_game'
+let socketDir = 'borad_game_'
+let socketType = 'borad_game'
 
 let noteClient = {}
 let tempNote = {}

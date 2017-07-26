@@ -19,6 +19,7 @@ const demo_accel_notification = require('./routes/demo-accel-notification.js')
 const demo_doppler_notification = require('./routes/demo-doppler-notification.js')
 const demo_orchestra = require('./routes/demo-orchestra.js')
 const board_game = require('./routes/board-game.js')
+const board_game_player = require('./routes/board-game-player.js')
 
 const home = require('./routes/home.js')
 
@@ -46,6 +47,7 @@ exports.init = (app) => {
     app.use('/demo-orchestra', demo_orchestra)
 
     app.use('/game', board_game)
+    app.use('/game-player', board_game_player)
 
     app.use('/', home)
 

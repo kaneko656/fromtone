@@ -56,6 +56,20 @@ function init() {
         let config = {
             user: user
         }
+        let game = require('./board-game/main/index.js')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            game.start(document.getElementById('canvas'), context, socket, ntp, config)
+        })
+    }
+
+    if (demo_type == 'board-game-player') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
         let game = require('./board-game/main.js')
         // let demo_mention = require('./concept-image/main.js')
         let inputUserName = require('./demo-common/prompt.js')

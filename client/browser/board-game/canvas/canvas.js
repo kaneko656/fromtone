@@ -1,12 +1,10 @@
 
 module.exports = (element) => {
     var canvas = document.createElement('canvas')
-    let width = window.innerWidth - 120 > 500 ? window.innerWidth - 120 : 500
-    // let height = window.innerHeight > 500 ? window.innerHeight : 500
-    let height = 300
-    let size = width < height ? width : height
-    canvas.setAttribute('width', size)
-    canvas.setAttribute('height', size)
+    let width = window.innerWidth > 300 ? window.innerWidth : 300
+    let height = window.innerHeight > 300 ? window.innerHeight : 300
+    canvas.setAttribute('width', width)
+    canvas.setAttribute('height', height)
     element.appendChild(canvas)
     return canvas
 }
