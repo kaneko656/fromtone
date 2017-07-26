@@ -21368,461 +21368,6 @@ module.exports = (element) => {
 }
 
 },{}],145:[function(require,module,exports){
-module.exports = (canvas) => {
-    return new Field(canvas)
-}
-
-
-function Field(canvas) {
-    this.canvas = canvas
-    this.clientID = ''
-    this.center = {
-        x: canvas.width / 2,
-        y: canvas.height / 2
-    }
-    this.w = canvas.width
-    this.h = canvas.height
-    this.size = this.w / 2
-
-    this.otherSpeakers = []
-    this.notes = {}
-
-    this.callStart = () => {}
-    this.callSendSpeakerInfo = () => {}
-    this.callSendNoteInfo = () => {}
-    this.callUpdatePannerPosition = () => {}
-}
-
-Field.prototype.setClientID = function(clientID) {
-    this.clientID = clientID
-}
-
-
-Field.prototype.setNote = function(note) {
-    let name = note.name
-    note.x = note.x * this.w
-    note.y = note.y * this.h
-    note.size = Math.round(this.w / 15)
-    this.notes[name] = note
-
-    // this.note = note
-    this.updatePannerPosition(this.notes[name], this.speaker)
-    this.render()
-    let field = this
-    this.notes[name].icon.onload = function() {
-        field.render()
-    }
-}
-
-Field.prototype.updateNote = function(note) {
-    let name = note.name
-    if (this.notes[name]) {
-        let nt = this.notes[name]
-        nt.x = note.x * this.w
-        nt.y = note.y * this.h
-        nt.over = note.over
-        nt.isMove = note.isMove
-        nt.isOtherMove = note.isOtherMove
-        this.updatePannerPosition(nt, this.speaker)
-        console.log(name, 'update')
-    }
-    this.render()
-
-}
-
-
-Field.prototype.setThisSpeaker = function(speaker) {
-    this.speaker = speaker
-    this.speaker.x = this.center.x
-    this.speaker.y = this.center.y
-    this.speaker.size = Math.round(this.w / 15)
-    let field = this
-    this.speaker.icon.onload = function() {
-        field.render()
-        field.sendSpeakerInfoToServer(field.speaker)
-    }
-}
-
-Field.prototype.setOtherSpeaker = function(SpeakerIcon, speakers) {
-    let speakerArray = []
-    if (typeof speakers == 'object') {
-        for (let id in speakers) {
-            if (id === this.clientID) {
-                continue
-            }
-            let sp = speakers[id]
-            let speaker = SpeakerIcon(this.speaker.icon)
-            speaker.x = sp.x * this.w
-            speaker.y = sp.y * this.h
-            speaker.size = Math.round(this.w / 15)
-            speaker.over = sp.over
-            speaker.isMove = sp.isMove
-            speaker.isThis = false
-            speaker.isPlay = sp.isPlay
-            speakerArray.push(speaker)
-        }
-    }
-    this.otherSpeakers = speakerArray
-    this.render()
-}
-
-Field.prototype.toPlayStatus = function(name = 'default') {
-    if (this.notes[name]) {
-        this.notes[name].isPlay = true
-        // this.updatePannerPosition(this.notes[name], this.speaker)
-    }
-    if (this.speaker) {
-        this.speaker.isPlay = true
-        this.sendSpeakerInfoToServer(this.speaker)
-    }
-    this.render()
-}
-
-Field.prototype.toStopStatus = function(name = 'default') {
-    if (this.notes[name]) {
-        this.notes[name].isPlay = false
-    }
-    if (this.speaker) {
-        this.speaker.isPlay = false
-        this.sendSpeakerInfoToServer(this.speaker)
-    }
-    this.render()
-}
-
-
-
-Field.prototype.render = function() {
-    // Draw points onto the canvas element.
-    var ctx = this.canvas.getContext('2d')
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-
-    ctx.save()
-    // grid
-    let size = this.size
-    let cnt = 0
-    ctx.strokeStyle = 'rgba(0,0,0,0.1)'
-    for (let r = 0; r <= size; r += size / 4) {
-        let alpha = 0.5 - cnt * 0.1
-        ctx.strokeStyle = 'rgba(0,0,0,' + alpha + ')'
-        cnt++
-        ctx.beginPath()
-        ctx.arc(this.center.x, this.center.y, r, 0, Math.PI * 2)
-        ctx.stroke()
-        ctx.strokeStyle = 'rgba(0,0,0,' + alpha + ')'
-
-        this.line(ctx, 0, this.center.y - r, this.w, this.center.y - r)
-        if (cnt > 1) {
-            this.line(ctx, 0, this.center.y + r, this.w, this.center.y + r)
-            this.line(ctx, this.center.x - r, 0, this.center.x - r, this.h)
-        }
-        this.line(ctx, this.center.x + r, 0, this.center.x + r, this.h)
-    }
-
-    this.speaker.draw(ctx)
-    if (this.otherSpeakers) {
-        this.otherSpeakers.forEach((sp) => {
-            sp.draw(ctx)
-        })
-    }
-    // this.note.draw(ctx)
-    for (let name in this.notes) {
-        this.notes[name].draw(ctx)
-    }
-    ctx.restore()
-}
-
-Field.prototype.started = function(callback) {
-    this.callStart = callback
-}
-
-
-Field.prototype.mousePressed = function(x, y) {
-    if (this.speaker.isOver(x, y)) {
-        this.speaker.isMove = true
-        this.speaker.over = true
-        this.speaker.x = x
-        this.speaker.y = y
-    } else {
-        for (let name in this.notes) {
-            let note = this.notes[name]
-            if (!note.isOtherMove && note.isOver(x, y)) {
-                note.isSync = true
-                note.click()
-                break
-            }
-        }
-    }
-    // this.updatePannerPosition(this.note, this.speaker)
-    this.render()
-}
-
-
-Field.prototype.mouseReleased = function(x, y) {
-    if (this.speaker.isMove) {
-        this.speaker.x = x
-        this.speaker.y = y
-        this.speaker.isMove = false
-        this.speaker.over = false
-    }
-    for (let name in this.notes) {
-        let note = this.notes[name]
-        if (!note.isOtherMove && note.isMove) {
-            note.x = x
-            note.y = y
-            note.isMove = false
-            note.over = false
-            note.isSync = false
-            this.sendNoteInfoToServer(note, true)
-        }
-        this.updatePannerPosition(note, this.speaker)
-    }
-    this.sendSpeakerInfoToServer(this.speaker)
-    this.render()
-}
-
-Field.prototype.mouseMoved = function(x, y) {
-    if (this.speaker.isMove) {
-        this.speaker.x = x
-        this.speaker.y = y - 2
-        this.sendSpeakerInfoToServer(this.speaker)
-    }
-    for (let name in this.notes) {
-        let note = this.notes[name]
-        if (!note.isOtherMove && note.isMove) {
-            note.over = true
-            note.x = x
-            note.y = y - 2
-            this.sendNoteInfoToServer(note, false)
-          }
-        this.updatePannerPosition(note, this.speaker)
-
-    }
-    this.render()
-}
-
-Field.prototype.pannerPosition = function(callback) {
-    this.callUpdatePannerPosition = callback
-}
-
-Field.prototype.updatePannerPosition = function(note, speaker) {
-    // 音源が原点
-    let x = note.x - speaker.x
-    let y = note.y - speaker.y
-    let dx = x / this.size
-    let dy = y / this.size
-    let body = {
-        name: note.name,
-        position: {
-            x: dx,
-            y: dy,
-            z: 0
-        }
-    }
-    this.callUpdatePannerPosition(body)
-}
-
-Field.prototype.sendSpeakerInfo = function(callback) {
-    this.sendSpeakerInfo = callback
-}
-
-Field.prototype.sendSpeakerInfoToServer = function(speaker) {
-    let sp = Object.assign({}, speaker)
-    sp.icon = null
-    sp.draw = null
-    sp.isOver = null
-    sp.x = sp.x / this.w
-    sp.y = sp.y / this.h
-    this.sendSpeakerInfo(sp)
-}
-
-Field.prototype.sendNoteInfo = function(callback) {
-    this.sendNoteInfo = callback
-}
-
-Field.prototype.sendNoteInfoToServer = function(note, release) {
-    let nt = Object.assign({}, note)
-    nt.icon = null
-    nt.draw = null
-    nt.isOver = null
-    nt.setParentNote = null
-    nt.idMove = false
-    nt.isOtherMove = release ? false : true
-    nt.x = nt.x / this.w
-    nt.y = nt.y / this.h
-    nt.id = this.clientID
-    nt.release = release
-    this.sendNoteInfo(nt)
-}
-
-
-Field.prototype.line = (ctx, x1, y1, x2, y2) => {
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
-}
-
-},{}],146:[function(require,module,exports){
-module.exports = (noteIcon) => {
-    let callClick = () => {}
-    let note = {
-        name: 'default',
-        icon: noteIcon,
-        size: noteIcon.width,
-        w: noteIcon.width,
-        h: noteIcon.height,
-        x: 0,
-        y: 0,
-        canvasW: 1,
-        canvasH: 1,
-        over: false,
-        isMove: false,
-        isOtherMove: false,
-        isPlay: false,
-        isSync: false,
-        isChild: false,
-        parentObject: null,
-        childPosition: null,
-        isOver: (x, y) => {
-            let dx = note.x - x
-            let dy = note.y - y
-            let d = note.size * 0.8
-            return (dx * dx + dy * dy < d * d)
-        },
-        clicked: (callback) => {
-            callClick = callback
-        },
-        click: () => {
-            callClick(note.name)
-        },
-        setParentNote: (parent, pos) => {
-            note.parentObject = parent
-            note.isChild = true
-            note.childPosition = pos
-        },
-        draw: (ctx) => {
-            if (note.isChild) {
-                note.x = note.parentObject.x + note.childPosition.x * note.canvasW
-                note.y = note.parentObject.y + note.childPosition.y * note.canvasH
-            }
-
-            let rate = note.size / note.w
-            ctx.save()
-            ctx.translate(note.x, note.y)
-            // circle
-            if (note.over || note.isSync) {
-
-                ctx.fillStyle = note.isOtherMove ? 'rgba(150,0,0,0.3)' : 'rgba(0,100,100,0.3)'
-                ctx.beginPath()
-                ctx.arc(0, 0, note.size * 0.7, 0, Math.PI * 2, true)
-                ctx.fill()
-            }
-            // circle
-            if (note.isPlay) {
-                ctx.beginPath()
-                ctx.strokeStyle = 'rgba(0,0,200,0.9)'
-                ctx.arc(0, 0, note.size * 0.6, 0, Math.PI * 2, true)
-                ctx.stroke()
-
-                ctx.beginPath()
-                ctx.strokeStyle = 'rgba(0,0,200,0.7)'
-                ctx.arc(0, 0, note.size * 0.9, 0, Math.PI * 2, true)
-                ctx.stroke()
-
-                ctx.beginPath()
-                ctx.strokeStyle = 'rgba(0,0,200,0.5)'
-                ctx.arc(0, 0, note.size * 1.2, 0, Math.PI * 2, true)
-                ctx.stroke()
-
-            }
-            // image
-            ctx.scale(rate, rate)
-            ctx.drawImage(note.icon, -150, -150, 300, 300)
-            ctx.restore()
-        }
-    }
-    return note
-}
-
-},{}],147:[function(require,module,exports){
-
-module.exports = (speakerIcon) => {
-    let speaker = {
-        icon: speakerIcon,
-        size: speakerIcon.width,
-        w: speakerIcon.width,
-        h: speakerIcon.height,
-        x: 0,
-        y: 0,
-        over: false,
-        isMove: false,
-        isThis: true,
-        isPlay: false,
-        isOver: (x, y) => {
-            let dx = speaker.x - x
-            let dy = speaker.y - y
-            let d = speaker.size * 0.8
-            return (dx * dx + dy * dy < d * d)
-        },
-        draw: (ctx) => {
-            let rate = speaker.size / speaker.w
-            ctx.save()
-            ctx.translate(speaker.x, speaker.y)
-            // circle
-            if (speaker.over) {
-                ctx.fillStyle = speaker.isThis ? 'rgba(0,100,100,0.3)' : 'rgba(150,0,0,0.3)'
-                ctx.beginPath()
-                ctx.arc(0, 0, speaker.size * 0.7, 0, Math.PI * 2, true)
-                ctx.fill()
-            }
-            // circle
-            if (speaker.isThis) {
-                let alpha = speaker.isPlay ? 0.7 : 0.5
-                let r = speaker.isPlay ? 0.6 : 0.7
-                ctx.lineWidth = 2
-
-                ctx.beginPath()
-                ctx.strokeStyle = 'rgba(0,150,100,' + alpha + ')'
-                ctx.arc(0, 0, speaker.size * r, 0, Math.PI * 2, true)
-                ctx.stroke()
-
-                alpha -= 0.2
-                r += speaker.isPlay ? 0.3 : 0.15
-                ctx.beginPath()
-                ctx.strokeStyle = 'rgba(0,150,100,' + alpha + ')'
-                ctx.arc(0, 0, speaker.size * r, 0, Math.PI * 2, true)
-                ctx.stroke()
-
-                if (speaker.isPlay) {
-                    alpha -= 0.2
-                    r += 0.3
-                    ctx.beginPath()
-                    ctx.strokeStyle = 'rgba(0,150, 100,' + alpha + ')'
-                    ctx.arc(0, 0, speaker.size * r, 0, Math.PI * 2, true)
-                    ctx.stroke()
-                }
-            } else if (speaker.isPlay) {
-                ctx.lineWidth = 2
-                ctx.beginPath()
-                ctx.strokeStyle = 'rgba(150,0,0,0.5)'
-                ctx.arc(0, 0, speaker.size * 0.6, 0, Math.PI * 2, true)
-                ctx.stroke()
-
-                ctx.beginPath()
-                ctx.strokeStyle = 'rgba(150,0,0,0.3)'
-                ctx.arc(0, 0, speaker.size * 0.7, 0, Math.PI * 2, true)
-                ctx.stroke()
-            }
-            // image
-            ctx.scale(rate, rate)
-            ctx.drawImage(speaker.icon, -150, -150, 300, 300)
-            ctx.restore()
-        }
-    }
-    return speaker
-}
-
-},{}],148:[function(require,module,exports){
 const Card = require('./object.js')
 
 const cardList = {
@@ -21848,7 +21393,7 @@ module.exports = () => {
     return card
 }
 
-},{"./object.js":149}],149:[function(require,module,exports){
+},{"./object.js":146}],146:[function(require,module,exports){
 module.exports = (icon) => {
     let callClick = () => {}
     let obj = {
@@ -21918,7 +21463,7 @@ module.exports = (icon) => {
     return obj
 }
 
-},{}],150:[function(require,module,exports){
+},{}],147:[function(require,module,exports){
 const GlobalPosition = require('./position.js')
 
 module.exports = (canvas) => {
@@ -21951,6 +21496,15 @@ function Field(canvas) {
 
 Field.prototype.setClip = function(cx, cy, halfW, halfH) {
     this.clip = this.globalPosition.clip(cx, cy, halfW, halfH)
+    this.clip.setLocalPosition(0, 0, this.w, this.h)
+}
+
+Field.prototype.rotate = function(radian) {
+    this.clip.rotate = radian
+}
+
+Field.prototype.setLocalPosition = function(x, y, w, h) {
+    this.clip.setLocalPosition(x, y, w, h)
 }
 
 Field.prototype.setClientID = function(clientID) {
@@ -22065,7 +21619,7 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{"./position.js":151}],151:[function(require,module,exports){
+},{"./position.js":148}],148:[function(require,module,exports){
 module.exports = () => {
     return new GlobalPosition()
 }
@@ -22164,1342 +21718,7 @@ GlobalPosition.prototype.clip = function(cx, cy, halfW, halfH) {
     return clip
 }
 
-},{}],152:[function(require,module,exports){
-
-module.exports = (element, width, height) => {
-    var canvas = document.createElement('canvas')
-    // let size = width < height ? width : height
-    canvas.setAttribute('width', width)
-    canvas.setAttribute('height', height)
-    element.appendChild(canvas)
-    return canvas
-}
-
-},{}],153:[function(require,module,exports){
-let value = {}
-let call = {}
-exports.set = (name, v) => {
-    value[name] = v
-    if (typeof call[name] == 'function') {
-        call[name](v)
-    }
-}
-
-exports.get = (name) => {
-    return value[name]
-}
-
-exports.on = (name, callback) => {
-    call[name] = callback
-}
-
-},{}],154:[function(require,module,exports){
-module.exports = (p) => {
-    return new Bezier(p)
-}
-
-function Bezier(p) {
-    this.callMovedHead = () => {}
-    this.callMovedTail = () => {}
-
-    this.limit = {
-        minW: 30
-    }
-
-    // x,y anchorx,y anchorx,y x,y
-    // length 8
-    this.p = p
-    this.innerPoint = []
-    this.innerAccuracy = 0.1
-    this.innerAccuracyTimes = 5
-    if (Array.isArray(p) && p.length == 4) {
-        let a1 = this.divPoint(p, 0.2)
-        let a2 = this.divPoint(p, 0.8)
-        p.splice(2, 0, a1.x, a1.y, a2.x, a2.y)
-    }
-    if (!Array.isArray(p) || p.length != 8) {
-        console.log('Bezier 引数は配列（x,yが４つ）')
-        return
-    }
-    this.setInnerPoint()
-    this.minX = p[0] < p[6] ? p[0] : p[6]
-    this.maxX = p[0] > p[6] ? p[0] : p[6]
-    this.tCoeValue = this.tCoe()
-
-    this.edgePointR = 5
-
-    this.bezierLineColor = 'rgba(0,0,0,1.0)'
-    this.bezierEdgeColor = 'rgba(100,100,100,1.0)'
-    this.anchorLineColor = 'rgba(0,0,255,1.0)'
-    this.anchorEdgeColor = 'rgba(150,150,255,1.0)'
-}
-
-
-Bezier.prototype.render = function(ctx, isSelect) {
-    let p = this.p
-    ctx.beginPath()
-    ctx.strokeStyle = this.bezierLineColor
-    ctx.moveTo(p[0], p[1])
-    ctx.bezierCurveTo(p[2], p[3], p[4], p[5], p[6], p[7])
-    ctx.stroke()
-
-    // 補助線
-    if (isSelect) {
-        ctx.strokeStyle = this.anchorLineColor
-        this.line(ctx, p[0], p[1], p[2], p[3])
-        this.line(ctx, p[4], p[5], p[6], p[7])
-    }
-
-    // 両端
-    let r = this.edgePointR
-    ctx.beginPath()
-    ctx.fillStyle = this.bezierEdgeColor
-    ctx.arc(p[0], p[1], r, 0, Math.PI * 2)
-    ctx.arc(p[6], p[7], r, 0, Math.PI * 2)
-    ctx.fill()
-
-    // アンカー端
-    if (isSelect) {
-        ctx.beginPath()
-        ctx.fillStyle = this.anchorEdgeColor
-        ctx.arc(p[2], p[3], r, 0, Math.PI * 2)
-        ctx.arc(p[4], p[5], r, 0, Math.PI * 2)
-        ctx.fill()
-    }
-}
-
-Bezier.prototype.line = (ctx, x1, y1, x2, y2) => {
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
-}
-
-Bezier.prototype.getBezierPoint = function(t) {
-    let mt = 1 - t
-    let p = this.p
-    let mt3 = mt * mt * mt
-    let mt2 = mt * mt
-    let t3 = t * t * t
-    let t2 = t * t
-    let x = mt3 * p[0] + 3 * mt2 * t * p[2] + 3 * mt * t2 * p[4] + t3 * p[6]
-    let y = mt3 * p[1] + 3 * mt2 * t * p[3] + 3 * mt * t2 * p[5] + t3 * p[7]
-    return {
-        x: x,
-        y: y,
-        t: t
-    }
-}
-
-Bezier.prototype.separate = function(t) {
-    let p = this.p
-    // http://d.hatena.ne.jp/shspage/20140625/1403702735
-    let sep = this.getBezierPoint(t)
-
-    let d1 = this.divPoint([p[0], p[1], p[2], p[3]], t)
-    let d2 = this.divPoint([p[4], p[5], p[6], p[7]], t)
-    let d3 = this.divPoint([p[2], p[3], p[4], p[5]], t)
-
-    let r1 = this.divPoint([d1.x, d1.y, d3.x, d3.y], t)
-    let r2 = this.divPoint([d3.x, d3.y, d2.x, d2.y], t)
-
-    let sepBezier = []
-    sepBezier[0] = new Bezier([p[0], p[1], d1.x, d1.y, r1.x, r1.y, sep.x, sep.y])
-    sepBezier[1] = new Bezier([sep.x, sep.y, r2.x, r2.y, d2.x, d2.y, p[6], p[7]])
-
-    let limit = this.limit
-    if (limit.minW) {
-        if (Math.abs(sepBezier[0].p[6] - sepBezier[0].p[0]) < limit.minW ||
-            Math.abs(sepBezier[1].p[6] - sepBezier[1].p[0]) < limit.minW) {
-            return false
-        }
-    }
-    return sepBezier
-}
-
-// Bezier.prototype.pointVelocity = function(t) {
-//     let tCoe = this.tCoe()
-//     let diffXt = 3 * tCoe.x[3] * t * t + 2 * tCoe.x[2] * t + tCoe.x[1]
-//     let diffYt = 3 * tCoe.y[3] * t * t + 2 * tCoe.y[2] * t + tCoe.y[1]
-//     return diffYt / diffXt
-// }
-
-Bezier.prototype.getVelocity = function(t) {
-    let tCoe = this.tCoeValue
-    let diffXt = 3 * tCoe.x[3] * t * t + 2 * tCoe.x[2] * t + tCoe.x[1]
-    let diffYt = 3 * tCoe.y[3] * t * t + 2 * tCoe.y[2] * t + tCoe.y[1]
-    return diffYt / diffXt
-}
-
-Bezier.prototype.divPoint = function(p4, t) {
-    let mt = 1 - t
-    let x = mt * p4[0] + t * p4[2]
-    let y = mt * p4[1] + t * p4[3]
-    return {
-        x: x,
-        y: y,
-        t: t
-    }
-}
-
-Bezier.prototype.move = function(pN, x, y, notCall, callback = () => {}) {
-    if (pN >= 0 && pN <= 3) {
-        let p = this.p
-        let limit = this.limit
-        let res = null
-        if (pN == 0) {
-            if (limit.minW && p[6] - x < limit.minW) {
-                x = p[6] - limit.minW
-                res = true
-            }
-            if (limit.minX && x < limit.minX) {
-                x = limit.minX
-                res = true
-            }
-        }
-        if (limit.minW && pN == 3) {
-            if (x - p[0] < limit.minW) {
-                x = p[0] + limit.minW
-                res = true
-            }
-            if (limit.maxX && x > limit.maxX) {
-                x = limit.maxX
-                res = true
-            }
-        }
-
-        let dx = x - p[pN * 2]
-        let dy = y - p[pN * 2 + 1]
-        p[pN * 2] = x
-        p[pN * 2 + 1] = y
-        let obj = {
-            x: x,
-            y: y
-        }
-        if (pN == 0) {
-            p[2] += dx
-            p[3] += dy
-            this.setInnerPoint()
-            if (!notCall) {
-                this.callMovedHead(obj, (res) => {
-                    this.move(pN, res.x, res.y, true)
-                })
-            }
-        } else if (pN == 3) {
-            p[4] += dx
-            p[5] += dy
-            this.setInnerPoint()
-            if (!notCall) {
-                this.callMovedTail(obj, (res) => {
-                    this.move(pN, res.x, res.y, true)
-                })
-            }
-        } else {
-            this.setInnerPoint()
-        }
-
-        if (res) {
-            callback({
-                x: x,
-                y: y
-            })
-        }
-    }
-}
-
-Bezier.prototype.onPoint = function(x, y, optionR) {
-    let p = this.p
-    let r = optionR || this.edgePointR
-    r = r * r
-    let s = [1, 2, 0, 3]
-    for (let n = 0; n < 4; n++) {
-        let i = s[n]
-        let px = p[i * 2]
-        let py = p[i * 2 + 1]
-        let d = (px - x) * (px - x) + (py - y) * (py - y)
-        if (d < r) {
-            return {
-                pointID: i,
-                x: px,
-                y: py
-            }
-        }
-    }
-    return null
-}
-
-Bezier.prototype.nearPoint = function(x, y) {
-    let p = this.p
-    let t = performance.now()
-    let minD = -1
-    let nearP = null
-    this.innerPoint.forEach((point) => {
-        let d = (point.x - x) * (point.x - x) + (point.y - y) * (point.y - y)
-        if (minD == -1 || d < minD) {
-            minD = d
-            nearP = point
-            nearP.d = Math.sqrt(d)
-        }
-    })
-    for (let i = 1; i < this.innerAccuracyTimes; i++) {
-        let a = Math.pow(this.innerAccuracy, i)
-        let ip = []
-        let min = nearP.t - a / 2 > 0 ? nearP.t - a / 2 : 0
-        let max = nearP.t + a / 2 < 1 ? nearP.t + a / 2 : 1
-        min -= a / 10
-        max += a / 10
-        for (let t = min; t <= max; t += a * this.innerAccuracy) {
-            let p = this.getBezierPoint(t)
-            ip.push(p)
-        }
-        ip.forEach((point) => {
-            let d = (point.x - x) * (point.x - x) + (point.y - y) * (point.y - y)
-            if (minD == -1 || d < minD) {
-                minD = d
-                nearP = point
-                nearP.d = Math.sqrt(d)
-            }
-        })
-    }
-    return nearP
-}
-
-Bezier.prototype.getValue = function(x) {
-    let p = this.p
-    let minD = -1
-    let nearP = null
-    this.innerPoint.forEach((point) => {
-        let d = Math.abs(point.x - x)
-        if (minD == -1 || d < minD) {
-            minD = d
-            nearP = point
-            nearP.d = d
-        }
-    })
-    for (let i = 1; i < this.innerAccuracyTimes; i++) {
-        let a = Math.pow(this.innerAccuracy, i)
-        let ip = []
-        let min = nearP.t - a / 2 > 0 ? nearP.t - a / 2 : 0
-        let max = nearP.t + a / 2 < 1 ? nearP.t + a / 2 : 1
-        min -= a / 10
-        max += a / 10
-        for (let t = min; t <= max; t += a * this.innerAccuracy) {
-            let p = this.getBezierPoint(t)
-            ip.push(p)
-        }
-        ip.forEach((point) => {
-            let d = Math.abs(point.x - x)
-            if (minD == -1 || d < minD) {
-                minD = d
-                nearP = point
-                nearP.d = d
-            }
-        })
-    }
-    return nearP
-}
-
-Bezier.prototype.setInnerPoint = function() {
-    let p = this.p
-    this.minX = p[0] < p[6] ? p[0] : p[6]
-    this.maxX = p[0] > p[6] ? p[0] : p[6]
-    this.tCoeValue = this.tCoe()
-    this.innerPoint = []
-    for (let t = 0; t <= 1; t += this.innerAccuracy) {
-        let p = this.getBezierPoint(t)
-        this.innerPoint.push(p)
-    }
-}
-
-Bezier.prototype.inW = function(x) {
-    if (x > this.minX && x < this.maxX) {
-        let t = (x - this.minX) / (this.maxX - this.minX)
-        return {
-            t: (x - this.minX) / (this.maxX - this.minX),
-
-        }
-    } else {
-        return null
-    }
-}
-
-
-
-Bezier.prototype.tCoe = function() {
-    let p = this.p
-    let xt3 = 3 * p[2] + p[6] - 3 * p[4] - p[0]
-    let xt2 = 3 * (p[0] - 2 * p[2] + p[4])
-    let xt1 = 3 * (p[2] - p[0])
-    let xt = p[0]
-
-    let yt3 = 3 * p[3] + p[7] - 3 * p[5] - p[1]
-    let yt2 = 3 * (p[1] - 2 * p[3] + p[5])
-    let yt1 = 3 * (p[3] - p[1])
-    let yt = p[1]
-
-    return {
-        x: {
-            3: xt3,
-            2: xt2,
-            1: xt1,
-            0: xt
-        },
-        y: {
-            3: yt3,
-            2: yt2,
-            1: yt1,
-            0: yt
-        }
-    }
-}
-
-},{}],155:[function(require,module,exports){
-let connect = require('./../connect.js')
-let Bezier = require('./bezier.js')
-
-module.exports = (canvas) => {
-    return new Field(canvas)
-}
-
-
-function Field(canvas) {
-    this.canvas = canvas
-    this.clientID = ''
-    this.w = canvas.width
-    this.h = canvas.height
-    this.minX = 50
-    this.maxX = this.w - 50
-    this.minY = 50
-    this.maxY = this.h - 50
-
-    this.renderObject = {}
-    this.tempRenderObject = []
-
-    this.viewValue = []
-
-    this.selectBezier = -1
-    this.selectBezierPoint = -1
-
-    this.callStart = () => {}
-    this.callSendSpeakerInfo = () => {}
-    this.callSendNoteInfo = () => {}
-    this.callUpdatePannerPosition = () => {}
-
-    let p = []
-    let w = this.w
-    let h = this.h
-
-    this.bezier = []
-    let b = Bezier([this.minX, this.maxY, this.maxX, this.minY])
-    b.limit['minX'] = this.minX
-    b.limit['maxX'] = this.maxX
-    this.bezier.push(b)
-
-    // this.bezier = b.separate(0.3)
-
-    let field = this
-    // canvas
-    canvas.addEventListener('mousemove', function(e) {
-        field.mouseMoved(e.offsetX, e.offsetY)
-    })
-
-    canvas.addEventListener('touchmove', function(e) {
-        e.preventDefault()
-        let rect = e.target.getBoundingClientRect()
-        let x = e.changedTouches[0].clientX - rect.left
-        let y = e.changedTouches[0].clientY - rect.top
-        field.mouseMoved(x, y)
-        return false
-    })
-
-    canvas.addEventListener('mousedown', function(e) {
-        field.mousePressed(e.offsetX, e.offsetY)
-    })
-
-    canvas.addEventListener('touchstart', function(e) {
-        e.preventDefault()
-        let rect = e.target.getBoundingClientRect()
-        let x = e.changedTouches[0].clientX - rect.left
-        let y = e.changedTouches[0].clientY - rect.top
-        field.mousePressed(x, y)
-        return false
-    })
-
-    canvas.addEventListener('mouseup', function(e) {
-        field.mouseReleased(e.offsetX, e.offsetY)
-    })
-
-    canvas.addEventListener('touchend', function(e) {
-        e.preventDefault()
-        let rect = e.target.getBoundingClientRect()
-        let x = e.changedTouches[0].clientX - rect.left
-        let y = e.changedTouches[0].clientY - rect.top
-        field.mouseReleased(x, y)
-        return false
-    })
-
-    connect.set('editerValue', this.getValue(100))
-
-    connect.on('viewStart', (res) => {
-        // duration 3000/20 = 150
-        let divNum = res.duration / 20
-        field.viewStart(divNum, res.duration / divNum, res.leftTime)
-    })
-}
-
-
-
-Field.prototype.render = function() {
-    // Draw points onto the canvas element.
-    let selectBezier = this.selectBezier
-    let h = this.h
-    let ctx = this.canvas.getContext('2d')
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-
-    ctx.save()
-    // grid
-    for (let r = 0; r <= 10; r += 1) {
-        ctx.strokeStyle = 'rgba(0,0,0,0.1)'
-        let ww = (this.w - 100) / 10
-        this.line(ctx, 50 + r * ww, 0, 50 + r * ww, this.h)
-    }
-    // min max Line
-    ctx.strokeStyle = 'rgba(0,0,0,0.3)'
-    this.line(ctx, this.minX, this.minY, this.maxX, this.minY)
-    this.line(ctx, this.minX, this.maxY, this.maxX, this.maxY)
-    this.line(ctx, this.minX, 0, this.minX, this.h)
-    this.line(ctx, this.maxX, 0, this.maxX, this.h)
-
-    //
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-    ctx.fillStyle = 'rgba(0,0,0,1.0)'
-    ctx.save()
-    ctx.translate(20, this.maxY)
-    ctx.scale(1.5, 1.5)
-    ctx.fillText('From', 0, 0)
-    ctx.restore()
-    ctx.save()
-    ctx.translate(20, this.minY)
-    ctx.scale(1.5, 1.5)
-    ctx.fillText('To', 0, 0)
-    ctx.restore()
-    ctx.save()
-    ctx.textAlign = "left"
-    ctx.translate(this.minX + 4, this.maxY + 20)
-    ctx.scale(1.5, 1.5)
-    ctx.fillText('Start', 0, 0)
-    ctx.restore()
-    ctx.save()
-    ctx.textAlign = "right"
-    ctx.translate(this.maxX - 4, this.maxY + 20)
-    ctx.scale(1.5, 1.5)
-    ctx.fillText('End', 0, 0)
-    ctx.restore()
-
-    // bezier curve
-    this.bezier.forEach((b, i) => {
-        let isSelect = (i == selectBezier)
-        if (isSelect) {
-            ctx.beginPath()
-            ctx.fillStyle = 'rgba(255,150,150, 0.1)'
-            ctx.rect(b.minX, 0, b.maxX - b.minX, h)
-            ctx.fill()
-        }
-        b.render(ctx, isSelect)
-    })
-
-    // interval point on bezier
-    let a = this.getValue(10)
-    a.forEach((p) => {
-        ctx.beginPath()
-        ctx.strokeStyle = 'rgba(0,0,0,0.1)'
-        ctx.arc(p.x, p.y, 3, 0, Math.PI * 2)
-        ctx.stroke()
-    })
-
-    this.tempRenderObject.forEach((obj) => {
-        ctx.beginPath()
-        if (obj.fillStyle) {
-            ctx.fillStyle = obj.fillStyle
-        }
-        if (obj.strokeStyle) {
-            ctx.strokeStyle = obj.strokeStyle
-        }
-        if (obj.type == 'ellipse') {
-            ctx.arc(obj.x, obj.y, obj.r, 0, Math.PI * 2)
-        }
-        if (obj.fillStyle) {
-            ctx.fill()
-        }
-        if (obj.strokeStyle) {
-            ctx.stroke()
-        }
-    })
-    this.tempRenderObject = []
-    // this.bezier.render(ctx)
-    ctx.restore()
-}
-
-
-
-Field.prototype.mousePressed = function(x, y) {
-    let tempSelectBezier = this.selectBezier
-    let tempSelectBezierPoint = this.selectBezierPoint
-    this.selectBezier = -1
-    this.selectBezierPoint = -1
-    let my = this
-
-    let mode = connect.get('toolMode')
-
-    if (mode == 'pointMove') {
-        let select = false
-        this.bezier.forEach((b, i) => {
-            let inW = b.inW(x)
-            if (inW || i == tempSelectBezier) {
-                let onP = b.onPoint(x, y, 20)
-                if (onP && !select) {
-                    my.selectBezier = i
-                    my.selectBezierPoint = onP.pointID
-                    onP.r = 7
-                    onP.type = 'ellipse'
-                    onP.fillStyle = 'rgba(50,50,255,0.5)'
-                    my.tempRenderObject.push(onP)
-                    select = true
-                } else if (inW && !select) {
-                    my.selectBezier = i
-                }
-            }
-        })
-    }
-
-    if (mode == 'separate') {
-        this.bezier.forEach((b, i) => {
-            let inW = b.inW(x)
-            if (inW) {
-                let p = b.nearPoint(x, y)
-                if (p.d <= 20) {
-                    my.separate(i, p.t)
-                }
-            }
-        })
-    }
-    this.render()
-}
-
-
-Field.prototype.mouseReleased = function(x, y) {
-    this.selectBezierPoint = -1
-    connect.set('editerValue', this.getValue(100))
-    this.render()
-}
-
-Field.prototype.mouseMoved = function(x, y) {
-    let my = this
-    let selectBezier = this.selectBezier
-    let selectBezierPoint = this.selectBezierPoint
-    let mode = connect.get('toolMode')
-
-    if (mode == 'pointMove' && selectBezier >= 0) {
-        let b = this.bezier[selectBezier]
-        b.move(selectBezierPoint, x, y)
-        let onP = b.onPoint(x, y, 20)
-        if (onP) {
-            onP.r = 7
-            onP.type = 'ellipse'
-            onP.fillStyle = 'rgba(50,50,255,0.5)'
-            my.tempRenderObject.push(onP)
-        }
-        if (selectBezierPoint >= 0) {
-            let b = this.bezier[selectBezier]
-            b.move(selectBezierPoint, x, y)
-        }
-        this.render()
-    }
-
-
-    if (mode == 'separate') {
-        this.bezier.forEach((b, i) => {
-            let inW = b.inW(x)
-            if (inW) {
-                let p = b.nearPoint(x, y)
-                if (p.d <= 20) {
-                    p.r = 7
-                    p.type = 'ellipse'
-                    p.fillStyle = 'rgba(250,150,155,1.0)'
-                    my.tempRenderObject.push(p)
-                }
-            }
-        })
-        this.render()
-    }
-}
-
-
-Field.prototype.separate = function(i, t) {
-    let sepB = this.bezier[i].separate(t)
-    if (!sepB) {
-        return
-    }
-    this.bezier.splice(i, 1, sepB[0], sepB[1])
-    for (let n = 0; n < 2; n++) {
-        sepB[n].limit['minX'] = this.minX
-        sepB[n].limit['maxX'] = this.maxX
-    }
-
-    let my = this
-    let link = (idx) => {
-        if (idx < 0 || idx >= my.bezier.length - 1) {
-            return
-        }
-        my.bezier[idx].callMovedTail = (e, callback) => {
-            let notCall = true
-            my.bezier[idx + 1].move(0, e.x, e.y, notCall, callback)
-        }
-        my.bezier[idx + 1].callMovedHead = (e, callback) => {
-            let notCall = true
-            my.bezier[idx].move(3, e.x, e.y, notCall, callback)
-        }
-    }
-    link(i - 1)
-    link(i)
-    link(i + 1)
-}
-
-Field.prototype.getValue = function(divNum) {
-    let minX = this.bezier[0].minX
-    let maxX = this.bezier[this.bezier.length - 1].maxX
-    let h = this.maxY - this.minY
-    let w = this.maxX - this.minX
-    let t = w / divNum
-    let divX = minX
-    let value = []
-    let my = this
-    this.bezier.forEach((b, i) => {
-        let mx = b.maxX
-        for (divX; divX <= mx; divX += t) {
-            if (divX < b.minX) {
-                continue
-            }
-            let v = b.getValue(divX)
-            let velocity = b.getVelocity(v.t)
-            velocity = -1 * velocity * (w / h)
-            // x,y,t
-            v.value = (v.y - my.minY) / (my.maxY - my.minY)
-            v.div = (divX - this.minX) / w
-            v.velocity = velocity
-            value.push(v)
-        }
-    })
-    return value
-}
-
-Field.prototype.viewStart = function(divNum, per, leftTime) {
-    this.viewValue = this.getValue(divNum)
-    let viewCon = (num) => {
-        setTimeout(() => {
-            if (num < divNum) {
-                this.view(num)
-                viewCon(num + 1)
-            }
-        }, per)
-    }
-    setTimeout(() => {
-        viewCon(0)
-    }, leftTime)
-}
-
-Field.prototype.view = function(num) {
-    if (this.viewValue[num]) {
-        let obj = this.viewValue[num]
-        obj.r = 7
-        obj.type = 'ellipse'
-        obj.fillStyle = 'rgba(50,50,255,0.5)'
-        this.tempRenderObject.push(obj)
-        this.render()
-    }
-}
-
-
-Field.prototype.line = (ctx, x1, y1, x2, y2) => {
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
-}
-
-},{"./../connect.js":153,"./bezier.js":154}],156:[function(require,module,exports){
-let Canvas = require('./canvas.js')
-let editer
-let tool
-let listener
-let element
-let Field = require('./editer/field.js')
-let ToolField = require('./tool/toolField.js')
-let ListenerField = require('./listenerPosition/listenerField.js')
-
-exports.init = (_element) => {
-    element = _element
-    let width = window.innerWidth - 60 > 300 ? window.innerWidth - 60 : 300
-    let eleEditer = document.createElement('editer')
-    let eleTool = document.createElement('tool')
-    let eleListener = document.createElement('listener')
-    eleEditer.style.margin = '30px'
-    eleTool.style.margin = '30px'
-    eleListener.style.margin = '30px'
-    element.appendChild(eleEditer)
-    element.appendChild(eleTool)
-    element.appendChild(eleListener)
-    let editerCanvas = Canvas(eleEditer, width, 300)
-    let toolCanvas = Canvas(eleTool, width, 50)
-    let listenerCanvas = Canvas(eleListener, width, 150)
-    field = Field(editerCanvas)
-    tool = ToolField(toolCanvas)
-    listener = ListenerField(listenerCanvas)
-    field.render()
-    tool.render()
-    listener.render()
-}
-
-},{"./canvas.js":152,"./editer/field.js":155,"./listenerPosition/listenerField.js":157,"./tool/toolField.js":159}],157:[function(require,module,exports){
-let connect = require('./../connect.js')
-// let Tool = require('./tool.js')
-
-module.exports = (canvas) => {
-    return new Field(canvas)
-}
-
-function Field(canvas) {
-    this.canvas = canvas
-    this.clientID = ''
-    this.w = canvas.width
-    this.h = canvas.height
-
-    this.c = {
-        x: this.w / 2,
-        y: this.h / 2
-    }
-
-    this.isSelect = false
-    this.isListenerSelect = false
-    this.maxD = 10
-    this.d = 1
-    this.r = 20
-    this.listenerPosition = {
-        offsetX: 50,
-        offsetY: 0,
-        target: 'to',
-        r: 30
-    }
-
-    let field = this
-    // canvas
-    canvas.addEventListener('mousemove', function(e) {
-        field.mouseMoved(e.offsetX, e.offsetY)
-    })
-
-    canvas.addEventListener('touchmove', function(e) {
-        e.preventDefault()
-        let rect = e.target.getBoundingClientRect()
-        let x = e.changedTouches[0].clientX - rect.left
-        let y = e.changedTouches[0].clientY - rect.top
-        field.mouseMoved(x, y)
-        return false
-    })
-
-    canvas.addEventListener('mousedown', function(e) {
-        field.mousePressed(e.offsetX, e.offsetY)
-    })
-
-    canvas.addEventListener('touchstart', function(e) {
-        e.preventDefault()
-        let rect = e.target.getBoundingClientRect()
-        let x = e.changedTouches[0].clientX - rect.left
-        let y = e.changedTouches[0].clientY - rect.top
-        field.mousePressed(x, y)
-        return false
-    })
-
-    canvas.addEventListener('mouseup', function(e) {
-        field.mouseReleased(e.offsetX, e.offsetY)
-    })
-
-    canvas.addEventListener('touchend', function(e) {
-        e.preventDefault()
-        let rect = e.target.getBoundingClientRect()
-        let x = e.changedTouches[0].clientX - rect.left
-        let y = e.changedTouches[0].clientY - rect.top
-        field.mouseReleased(x, y)
-        return false
-    })
-
-    this.setData()
-}
-
-Field.prototype.setData = function() {
-    let tr = this.w / this.maxD
-    connect.set('positionValue', {
-        d: this.d,
-        target: this.listenerPosition.target,
-        offsetX: this.listenerPosition.offsetX / tr,
-        offsetY: this.listenerPosition.offsetY / tr
-    })
-}
-
-Field.prototype.render = function() {
-    // Draw points onto the canvas element.
-    let h = this.h
-    let w = this.w
-    let maxD = this.maxD
-    let c = this.c
-    let r = this.r
-    let d = this.d
-    let m = d * w / maxD
-    let lisP = this.listenerPosition
-
-    let ctx = this.canvas.getContext('2d')
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-    ctx.save()
-
-    // ctx.beginPath()
-    // ctx.strokeStyle = 'rgba(0,0,255,1.0)'
-    // ctx.rect(0, 0, this.w, this.h)
-    // ctx.stroke()
-
-    // center
-    ctx.translate(c.x, c.y)
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-
-    // center Line
-    ctx.strokeStyle = 'rgba(150,150,150,1.0)'
-    this.line(ctx, 0, -h / 4, 0, h / 4)
-    ctx.save()
-    ctx.translate(0, h / 2 * 0.8)
-    ctx.scale(1.5, 1.5)
-    ctx.fillText(d.toFixed(3) + ' m', 0, 0)
-    ctx.restore()
-
-    // From
-    ctx.save()
-    ctx.beginPath()
-    ctx.strokeStyle = 'rgba(50,50,230,1.0)'
-    ctx.arc(-m / 2, 0, r, 0, Math.PI * 2)
-    ctx.translate(-m / 2, r * 1.8)
-    ctx.scale(1.5, 1.5)
-    ctx.fillText('From', 0, 0)
-    ctx.stroke()
-    ctx.restore()
-
-    // To
-    ctx.save()
-    ctx.beginPath()
-    ctx.strokeStyle = 'rgba(230,50,50,1.0)'
-    ctx.arc(m / 2, 0, r, 0, Math.PI * 2)
-    ctx.translate(m / 2, r * 1.8)
-    ctx.scale(1.5, 1.5)
-    ctx.fillText('To', 0, 0)
-    ctx.stroke()
-    ctx.restore()
-
-    // listener
-    ctx.save()
-    if (lisP.target == 'from') {
-        ctx.translate(-m / 2, 0)
-    }
-    if (lisP.target == 'to') {
-        ctx.translate(m / 2, 0)
-    }
-    ctx.translate(lisP.offsetX, lisP.offsetY)
-    ctx.beginPath()
-    ctx.strokeStyle = 'rgba(230,50,50,1.0)'
-    ctx.rect(-lisP.r / 2, -lisP.r / 2, lisP.r, lisP.r, Math.PI * 2)
-    // ctx.translate(0, -lisP.r/2)
-    ctx.scale(1.5, 1.5)
-    ctx.fillText('P', 0, 0)
-    ctx.stroke()
-    ctx.restore()
-
-    // dist Line
-    ctx.strokeStyle = 'rgba(0,0,0,1.0)'
-    if (d > 0.5) {
-        this.line(ctx, -m / 2 + r * 1.5, 0, m / 2 - r * 1.5, 0)
-        this.line(ctx, -m / 2 + r * 1.5, r / 2, -m / 2 + r * 1.5, -r / 2)
-        this.line(ctx, m / 2 - r * 1.5, r / 2, m / 2 - r * 1.5, -r / 2)
-    }
-
-    ctx.restore()
-}
-
-
-Field.prototype.mousePressed = function(x, y) {
-    let c = this.c
-    let d = this.d
-    let tr = this.w / this.maxD
-    let dx = d / 2 * tr
-    let r = this.r
-
-    let difX = x - c.x
-    let difY = y - c.y
-
-    let lp = this.listenerPosition
-    let lisX, lisY
-    let lisR = lp.r
-    if (lp.target == 'from') {
-        lisX = -d / 2 * tr + lp.offsetX
-        lisY = 0 + lp.offsetY
-    }
-    if (lp.target == 'to') {
-        lisX = d / 2 * tr + lp.offsetX
-        lisY = 0 + lp.offsetY
-    }
-    if (difX > lisX - lisR && difY > lisY - lisR &&
-        difX < lisX + lisR && difY < lisY + lisR) {
-        this.isListenerSelect = true
-    }
-
-    if (!this.isListenerSelect && (Math.abs(difX) - dx) * (Math.abs(difX) - dx) + (y - c.y) * (y - c.y) < r * r) {
-        this.isSelect = true
-    }
-    this.render()
-}
-
-
-Field.prototype.mouseReleased = function(x, y) {
-    this.isSelect = false
-    this.isListenerSelect = false
-    this.setData()
-    this.render()
-
-}
-
-Field.prototype.mouseMoved = function(x, y) {
-    if (this.isListenerSelect) {
-        let tr = this.w / this.maxD
-        let dx = this.d / 2 * tr
-        let c = this.c
-        let difX = x - c.x
-        let difY = y - c.y
-        let lp = this.listenerPosition
-        if (difX <= 0) {
-            lp.target = 'from'
-            lp.offsetX = difX - (-dx)
-            lp.offsetY = difY - 0
-        }
-        if (difX > 0) {
-            lp.target = 'to'
-            lp.offsetX = difX - dx
-            lp.offsetY = difY - 0
-        }
-        console.log(lp)
-        // let m = this.w / this.maxD
-        // this.d = Math.abs(x - this.c.x) / this.w * this.maxD * 2
-    }
-    if (this.isSelect) {
-        let m = this.w / this.maxD
-        this.d = Math.abs(x - this.c.x) / this.w * this.maxD * 2
-    }
-    this.render()
-}
-
-Field.prototype.line = (ctx, x1, y1, x2, y2) => {
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
-}
-
-},{"./../connect.js":153}],158:[function(require,module,exports){
-
-
-module.exports = (x, y, w, h) => {
-    return new Tool(x, y, w, h)
-}
-
-function Tool(x, y, w, h) {
-    this.x = x
-    this.y = y
-    this.w = w
-    this.h = h
-    this.id = ''
-    this.callRender = () => {}
-}
-
-Tool.prototype.render = function(ctx) {
-    this.callRender(ctx, this)
-}
-
-Tool.prototype.setID = function(id) {
-    this.id = id
-}
-
-Tool.prototype.onOver = function(x, y) {
-    if (x >= this.x && x <= this.x + this.w &&
-        y >= this.y && y <= this.y + this.h) {
-        return {
-            id: this.id
-        }
-    }
-    return null
-}
-
-Tool.prototype.line = (ctx, x1, y1, x2, y2) => {
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
-}
-
-},{}],159:[function(require,module,exports){
-let connect = require('./../connect.js')
-let Tool = require('./tool.js')
-
-module.exports = (canvas) => {
-    return new Field(canvas)
-}
-
-function Field(canvas) {
-    this.canvas = canvas
-    this.clientID = ''
-    this.w = canvas.width
-    this.h = canvas.height
-
-    this.tool = []
-    this.selectToolNum = 0
-    this.selectToolMode = 'pointMove'
-    connect.set('toolMode', 'pointMove')
-
-    let tw = this.h
-    let th = this.h
-    let moveTool = Tool(30, 0, tw, th)
-    let plusTool = Tool(30 + tw * 1.1, 0, tw, th)
-
-    moveTool.setID('pointMove')
-    plusTool.setID('separate')
-
-    let my = this
-    moveTool.callRender = (ctx, tool) => {
-        let toolMode = my.selectToolMode
-
-        ctx.save()
-        ctx.beginPath()
-        ctx.strokeStyle = 'rgba(0,0,100,0.5)'
-        ctx.fillStyle = 'rgba(0,0,100,0.15)'
-        ctx.rect(tool.x, tool.y, tool.w, tool.h)
-        ctx.stroke()
-        if (tool.id == toolMode) {
-            ctx.fill()
-        }
-
-        let cx = tool.x + tool.w / 2
-        let cy = tool.y + tool.h / 2
-        let r = tool.w / 5
-        //
-        // ctx.beginPath()
-        // ctx.strokeStyle = 'rgba(150,150,150,1)'
-        // ctx.arc(cx - r * 1.5, cy, r / 2, 0, Math.PI * 2)
-        // ctx.stroke()
-
-        ctx.beginPath()
-        ctx.fillStyle = 'rgba(50,50,50,1)'
-        ctx.arc(cx, cy, r / 2, 0, Math.PI * 2)
-        ctx.fill()
-
-        ctx.translate(cx, cy)
-        for (let rot = 0; rot < 4; rot++) {
-            ctx.rotate(Math.PI / 2)
-            ctx.strokeStyle = 'rgba(50,50,50,1)'
-            tool.line(ctx, r, 0, r * 2, 0)
-            tool.line(ctx, r * 2, 0, r * 2 - r / 3, - r / 3)
-            tool.line(ctx, r * 2, 0, r * 2 - r / 3, r / 3)
-        }
-        ctx.restore()
-    }
-
-    plusTool.callRender = (ctx, tool) => {
-        let toolMode = my.selectToolMode
-
-        ctx.save()
-        ctx.beginPath()
-        ctx.strokeStyle = 'rgba(0,0,100,0.5)'
-        ctx.fillStyle = 'rgba(0,0,100,0.15)'
-        ctx.rect(tool.x, tool.y, tool.w, tool.h)
-        ctx.stroke()
-        if (tool.id == toolMode) {
-            ctx.fill()
-        }
-
-        let cx = tool.x + tool.w / 2
-        let cy = tool.y + tool.h / 2
-        ctx.translate(cx, cy)
-        ctx.scale(2, 2)
-        ctx.textAlign = "center"
-        ctx.textBaseline = "middle"
-        ctx.fillStyle = 'rgba(0,0,0,1.0)'
-        ctx.fillText('＋', 0, 0, tool.w / 2)
-        ctx.restore()
-    }
-    this.tool.push(moveTool)
-    this.tool.push(plusTool)
-
-    let field = this
-    // canvas
-    canvas.addEventListener('mousemove', function(e) {
-        field.mouseMoved(e.offsetX, e.offsetY)
-    })
-
-    canvas.addEventListener('touchmove', function(e) {
-        e.preventDefault()
-        let rect = e.target.getBoundingClientRect()
-        let x = e.changedTouches[0].clientX - rect.left
-        let y = e.changedTouches[0].clientY - rect.top
-        field.mouseMoved(x, y)
-        return false
-    })
-
-    canvas.addEventListener('mousedown', function(e) {
-        field.mousePressed(e.offsetX, e.offsetY)
-    })
-
-    canvas.addEventListener('touchstart', function(e) {
-        e.preventDefault()
-        let rect = e.target.getBoundingClientRect()
-        let x = e.changedTouches[0].clientX - rect.left
-        let y = e.changedTouches[0].clientY - rect.top
-        field.mousePressed(x, y)
-        return false
-    })
-
-    canvas.addEventListener('mouseup', function(e) {
-        field.mouseReleased(e.offsetX, e.offsetY)
-    })
-
-    canvas.addEventListener('touchend', function(e) {
-        e.preventDefault()
-        let rect = e.target.getBoundingClientRect()
-        let x = e.changedTouches[0].clientX - rect.left
-        let y = e.changedTouches[0].clientY - rect.top
-        field.mouseReleased(x, y)
-        return false
-    })
-
-
-}
-
-Field.prototype.render = function() {
-    // Draw points onto the canvas element.
-    let h = this.h
-    let ctx = this.canvas.getContext('2d')
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-
-    ctx.save()
-
-    this.tool.forEach((t) => {
-        t.render(ctx)
-    })
-    ctx.restore()
-}
-
-
-Field.prototype.mousePressed = function(x, y) {
-    let my = this
-    this.tool.forEach((t, i) => {
-        let onID = t.onOver(x, y)
-        if (onID) {
-            console.log(onID)
-            my.selectToolNum = i
-            my.selectToolMode = onID.id
-            connect.set('toolMode', onID.id)
-        }
-    })
-    this.render()
-}
-
-
-Field.prototype.mouseReleased = function(x, y) {
-    this.render()
-
-}
-
-Field.prototype.mouseMoved = function(x, y) {
-
-    this.render()
-}
-
-Field.prototype.line = (ctx, x1, y1, x2, y2) => {
-    ctx.beginPath()
-    ctx.moveTo(x1, y1)
-    ctx.lineTo(x2, y2)
-    ctx.stroke()
-}
-
-},{"./../connect.js":153,"./tool.js":158}],160:[function(require,module,exports){
-let isMove = false
-let timeout = 10000
-
-
-// gyro
-
-exports.moved = (text, callback = () => {}) => {
-    text.innerHTML = 'stable'
-
-    // DeviceOrientation Event
-    window.addEventListener("deviceorientation", deviceorientationHandler)
-
-    // ジャイロセンサーの値が変化
-    function deviceorientationHandler(event) {
-        // X軸
-        let x = event.beta
-        // Y軸
-        let y = event.gamma
-        // Z軸
-        let z = event.alpha
-
-        console.log('x',isNaN(x))
-        if (isNaN(x) || !x) {
-            text.innerHTML = 'Can not use Gyro Sensor on this device.'
-        }else{
-            // text.innerHTML = x.toFixed(4)
-            callback(x)
-        }
-
-    }
-
-
-
-    // window.addEventListener('devicemotion', (e) => {
-    //     let x = parseFloat(e.acceleration.x)
-    //     let y = parseFloat(e.acceleration.y)
-    //     let z = parseFloat(e.acceleration.z)
-    //     let gx = parseFloat(e.accelerationIncludingGravity.x)
-    //     let gy = parseFloat(e.accelerationIncludingGravity.y)
-    //     let gz = parseFloat(e.accelerationIncludingGravity.z)
-    //
-    //     if (isNaN(x)) {
-    //         text.innerHTML = 'Can not use Accel Sensor on this device.'
-    //     }
-    //     // text.innerHTML = 'gx: ' + gx + '　gy: ' + gy + '　gz: ' + gz + '<br>'
-    //     // text.innerHTML +='x: ' + x + '　y: ' + y + '　z: ' + z + '<br>'
-    //     // text.innerHTML += (x + y + z)
-    //     let sum = x + y + z
-    //     if (sum && sum > 2) {
-    //         text.innerHTML = 'Moved'
-    //         if (!isMove) {
-    //             isMove = true
-    //             callback()
-    //             setTimeout(() => {
-    //                 text.innerHTML = 'Stable'
-    //             }, timeout)
-    //             setTimeout(() => {
-    //                 isMove = false
-    //             }, timeout)
-    //         }
-    //
-    //     }
-    // })
-}
-
-},{}],161:[function(require,module,exports){
+},{}],149:[function(require,module,exports){
 module.exports = (element) => {
     let text = {
         status: null,
@@ -23519,7 +21738,7 @@ module.exports = (element) => {
     return text
 }
 
-},{}],162:[function(require,module,exports){
+},{}],150:[function(require,module,exports){
 module.exports = (element) => {
     let s = new SwitchButton(element)
     s.create()
@@ -23602,380 +21821,9 @@ SwitchButton.prototype.onDopplerSwitch = function(callback = () => {}) {
     this.callDoppler = callback
 }
 
-},{}],163:[function(require,module,exports){
-let uuid = require('node-uuid')
-// let job = require('./../Job/cron.js')
+},{}],151:[function(require,module,exports){
+const uuid = require('node-uuid')
 
-// let Canvas = require('./canvas/canvas.js')
-let Field = require('./canvas/field.js')
-let NoteIcon = require('./canvas/icon-note.js')
-let SpeakerIcon = require('./canvas/icon-speaker.js')
-let SyncPlay = require('./sync-play.js')
-let NotificationButton = require('./../demo-common/html/button-notification.js')
-let RadioButton = require('./../demo-common/html/radio-button.js')
-let Slider = require('./../demo-common/html/slider.js')
-let SliderSingle = require('./../demo-common/html/slider-single.js')
-let HtmlText = require('./html/html-text.js')
-let SelectList = require('./../demo-common/html/select-list.js')
-let gyro = require('./gyro.js')
-let SwitchButton = require('./html/switchButton.js')
-let graph = require('./graph/index.js')
-let connect = require('./graph/connect.js')
-
-// let Biquad = require('./biquad.js')
-
-let socketDir = 'demo_orchestra_'
-let socketType = 'demo_orchestra'
-
-let config = require('./../exCall-module/config')
-
-let homeButton = require('./../demo-common/html/homeButton.js')
-
-// let Voice = require('./createVoice.js')(config.VOICE_TEXT_API)
-// let Slack = require('./slack.js')
-let soundList = {
-    '３音': 'lib/sound/notification-common.mp3',
-    'Violin1': 'lib/sound/orchestra/beethoven/No5_Mov3_Violin1.mp3',
-    'Violin2': 'lib/sound/orchestra/beethoven/No5_Mov3_Violin2.mp3',
-    'Viola': 'lib/sound/orchestra/beethoven/No5_Mov3_Viola.mp3',
-    'Cello': 'lib/sound/orchestra/beethoven/No5_Mov3_Cello.mp3',
-    'DoubleBass': 'lib/sound/orchestra/beethoven/No5_Mov3_DoubleBass.mp3'
-    // '和風メロディ': 'lib/sound/wafuringtone.mp3',
-    // 'ウィンドチャイム': 'lib/sound/windchime.mp3',
-    // 'music': 'lib/sound/clock3.mp3',
-    // 'voice': 'lib/sound/voice.mp3',
-    // '太鼓': 'lib/sound/taiko.mp3',
-    // 'コーリング': 'lib/sound/emargency_calling.mp3',
-    // 'アラーム': 'lib/sound/clockbell.mp3',
-    // '掃除機': 'lib/sound/cleaner.mp3',
-    // '電子レンジ': 'lib/sound/microwave.mp3',
-    // '扇風機': 'lib/sound/fan.mp3',
-    // '洗濯機': 'lib/sound/washing.mp3',
-    // 'プリンタ': 'lib/sound/printer.mp3',
-    // 'ポッド注ぐ': 'lib/sound/pod.mp3',
-    // '炒める': 'lib/sound/roasting.mp3',
-    // '足音（走る）': 'lib/sound/dashing.mp3',
-    // '足音（スリッパ）': 'lib/sound/walking.mp3',
-    // '雨音': 'lib/sound/rain.mp3'
-}
-
-let soundNameList = []
-for (let name in soundList) {
-    soundNameList.push(name)
-}
-
-exports.start = (element, context, socket, clientTime, config) => {
-    element.style.margin = '30px'
-
-    console.log(config)
-
-    let clientID = uuid.v4() // This is temporary. When websocket connected, this is replaced new id
-
-
-    let htmlText = HtmlText(element)
-    let fromList = SelectList(element, 'from', 'From')
-    let toList = SelectList(element, 'to', 'To')
-
-    let notificationButton = NotificationButton(element)
-
-    /*
-     *  SwitchButton
-     */
-
-    let switchButton = SwitchButton(element)
-    switchButton.onGyroSwitch((toggle) => {
-        if (!canUse) {
-            switchButton.gyroButton.innerHTML = 'Can not use Gyro Sensor'
-            return
-        }
-        gyroSwitch = toggle
-    })
-
-
-    let dopplerSwitch = true
-    switchButton.onDopplerSwitch((toggle) => {
-        dopplerSwitch = toggle
-    })
-
-    let radioButton = RadioButton(element, 'tone', 'Tone Select')
-    radioButton.setList(soundNameList)
-    radioButton.onSelect((name) => {
-        console.log(name)
-        let name2 = radioButton.getSelected()
-        console.log(name == name2)
-    })
-
-    homeButton(element, config.user)
-    // let canvas = Canvas(element)
-    // let field = Field(canvas)
-
-    socket.on(socketDir + 'user_list', (list) => {
-        toList.setList(list)
-        fromList.setList(list)
-        fromList.check(config.user)
-    })
-
-    socket.on(socketDir + 'user_add', (user) => {
-        toList.addUser(user)
-        fromList.addUser(user)
-    })
-
-    socket.on(socketDir + 'user_remove', (user) => {
-        toList.removeUser(user)
-        fromList.removeUser(user)
-    })
-
-    let syncPlay = SyncPlay(context)
-    let syncNoteList = {}
-    let pannerList = {}
-    let isPlaying = false
-
-    // 人固定
-    context.listener.setPosition(0, 0, -0.1)
-
-    let createSyncNote = (bufferName, time, offset, duration) => {
-        let music_offset = offset || 0
-        duration = duration || null
-        let correctionTime = clientTime.correctionServerTime(time)
-        let left = correctionTime - Date.now()
-
-        // htmlText.log.innerHTML = 'start playback after: ' + left.toFixed(4) + 'ms'
-
-        return syncPlay.createSyncNote(bufferName, correctionTime, music_offset, duration)
-    }
-
-    /*
-     * Evary EventLister are in this Method
-     * socket
-     * canvas
-     * button
-     */
-
-    // socket
-
-    syncPlay.loadBuffer(soundList, () => {
-
-    })
-
-    socket.call.on('connect', () => {
-        clientID = uuid.v4()
-
-        // field.setClientID(clientID)
-
-        socket.emit(socketDir + 'register', {
-            type: socketType,
-            id: clientID,
-            user: config.user
-        })
-
-        socket.on(socketDir + 'register', (body) => {
-            if (body.id === clientID && body.name) {
-                clientName = body.name
-            }
-
-            htmlText.status.innerHTML = 'user: ' + clientName
-        })
-
-
-        socket.on(socketDir + 'notification_common', (body) => {
-            console.log(body)
-            let from = body.from.indexOf(config.user) >= 0 ? true : false
-            let to = body.to.indexOf(config.user) >= 0 ? true : false
-
-            let fromText = ''
-            body.from.forEach((n) => {
-                fromText += n + ' '
-            })
-            let toText = ''
-            body.to.forEach((n) => {
-                toText += n + ' '
-            })
-            htmlText.log.innerHTML = 'From: ' + fromText + '　To: ' + toText
-            if (!from && !to) {
-                return
-            }
-
-            body.notes.forEach((note) => {
-                play(body, note, from, to)
-            })
-        })
-    })
-
-    function play(body, note, from, to) {
-        syncNote = createSyncNote(note.sound, note.time, note.offset, note.duration)
-        let ev = body.editer || connect.get('editerValue')
-        if (!ev) {
-            ev = []
-        }
-
-        let gainNode = context.createGain()
-        gainNode.connect(context.destination)
-
-        let doppler = body.doppler
-
-        let consol = (t, duration) => {
-            htmlText.log.innerHTML = 'Volume[0-1]: ' + gainNode.gain.value.toFixed(4) + ',  Doppler: ' + syncNote.source.playbackRate.value.toFixed(4)
-            // gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
-            setTimeout(() => {
-                t += 100
-                if (t < duration) {
-                    consol(t, duration)
-                }
-            }, 100)
-        }
-
-        if (from) {
-            // 別楽器を鳴らす
-            for (let name in soundList) {
-                if (name == note.sound || name == '３音') {
-                    continue
-                }
-                let syncNote = createSyncNote(name, note.time, note.offset, note.duration)
-                syncPlay.play(gainNode, syncNote)
-            }
-        }
-
-        syncNote.started((leftTime) => {
-
-            // ms -> s
-            let duration = syncNote.duration / 1000
-            // ms -> s
-            let st = syncPlay.getCurrentTime() + leftTime / 1000
-            consol(0, syncNote.duration + leftTime)
-
-            // viewStart
-            connect.set('viewStart', {
-                duration: syncNote.duration,
-                leftTime: leftTime
-            })
-
-            let position = body.position || {}
-
-            ev.forEach((d, i) => {
-                let v = d.value
-                let t = d.div
-                if (from) {
-                    v = v
-                } else if (to) {
-                    v = 1 - v
-                }
-                if (i == 0) {
-                    gainNode.gain.value = v
-                }
-                gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
-
-                // s
-                // 0 - 1 -> 0.1
-                let interT = i >= 1 ? ev[i].div - ev[i - 1].div : ev[i].div
-                // 0 - duration -> duration * 0.1
-                interT *= duration
-                // m
-                let dist = position.d || 1
-
-
-                // m/s fromからtoに向かうときプラス方向
-                let vs = d.velocity * dist / duration
-                // km/h
-                // vs = vs * 60 * 60 / 1000
-                vs = vs * 3.6
-
-                // vcos
-                // 音源位置
-                // from 0[m] - dist[m] to
-                let meter = (1 - d.value) * dist
-                let ang = 0
-                let px = meter
-                let py = 0
-                if (position.target == 'from') {
-                    let lx = position.offsetX
-                    let ly = position.offsetY
-                    ang = Math.atan2(ly - py, lx - px)
-                }
-                if (position.target == 'to') {
-                    let lx = dist + position.offsetX
-                    let ly = position.offsetY
-                    ang = Math.atan2(ly - py, lx - px)
-                }
-
-                let rate = 340 / (340 - vs * Math.cos(ang))
-                if (i == 0) {
-                    gainNode.gain.value = rate
-                }
-                if (doppler && !isNaN(vs)) {
-                    syncNote.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t)
-                } else {
-                    syncNote.source.playbackRate.value = 1
-                }
-                // fromを自分とすると
-                // from 1 to 0
-                // マイナス方向が離れる
-                // v0 = 0 観測者は静止
-                // V = 340
-                // let rate = 340 / (340 - vs)
-                //
-                // // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
-                // // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
-            })
-        })
-        syncPlay.play(gainNode, syncNote)
-
-        syncNote.finished(() => {
-            notificationButton.notificationText.innerHTML = '　'
-        })
-    }
-
-
-    // button
-
-    notificationButton.test.onclick = () => {
-
-        console.log('Test Play')
-
-        // ios対策
-        context.createBufferSource().start(0)
-
-        let soundName = radioButton.getSelected()
-
-        let note = syncPlay.createSyncNote(soundName, Date.now())
-        syncPlay.play(context.destination, note)
-
-        // htmlText.status.innerHTML = 'volume on'
-    }
-
-    notificationButton.notification.onclick = () => {
-        context.createBufferSource().start(0)
-        notificationButton.notificationText.innerHTML = '♪'
-        let toUserList = toList.getSelectUser()
-        let fromUserList = fromList.getSelectUser()
-        let soundName = radioButton.getSelected()
-        // let pannerValues = pannerSlider.getValues()
-        // let pannerDistance = distanceSlider.getValue()
-        let doppler = dopplerSwitch
-        let editer = connect.get('editerValue')
-        let position = connect.get('positionValue')
-        console.log(position)
-
-        console.log(toUserList)
-        console.log(fromUserList)
-        let body = {
-            id: clientID,
-            type: socketType,
-            user: config.user,
-            from: fromUserList,
-            to: toUserList,
-            sound: soundName,
-            // panner: pannerValues,
-            // distance: pannerDistance,
-            doppler: doppler,
-            editer: editer,
-            position: position
-        }
-        console.log(body)
-        socket.emit(socketDir + 'notification_common', body)
-    }
-}
-
-},{"./../demo-common/html/button-notification.js":167,"./../demo-common/html/homeButton.js":168,"./../demo-common/html/radio-button.js":169,"./../demo-common/html/select-list.js":170,"./../demo-common/html/slider-single.js":171,"./../demo-common/html/slider.js":172,"./../exCall-module/config":175,"./canvas/field.js":145,"./canvas/icon-note.js":146,"./canvas/icon-speaker.js":147,"./graph/connect.js":153,"./graph/index.js":156,"./gyro.js":160,"./html/html-text.js":161,"./html/switchButton.js":162,"./sync-play.js":166,"node-uuid":180}],164:[function(require,module,exports){
 const Canvas = require('./../canvas/canvas.js')
 const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
@@ -24002,7 +21850,15 @@ let socketType = 'board_game'
 
 exports.start = (element, context, socket, clientTime, config) => {
     // element.style.margin = '30px'
-    //
+
+    let clientID = uuid.v4()
+
+    socket.emit(socketDir + 'register', {
+        type: socketType,
+        id: clientID,
+        user: config.user
+    })
+
     // loginWindow.start(element, context, socket, clientTime, config)
     let canvas = Canvas(element)
     let field = CardField(canvas)
@@ -24019,11 +21875,20 @@ exports.start = (element, context, socket, clientTime, config) => {
     // socket.on(socketDir + '', () => {
     //
     // })
+    //
+    // field.setClip(0.2, 0.2, 0.5, 0.5)
+    // field.setLocalPosition(300, 100, 400, 400)
     field.sendObjectInfo((sendObj) => {
-        console.log(sendObj)
-        let cards = []
-        cards.push(sendObj)
-        field.updateObjects(cards)
+        // console.log(sendObj)
+        socket.emit(socketDir + 'sendObjectInfo', sendObj)
+        // let cards = []
+        // cards.push(sendObj)
+        // field.updateObjects(cards)
+    })
+
+    socket.on(socketDir + 'sendObjectInfo', (objects) => {
+        console.log(objects)
+        field.updateObjects(objects)
     })
 
 
@@ -24087,7 +21952,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     })
 }
 
-},{"./../canvas/canvas.js":144,"./../card/cardList.js":148,"./../card/objectField.js":150,"./loginWindow.js":165}],165:[function(require,module,exports){
+},{"./../canvas/canvas.js":144,"./../card/cardList.js":145,"./../card/objectField.js":147,"./loginWindow.js":152,"node-uuid":162}],152:[function(require,module,exports){
 const uuid = require('node-uuid')
 let HtmlText = require('./../html/html-text.js')
 let SelectList = require('./../../demo-common/html/select-list.js')
@@ -24189,230 +22054,149 @@ exports.start = (element, context, socket, clientTime, config) => {
 
 }
 
-},{"./../../demo-common/html/button-notification.js":167,"./../../demo-common/html/homeButton.js":168,"./../../demo-common/html/select-list.js":170,"./../html/html-text.js":161,"./../html/switchButton.js":162,"node-uuid":180}],166:[function(require,module,exports){
-module.exports = (context) => {
-    return new SyncPlay(context)
+},{"./../../demo-common/html/button-notification.js":155,"./../../demo-common/html/homeButton.js":156,"./../../demo-common/html/select-list.js":157,"./../html/html-text.js":149,"./../html/switchButton.js":150,"node-uuid":162}],153:[function(require,module,exports){
+const uuid = require('node-uuid')
+
+const player = require('./player.js')
+
+exports.start = (element, context, socket, clientTime, config) => {
+    // element.style.margin = '30px'
+
+
+    player.start(element, context, socket, clientTime, config)
 }
 
-function SyncPlay(context, clientTime) {
-    this.context = context
-    this.buffer = {}
-    this.source = {}
-    this.panner = {}
-    this.audioUrlList = {}
-}
+},{"./player.js":154,"node-uuid":162}],154:[function(require,module,exports){
+const uuid = require('node-uuid')
+
+const Canvas = require('./../canvas/canvas.js')
+const CardField = require('./../card/objectField.js')
+const Card = require('./../card/cardList.js')
+
+// const loginWindow = require('./loginWindow.js')
+
+let socketDir = 'board_game_'
+let socketType = 'board_game'
 
 
-/**
- * @param {Object.<string, string>} audioUrlList - key: audioName value: audioUrl
- */
+// const cardList = {
+//     'アリバイ': 'lib/image/card/アリバイ.png',
+//     'いぬ': 'lib/image/card/いぬ.png',
+//     'うわさ': 'lib/image/card/うわさ.png',
+//     'たくらみ': 'lib/image/card/たくらみ.png',
+//     '一般人': 'lib/image/card/一般人.png',
+//     '取り引き': 'lib/image/card/取り引き.png',
+//     '情報交換': 'lib/image/card/情報交換.png',
+//     '第一発見者': 'lib/image/card/第一発見者.png',
+//     '犯人': 'lib/image/card/犯人.png',
+//     '目撃者': 'lib/image/card/アリバイ.png',
+//     '裏': 'lib/image/card/裏.png'
+// }
 
-SyncPlay.prototype.setAudioList = function(audioUrlList) {
-    this.audioUrlList = audioUrlList
-}
+exports.start = (element, context, socket, clientTime, config) => {
+    // element.style.margin = '30px'
 
-SyncPlay.prototype.setOscillator = function(oscillator) {
-    this.oscillator = oscillator
-}
+    let clientID = uuid.v4()
 
-SyncPlay.prototype.getCurrentTime = function() {
-    return this.context.currentTime
-}
+    socket.emit(socketDir + 'register', {
+        type: socketType,
+        id: clientID,
+        user: config.user
+    })
+    // loginWindow.start(element, context, socket, clientTime, config)
+    let canvas = Canvas(element)
+    let field = CardField(canvas)
+    let card = Card()
+    card['アリバイ'].scale = 0.5
+    field.setObject(card['アリバイ'])
+
+    // let globalPosition = GlobalPositon()
+    // 中心 0.5, 0.6 halfW 0.3 halfH 0.2
+    // Main
+    // let area1 = globalPosition.clip(0, 0, 0.4, 0.3)
+    // let area2 = globalPosition.clip(0.7, 0.7, 0.15, 0.3)
+
+    // socket.on(socketDir + '', () => {
+    //
+    // })
+    //
+    field.setClip(0, -0.5, 0.2, 0.2)
+    field.setLocalPosition(canvas.width/2, 0, canvas.width/2, canvas.height/2)
+    field.rotate(Math.PI)
+    field.sendObjectInfo((sendObj) => {
+        console.log(sendObj)
+        socket.emit(socketDir + 'sendObjectInfo', sendObj)
+        // let cards = []
+        // cards.push(sendObj)
+        // field.updateObjects(cards)
+    })
+
+    socket.on(socketDir + 'sendObjectInfo', (objects) => {
+        field.updateObjects(objects)
+    })
 
 
-SyncPlay.prototype.loadBuffer = function(audioUrlList, callback = () => {}) {
-    audioUrlList = audioUrlList || this.audioUrlList
-    load(audioUrlList, (bufferList) => {
-        this.buffer = bufferList
-        callback()
+
+    let moved = (x, y) => {
+        field.mouseMoved(x, y)
+        // var ctx = canvas.getContext('2d')
+        // let gx = (x / canvas.width) * 2 - 1
+        // let gy = (y / canvas.height) * 2 - 1
+        // area1.render(ctx, canvas.width, canvas.height, gx, gy)
+    }
+
+    let clicked = (x, y) => {
+        field.mousePressed(x, y)
+    }
+
+    let released = (x, y) => {
+        field.mouseReleased(x, y)
+    }
+
+
+
+
+    canvas.addEventListener('mousemove', function(e) {
+        moved(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        moved(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mousedown', function(e) {
+        clicked(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        clicked(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mouseup', function(e) {
+        released(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        released(x, y)
+        return false
     })
 }
 
-SyncPlay.prototype.createSyncNote = function(sourceName, startDate, offset, duration, oscillator) {
-    let leftTime = startDate - Date.now()
-
-    let call_start = []
-    let call_finish = []
-    let call_stop = []
-    let syncPlay = this
-    let syncNote = {
-        sourceName: sourceName,
-        startDate: startDate, // UTC millis
-        startTime: 0, //  time of context(ms)   Rewrite the value in this method
-        offset: offset || 0, // (ms)
-        duration: duration, //  (ms) If undefined, rewrite the value in this method
-        buffer: null, // Rewrite the value in this method
-        source: null, // Rewrite the value in this method
-        isPlaying: false,
-        oscillator: oscillator || null,
-        start: () => {
-            if(!syncNote.buffer){
-                return
-            }
-            if (syncNote.oscillator) {
-                syncNote.oscillator.connect(syncNote.source)
-                syncNote.oscillator.start(syncNote.startTime / 1000, syncNote.offset / 1000, syncNote.duration / 1000)
-            } else {
-                syncNote.source.start(syncNote.startTime / 1000, syncNote.offset / 1000, syncNote.duration / 1000)
-            }
-            let leftStartTime = syncNote.startTime - syncPlay.context.currentTime * 1000
-            leftStartTime = leftStartTime < 0 ? 0 : leftStartTime
-
-            let leftTime = leftStartTime + syncNote.duration - syncNote.offset
-
-            syncNote.isPlaying = true
-            syncNote.fireStart(leftStartTime)
-
-            setTimeout(() => {
-                syncNote.isPlaying = false
-                syncNote.fireFinish()
-            }, leftTime)
-        },
-        connect: (destination) => {
-            syncNote.source.connect(destination)
-        },
-        stop: () => {
-            if (syncNote.isPlaying) {
-                syncNote.source.stop()
-                syncNote.fireStop()
-            }
-        },
-        fireStart: (leftTime) => {
-            call_start.forEach((c) => {
-                c(leftTime)
-            })
-        },
-        fireFinish: () => {
-            call_finish.forEach((c) => {
-                c()
-            })
-        },
-        fireStop: () => {
-            call_stop.forEach((c) => {
-                c()
-            })
-        },
-        started: (callback = () => {}) => {
-            call_start.push(callback)
-        },
-        finished: (callback = () => {}) => {
-            call_finish.push(callback)
-        },
-        stoped: (callback = () => {}) => {
-            call_stop.push(callback)
-        }
-    }
-
-    // set buffer & source
-    let source = context.createBufferSource()
-    let buffer = this.buffer[sourceName] || null
-    if(!buffer){
-        console.log('error this.buffer[sourceName] sync-play.js')
-    }
-    source.buffer = buffer
-    syncNote.buffer = buffer
-    syncNote.source = source
-
-    // set startTime
-    let ct = this.context.currentTime * 1000 // sec -> ms
-    syncNote.startTime = ct + leftTime
-
-    // If undefined, set duration
-    if (!syncNote.duration) {
-        syncNote.duration = syncNote.buffer.duration * 1000 // sec -> ms
-    }
-
-    return syncNote
-}
-
-SyncPlay.prototype.preConnect = function(destination, syncNote) {
-    // to array
-    if (!Array.isArray(syncNote)) {
-        let temp = syncNote
-        syncNote = []
-        syncNote.push(temp)
-    }
-
-    // play
-    syncNote.forEach((note) => {
-        note.connect(destination)
-        note.start()
-    })
-}
-
-SyncPlay.prototype.speedPlay = function(syncNote) {
-    // to array
-    syncNote.start()
-}
-
-
-SyncPlay.prototype.play = function(destination, syncNote) {
-    // to array
-    if (!Array.isArray(syncNote)) {
-        let temp = syncNote
-        syncNote = []
-        syncNote.push(temp)
-    }
-
-    // play
-    syncNote.forEach((note) => {
-        note.connect(destination)
-        note.start()
-    })
-}
-
-
-SyncPlay.prototype.addBuffer = function(name, buffer, callback = () => {}) {
-    let syncPlay = this
-    context.decodeAudioData(buffer, function(decodedBuffer) {
-        syncPlay.buffer[name] = decodedBuffer
-        callback()
-    }, (err) => {
-        console.log(err)
-    })
-}
-
-
-
-/**
- * load Audio File
- * load() -> loadSound()
- * -> return
- * @param {string[]|string} urlList -
- * @return {Object[]} - buffer[]
- */
-
-let load = (urlList, callback = () => {}) => {
-    let bufferList = {}
-    let cnt = 0
-    let length = Object.keys(urlList).length
-    for (let key in urlList) {
-        loadSound(urlList[key], (buf) => {
-            bufferList[key] = buf
-            cnt++
-            if (cnt == length) {
-                callback(bufferList)
-            }
-        })
-    }
-}
-
-let loadSound = (url, callback = () => {}) => {
-    let request = new XMLHttpRequest()
-    request.open('GET', url, true)
-    request.responseType = 'arraybuffer'
-    request.onload = function() {
-        console.log('load')
-        context.decodeAudioData(request.response, function(buffer) {
-            callback(buffer)
-        }, (err) => {
-            console.log(err)
-        })
-    }
-    request.send()
-}
-
-},{}],167:[function(require,module,exports){
+},{"./../canvas/canvas.js":144,"./../card/cardList.js":145,"./../card/objectField.js":147,"node-uuid":162}],155:[function(require,module,exports){
 module.exports = (element) => {
     let button = {
         test: null,
@@ -24452,7 +22236,7 @@ module.exports = (element) => {
     return button
 }
 
-},{}],168:[function(require,module,exports){
+},{}],156:[function(require,module,exports){
 // <button class="btn btn-default">Default</button>
 module.exports = (element, user) => {
     let p = document.createElement('p')
@@ -24487,103 +22271,7 @@ module.exports = (element, user) => {
 
 }
 
-},{}],169:[function(require,module,exports){
-module.exports = (element, id, text) => {
-    return new RadioButton(element, id, text)
-}
-
-function RadioButton(element, id, text) {
-    this.div = null
-    this.selectStatus = {}
-    this.id = id || ''
-    this.onSelectCall = () => {}
-
-    this.init(element, text)
-}
-
-RadioButton.prototype.init = function(element, text) {
-    this.div = document.createElement('div')
-    let h = document.createElement('h5')
-    h.innerHTML = text || ''
-
-    element.appendChild(h)
-    element.appendChild(this.div)
-}
-
-
-RadioButton.prototype.setList = function(nameList) {
-    let div = this.div
-    let selectStatus = this.selectStatus
-    let id = this.id
-
-    let radio = {
-        start: null,
-        stop: null
-    }
-
-    nameList.forEach((name, i) => {
-
-        let label = document.createElement('label')
-        label.setAttribute('class', 'radio')
-        label.setAttribute('for', 'radio' + id + i)
-        label.setAttribute('data-name', name)
-
-        let input = document.createElement('input')
-        input.setAttribute('type', 'radio')
-        input.setAttribute('name', id)
-        // input.setAttribute('class', 'radio')
-        input.setAttribute('value', name)
-        input.setAttribute('id', 'radio' + id + i)
-        input.setAttribute('data-id', id)
-        input.setAttribute('data-toggle', 'radio')
-        if (i == 0) {
-            input.setAttribute('checked', 'checked')
-            selectStatus[name] = true
-        } else {
-            // input.setAttribute('disabled', '')
-            selectStatus[name] = false
-        }
-        label.innerHTML = name
-        label.appendChild(input)
-        div.appendChild(label)
-    })
-
-    // element.appendChild(div)
-
-    $(':radio').radiocheck()
-
-    let Radio = this
-    $(':radio').on('change.radiocheck', function(e) {
-        let dataID = e.target.getAttribute('data-id')
-        if (id == dataID) {
-            for (let name in selectStatus) {
-                if (name == e.target.value) {
-                    selectStatus[name] = true
-                } else {
-                    selectStatus[name] = false
-                }
-            }
-            Radio.onSelectCall(e.target.value)
-        }
-    })
-
-    return radio
-}
-
-RadioButton.prototype.onSelect = function(callback = () => {}) {
-    this.onSelectCall = callback
-}
-
-RadioButton.prototype.getSelected = function() {
-    for (let name in this.selectStatus) {
-        if (this.selectStatus[name]) {
-            return name
-        }
-    }
-    return ''
-}
-
-},{}],170:[function(require,module,exports){
+},{}],157:[function(require,module,exports){
 // let div = null
 //
 // let selectStatus = {}
@@ -24795,103 +22483,7 @@ SelectList.prototype.check = function(targetName) {
 //     return null
 // }
 
-},{}],171:[function(require,module,exports){
-// <div id="slider"></div>
-
-
-module.exports = (element, id, text) => {
-    return new Slider(element, id, text)
-}
-
-function Slider(element, id, text) {
-    this.div = null
-    this.value = {}
-    this.id = id || ''
-    this.onChangeCall = () => {}
-
-    this.init(element, text)
-}
-
-Slider.prototype.init = function(element, text) {
-    this.div = document.createElement('div')
-    this.div.setAttribute('id', 'slider' + this.id)
-    let h = document.createElement('h5')
-    h.innerHTML = text || ''
-
-    element.appendChild(h)
-    element.appendChild(this.div)
-}
-
-Slider.prototype.setList = function(nameList) {
-    var slider = $('#slider' + this.id)
-    if (slider.length > 0) {
-        slider.slider({
-            animate: 'fast',
-            min: 1,
-            max: 100,
-            value: 30,
-            orientation: 'horizontal'
-            // range: true
-        })
-        // }).addSliderSegments($slider.slider("option").max);
-    }
-}
-
-
-Slider.prototype.getValue = function() {
-    var slider = $('#slider' + this.id).slider('value')
-    return slider
-}
-
-},{}],172:[function(require,module,exports){
-// <div id="slider"></div>
-
-
-module.exports = (element, id, text) => {
-    return new Slider(element, id, text)
-}
-
-function Slider(element, id, text) {
-    this.div = null
-    this.value = {}
-    this.id = id || ''
-    this.onChangeCall = () => {}
-
-    this.init(element, text)
-}
-
-Slider.prototype.init = function(element, text) {
-    this.div = document.createElement('div')
-    this.div.setAttribute('id', 'slider' + this.id)
-    let h = document.createElement('h5')
-    h.innerHTML = text || ''
-
-    element.appendChild(h)
-    element.appendChild(this.div)
-}
-
-Slider.prototype.setList = function(nameList) {
-    var slider = $('#slider' + this.id)
-    if (slider.length > 0) {
-        slider.slider({
-            animate: 'fast',
-            min: 1,
-            max: 100,
-            values: [20, 60],
-            orientation: 'horizontal',
-            range: true
-        })
-        // }).addSliderSegments($slider.slider("option").max);
-    }
-}
-
-
-Slider.prototype.getValues = function() {
-    var slider = $('#slider' + this.id).slider('values')
-    return slider
-}
-
-},{}],173:[function(require,module,exports){
+},{}],158:[function(require,module,exports){
 exports.userNameCheck = (user, callback = () => {}) => {
     if (!user || typeof user != 'string' || user == 'unknown') {
         module.exports.userNameInput(callback)
@@ -24925,35 +22517,7 @@ exports.userNameInput = (callback = () => {}, caution = '') => {
 
 }
 
-},{}],174:[function(require,module,exports){
-// JSONファイルのdirectory
-// let json = './../../local-env/config.json'
-// return
-let env = {}
-
-try {
-    env = require('./../../local-env/config.json')
-} catch (e) {}
-
-module.exports = env
-
-},{"./../../local-env/config.json":177}],175:[function(require,module,exports){
-(function (process){
-
-let config = {}
-
-let local = require('./config-local.js')
-
-config = process.env
-
-for(let key in local){
-    config[key] = process.env[key] || local[key]
-}
-
-module.exports = config
-
-}).call(this,require('_process'))
-},{"./config-local.js":174,"_process":110}],176:[function(require,module,exports){
+},{}],159:[function(require,module,exports){
 window.addEventListener('load', init, false)
 
 /*
@@ -25026,7 +22590,7 @@ function init() {
         let config = {
             user: user
         }
-        let game = require('./board-game/main.js')
+        let game = require('./board-game/player/index.js')
         // let demo_mention = require('./concept-image/main.js')
         let inputUserName = require('./demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {
@@ -25036,13 +22600,7 @@ function init() {
     }
 }
 
-},{"./board-game/main.js":163,"./board-game/main/index.js":164,"./demo-common/prompt.js":173,"./ntp-client.js":178,"./socket-client/index.js":179}],177:[function(require,module,exports){
-module.exports={
-  "PORT": 8118,
-  "SERVER_URL": "https://excall.herokuapp.com"
-}
-
-},{}],178:[function(require,module,exports){
+},{"./board-game/main/index.js":151,"./board-game/player/index.js":153,"./demo-common/prompt.js":158,"./ntp-client.js":160,"./socket-client/index.js":161}],160:[function(require,module,exports){
 let socket
 let dateDiff = 0
 
@@ -25165,7 +22723,7 @@ let emit = () => {
     }, 1000 * 1 + Math.floor((Math.random() * 500)))
 }
 
-},{}],179:[function(require,module,exports){
+},{}],161:[function(require,module,exports){
 // const io = require('socket.io-client')
 let url = 'http://192.168.144.110:8001'
 // let url = 'http://192.168.100.16:8001'
@@ -25214,7 +22772,7 @@ socket.on('disconnect', () => {
     call.emit('disconnect', url)
 })
 
-},{"./../../../exCall-module/simpleCall":185}],180:[function(require,module,exports){
+},{"./../../../exCall-module/simpleCall":167}],162:[function(require,module,exports){
 (function (Buffer){
 //     uuid.js
 //
@@ -25490,7 +23048,7 @@ socket.on('disconnect', () => {
 })('undefined' !== typeof window ? window : null);
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":45,"crypto":54}],181:[function(require,module,exports){
+},{"buffer":45,"crypto":54}],163:[function(require,module,exports){
 const CallbackChild = require('./CallbackChild.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -25668,7 +23226,7 @@ let keyCheck = (key) => {
     return key
 }
 
-},{"./CallOperator.js":183,"./CallbackChild.js":184}],182:[function(require,module,exports){
+},{"./CallOperator.js":165,"./CallbackChild.js":166}],164:[function(require,module,exports){
 /**
  * 一連の流れで連続するcallback
  * contextInfoを受け継ぐ
@@ -25824,7 +23382,7 @@ CallMeasure.prototype.Operator = function(num, next) {
     }
 }
 
-},{}],183:[function(require,module,exports){
+},{}],165:[function(require,module,exports){
 // CallOperator
 
 module.exports = (Child, num) => {
@@ -25844,7 +23402,7 @@ module.exports = (Child, num) => {
     }
 }
 
-},{}],184:[function(require,module,exports){
+},{}],166:[function(require,module,exports){
 const CallMeasure = require('./CallMeasure.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -26023,7 +23581,7 @@ CallbackChild.prototype.emit = function(...option) {
     callMeasure.start()
 }
 
-},{"./CallMeasure.js":182,"./CallOperator.js":183}],185:[function(require,module,exports){
+},{"./CallMeasure.js":164,"./CallOperator.js":165}],167:[function(require,module,exports){
 module.exports = require('./Call/Call.js')()
 
-},{"./Call/Call.js":181}]},{},[176]);
+},{"./Call/Call.js":163}]},{},[159]);

@@ -4,7 +4,7 @@ const Canvas = require('./../canvas/canvas.js')
 const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
 
-const loginWindow = require('./loginWindow.js')
+// const loginWindow = require('./loginWindow.js')
 
 let socketDir = 'board_game_'
 let socketType = 'board_game'
@@ -34,7 +34,6 @@ exports.start = (element, context, socket, clientTime, config) => {
         id: clientID,
         user: config.user
     })
-
     // loginWindow.start(element, context, socket, clientTime, config)
     let canvas = Canvas(element)
     let field = CardField(canvas)
@@ -52,10 +51,11 @@ exports.start = (element, context, socket, clientTime, config) => {
     //
     // })
     //
-    // field.setClip(0.2, 0.2, 0.5, 0.5)
-    // field.setLocalPosition(300, 100, 400, 400)
+    field.setClip(0, -0.5, 0.2, 0.2)
+    field.setLocalPosition(canvas.width/2, 0, canvas.width/2, canvas.height/2)
+    field.rotate(Math.PI)
     field.sendObjectInfo((sendObj) => {
-        // console.log(sendObj)
+        console.log(sendObj)
         socket.emit(socketDir + 'sendObjectInfo', sendObj)
         // let cards = []
         // cards.push(sendObj)
@@ -63,7 +63,6 @@ exports.start = (element, context, socket, clientTime, config) => {
     })
 
     socket.on(socketDir + 'sendObjectInfo', (objects) => {
-        console.log(objects)
         field.updateObjects(objects)
     })
 

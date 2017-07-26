@@ -70,7 +70,7 @@ function init() {
         let config = {
             user: user
         }
-        let game = require('./board-game/main.js')
+        let game = require('./board-game/player/index.js')
         // let demo_mention = require('./concept-image/main.js')
         let inputUserName = require('./demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {

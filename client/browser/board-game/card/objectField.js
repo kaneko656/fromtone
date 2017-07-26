@@ -30,6 +30,15 @@ function Field(canvas) {
 
 Field.prototype.setClip = function(cx, cy, halfW, halfH) {
     this.clip = this.globalPosition.clip(cx, cy, halfW, halfH)
+    this.clip.setLocalPosition(0, 0, this.w, this.h)
+}
+
+Field.prototype.rotate = function(radian) {
+    this.clip.rotate = radian
+}
+
+Field.prototype.setLocalPosition = function(x, y, w, h) {
+    this.clip.setLocalPosition(x, y, w, h)
 }
 
 Field.prototype.setClientID = function(clientID) {

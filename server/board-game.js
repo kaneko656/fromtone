@@ -49,7 +49,7 @@ exports.start = (socket, disconnect, _serverTime) => {
         })
         let list = getClientList()
         socket.emit(socketDir + 'user_list', list)
-
+        console.log(clientList)
         emitAllClient(socketDir + 'user_add', body.user)
     })
 
@@ -77,6 +77,13 @@ exports.start = (socket, disconnect, _serverTime) => {
         if (id in speakerList) {
             delete speakerList[id]
         }
+    })
+
+    socket.on(socketDir + 'sendObjectInfo', (body) => {
+        console.log(body)
+        let objects = []
+        objects.push(body)
+        emitAllClient(socketDir + 'sendObjectInfo', objects)
     })
 
 
