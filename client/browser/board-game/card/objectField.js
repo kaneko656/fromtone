@@ -14,6 +14,7 @@ function Field(canvas, context) {
     }
     this.w = canvas.width
     this.h = canvas.height
+    this.areaDist = 3
 
     this.globalPosition = GlobalPosition()
     this.clip = this.globalPosition.clip(0, 0, 1, 1)
@@ -99,7 +100,9 @@ Field.prototype.updateSounds = function(objects) {
         if (this.sounds[id]) {
             let p = this.clip.getPositionInfo(obj.x, obj.y)
             p.time = obj.time
+            p.areaDist = this.areaDist
             this.sounds[id].setGain(p)
+            this.sounds[id].setDoppler(p)
         }
     })
 }
@@ -172,6 +175,7 @@ Field.prototype.sendObjectInfoToServer = function(sendObj, release) {
     sendObj.x = globalPos.x
     sendObj.y = globalPos.y
     sendObj.clientID = this.clientID
+    sendObj.timestamp = Date.now()
     // console.log(sendObj)
     this.callSendObjectInfo(sendObj)
 }

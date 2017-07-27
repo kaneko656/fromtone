@@ -25,6 +25,10 @@ exports.correctionServerTime = (time) => {
     return time + dateDiff
 }
 
+exports.correctionToServerTime = (time) => {
+    return time - dateDiff
+}
+
 exports.dateDiff = () => {
     return dateDiff
 }

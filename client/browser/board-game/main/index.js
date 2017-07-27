@@ -47,12 +47,17 @@ exports.start = (element, context, socket, clientTime, config) => {
     // sound
     setTimeout(() => {
         field.startSound(card['アリバイ'].id)
-
     }, 3000)
 
+    let timeout = 10
+    let lastEmitTime = 0
     field.sendObjectInfo((sendObj) => {
-        socket.emit(socketDir + 'sendObjectInfo', sendObj)
-        field.updateObjects(sendObj)
+        if (Date.now() - lastEmitTime > timeout) {
+            sendObj.timestamp = Math.floor(clientTime.correctionToServerTime(sendObj.timestamp))
+            socket.emit(socketDir + 'sendObjectInfo', sendObj)
+            field.updateObjects(sendObj)
+            lastEmitTime = Date.now()
+        }
     })
 
     socket.on(socketDir + 'sendObjectInfo', (objects) => {

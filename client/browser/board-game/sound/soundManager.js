@@ -60,19 +60,20 @@ exports.play = (bufferName, time, offset, loop = false) => {
 
     syncSound.started((leftTime) => {})
 
-    let lastGainValue = 0
+    let lastGain = {}
     let setGain = (p) => {
         // dist
         // maxDist
-        // clipX
-        // clipY
         // time
         let value = p.dist < p.maxDist ? 1.0 - p.dist / p.maxDist : 0
         let st = syncSound.startTime
         let startDate = syncSound.startDate
         let t = p.time - startDate
-        console.log(value, st, t)
-        gainNode.gain.linearRampToValueAtTime(value, st/1000 + t / 1000)
+        gainNode.gain.linearRampToValueAtTime(value, st / 1000 + t / 1000)
+        lastGainValue = {
+            value: value,
+            time: st / 1000 + t / 1000
+        }
         // let position = body.position || {}
         // objects.forEach((obj, i) => {
         //     let v = d.value
@@ -89,75 +90,117 @@ exports.play = (bufferName, time, offset, loop = false) => {
         // })
     }
 
-    let lastPlaybackRate = 0
-    let setDoppler = () => {
-        let position = body.position || {}
+    let lastDoppler = null
+    let setDoppler = (p) => {
+        // dist
+        // maxDist
+        // clipX
+        // clipY
+        // time
+        // gx
+        // gy
+        // 単位時間あたりのDistの変化でいい？
 
-        ev.forEach((d, i) => {
-            let v = d.value
-            let t = d.div
-            if (from) {
-                v = v
-            } else if (to) {
-                v = 1 - v
-            }
-            if (i == 0) {
-                gainNode.gain.value = v
-            }
-            gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
+        let st = syncSound.startTime
+        let soundTargetTime = p.time - syncSound.startDate
 
-            // s
-            // 0 - 1 -> 0.1
-            let interT = i >= 1 ? ev[i].div - ev[i - 1].div : ev[i].div
-            // 0 - duration -> duration * 0.1
-            interT *= duration
+        let diffDist = 0
+        let diffTime = 0
+        if (!lastDoppler) {
+            diffDist = 0
+            diffTime = soundTargetTime
+            lastDoppler = {
+                time: p.time,
+                dist: p.dist,
+                diffTime: diffTime,
+                diffDist: 0,
+                rate: 1.0
+            }
+        } else {
+            diffDist = p.dist - lastDoppler.dist
+            diffTime = p.time - lastDoppler.time
             // m
-            let dist = position.d || 1
+            let areaDist = p.areaDist || 3
+            // m / ms
+            let vs = areaDist * diffDist / diffTime
 
-
-            // m/s fromからtoに向かうときプラス方向
-            let vs = d.velocity * dist / duration
             // km/h
-            // vs = vs * 60 * 60 / 1000
-            vs = vs * 3.6
+            // vs = vs * 60 * 60 * 1000 / 1000
+            vs = vs * 3600
 
-            // vcos
-            // 音源位置
-            // from 0[m] - dist[m] to
-            let meter = (1 - d.value) * dist
-            let ang = 0
-            let px = meter
-            let py = 0
-            if (position.target == 'from') {
-                let lx = position.offsetX
-                let ly = position.offsetY
-                ang = Math.atan2(ly - py, lx - px)
-            }
-            if (position.target == 'to') {
-                let lx = dist + position.offsetX
-                let ly = position.offsetY
-                ang = Math.atan2(ly - py, lx - px)
+            let rate = 340 / (340 - vs)
+
+            console.log(diffDist.toFixed(5), diffTime.toFixed(1), 'rate', rate.toFixed(4), 'vs', vs.toFixed(4))
+            syncSound.source.playbackRate.linearRampToValueAtTime(rate, st / 1000 + soundTargetTime / 1000)
+            lastDoppler = {
+                time: p.time,
+                dist: p.dist,
+                diffTime: diffTime,
+                diffDist: diffDist,
+                rate: rate
             }
 
-            let rate = 340 / (340 - vs * Math.cos(ang))
-            if (i == 0) {
-                gainNode.gain.value = rate
-            }
-            if (doppler && !isNaN(vs)) {
-                syncSound.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t)
-            } else {
-                syncSound.source.playbackRate.value = 1
-            }
-            // fromを自分とすると
-            // from 1 to 0
-            // マイナス方向が離れる
-            // v0 = 0 観測者は静止
-            // V = 340
-            // let rate = 340 / (340 - vs)
-            //
-            // // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
-            // // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
-        })
+        }
+
+
+
+        // let position = body.position || {}
+
+        // let v = d.value
+        // let t = d.div
+        //
+        // // s
+        // // 0 - 1 -> 0.1
+        // let interT = i >= 1 ? ev[i].div - ev[i - 1].div : ev[i].div
+        // // 0 - duration -> duration * 0.1
+        // interT *= duration
+        // // m
+        // let dist = position.d || 1
+        //
+        //
+        // // m/s fromからtoに向かうときプラス方向
+        // let vs = d.velocity * dist / duration
+        // // km/h
+        // // vs = vs * 60 * 60 / 1000
+        // vs = vs * 3.6
+        //
+        // // vcos
+        // // 音源位置
+        // // from 0[m] - dist[m] to
+        // let meter = (1 - d.value) * dist
+        // let ang = 0
+        // let px = meter
+        // let py = 0
+        // if (position.target == 'from') {
+        //     let lx = position.offsetX
+        //     let ly = position.offsetY
+        //     ang = Math.atan2(ly - py, lx - px)
+        // }
+        // if (position.target == 'to') {
+        //     let lx = dist + position.offsetX
+        //     let ly = position.offsetY
+        //     ang = Math.atan2(ly - py, lx - px)
+        // }
+        //
+        // let rate = 340 / (340 - vs * Math.cos(ang))
+        // if (i == 0) {
+        //     gainNode.gain.value = rate
+        // }
+        // if (doppler && !isNaN(vs)) {
+        //     syncSound.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t)
+        // } else {
+        //     syncSound.source.playbackRate.value = 1
+        // }
+        // fromを自分とすると
+        // from 1 to 0
+        // マイナス方向が離れる
+        // v0 = 0 観測者は静止
+        // V = 340
+        // let rate = 340 / (340 - vs)
+        //
+        // // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
+        // // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
+
     }
     syncPlay.play(gainNode, syncSound)
 
