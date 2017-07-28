@@ -34,8 +34,14 @@ for (let name in soundList) {
 exports.init = (context) => {
     syncPlay = SyncPlay(context)
     syncPlay.loadBuffer(soundList, () => {})
+    return syncPlay
 }
 
+// exports.getSncPlay = () => {
+//     return syncPlay
+// }
+
+let log = require('./../player/log.js')
 
 exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
     // let correctionTime = clientTime.correctionServerTime(time)
@@ -44,8 +50,12 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             syncSound.source.loop = true
         }
 
+
+
         //
-        offset = offset%syncSound.duration
+        // offset = offset%syncSound.duration
+        //
+        // log.text('offset ' + offset + '   t: ' + (time - Date.now()))
 
         let gainNode = context.createGain()
         gainNode.connect(context.destination)
@@ -110,6 +120,8 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             // gx
             // gy
             // 単位時間あたりのDistの変化でいい？
+            let dist = Math.sqrt(p.gx * p.gx + p.gy * p.gy)
+            p.dist = dist
 
             let st = syncSound.startTime
             let soundTargetTime = p.time - syncSound.startDate

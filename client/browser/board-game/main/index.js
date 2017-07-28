@@ -20,9 +20,11 @@ exports.start = (element, context, socket, clientTime, config) => {
     let canvas = main.canvas
     let card = Card('アリバイ')
 
+    card.x = canvas.width/2
+    card.y = canvas.height/2
     card.scale = 0.5
     field.sendObjectInfoToServer(card.output())
-    // field.setClip(0, -0.5, 0.2, 0.2)
+    field.setClip(0, 0, 0.5, 0.5)
     // field.setLocalPosition(0, 0, canvas.width, canvas.height)
     // field.rotate(Math.PI)
 }

@@ -1,3 +1,5 @@
+let log = require('./../player/log.js')
+
 module.exports = (context) => {
     return new SyncPlay(context)
 }
@@ -44,7 +46,7 @@ SyncPlay.prototype.createSyncSound = function(sourceName, startDate, offset, cal
         sourceName: sourceName,
         startDate: startDate, // UTC millis
         startTime: 0, //  time of context(ms)   Rewrite the value in this method
-        offset: offset || 0, // (ms)
+        offset: offset || 0, // (ms) If offset > duration, rewrite the value in this method
         duration: null, //  (ms) If undefined, rewrite the value in this method
         buffer: null, // Rewrite the value in this method
         source: null, // Rewrite the value in this method
@@ -54,13 +56,14 @@ SyncPlay.prototype.createSyncSound = function(sourceName, startDate, offset, cal
             if (!syncSound.buffer) {
                 return
             }
-            console.log(syncSound)
+            // console.log(syncSound)
             let currentTime = syncPlay.context.currentTime
             // ms
             let leftStartTime = syncSound.startTime - currentTime * 1000
             let delayOffset = leftStartTime < 0 ? -leftStartTime : 0
             leftStartTime = leftStartTime < 0 ? 0 : leftStartTime
             // sec
+            log.text((syncSound.startTime / 1000) + '  off' + (syncSound.offset / 1000) + '   ' + (delayOffset) / 1000 + '  ct: ' + currentTime)
             syncSound.source.start(syncSound.startTime / 1000, (syncSound.offset + delayOffset) / 1000)
 
             let leftTime = leftStartTime + syncSound.duration - (syncSound.offset + delayOffset)
@@ -69,8 +72,10 @@ SyncPlay.prototype.createSyncSound = function(sourceName, startDate, offset, cal
             syncSound.fireStart(leftStartTime)
 
             setTimeout(() => {
-                syncSound.isPlaying = false
-                syncSound.fireFinish()
+                if (!syncSound.source.loop) {
+                    syncSound.isPlaying = false
+                    syncSound.fireFinish()
+                }
             }, leftTime)
         },
         connect: (destination) => {
@@ -125,6 +130,7 @@ SyncPlay.prototype.createSyncSound = function(sourceName, startDate, offset, cal
         if (!syncSound.duration) {
             syncSound.duration = syncSound.buffer.duration * 1000 // sec -> ms
         }
+        syncSound.offset = syncSound.offset % syncSound.duration
         call(syncSound)
     }
 

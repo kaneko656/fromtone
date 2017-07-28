@@ -2,6 +2,8 @@ const GlobalPosition = require('./position.js')
 const SoundManager = require('./../sound/soundManager.js')
 const Card = require('./../card/cardList.js')
 
+let log = require('./../player/log.js')
+
 module.exports = (canvas, context) => {
     return new Field(canvas, context)
 }
@@ -25,7 +27,7 @@ function Field(canvas, context) {
     this.sounds = {}
     this.objects = {}
 
-    SoundManager.init(context)
+    this.syncPlay = SoundManager.init(context)
 
     this.callStart = () => {}
     this.callSendSpeakerInfo = () => {}
@@ -74,7 +76,6 @@ Field.prototype.updateObjects = function(objects) {
         objects.push(temp)
     }
     objects.forEach((obj) => {
-        console.log(obj)
         let id = obj.id
         if (this.objects[id]) {
             let encodePosition = this.clip.encodeToLocal(obj.gx, obj.gy)
@@ -88,12 +89,6 @@ Field.prototype.updateObjects = function(objects) {
                 let card = Card(obj.name)
                 card.id = obj.id
                 this.setObject(card)
-
-                // sound
-                this.startSound(obj.id, 'ウィンドチャイム', obj.startTime, {
-                    loop: true
-                })
-
                 this.updateObjects(obj)
             }
         }
@@ -103,8 +98,10 @@ Field.prototype.updateObjects = function(objects) {
 
 Field.prototype.startSound = function(id, bufferName, startTime, option = {}) {
     // sound
+    console.log('start')
     let now = Date.now()
     let field = this
+    log.text((now - startTime) + '   ' + (startTime < now))
     if (startTime < now) {
         SoundManager.play(bufferName, now, (now - startTime), option, (sound) => {
             field.sounds[id] = sound
@@ -114,7 +111,6 @@ Field.prototype.startSound = function(id, bufferName, startTime, option = {}) {
             field.sounds[id] = sound
         })
     }
-
 }
 
 Field.prototype.updateSounds = function(objects) {
@@ -126,12 +122,26 @@ Field.prototype.updateSounds = function(objects) {
     let field = this
     objects.forEach((obj) => {
         let id = obj.id
+        console.log(obj.event)
         if (field.sounds[id]) {
-            let p = this.clip.getPositionInfo(obj.gx, obj.gy)
-            p.time = obj.time
-            p.areaDist = this.areaDist
-            field.sounds[id].setGain(p)
-            field.sounds[id].setDoppler(p)
+            if (obj.event == 'sound_stop') {
+                field.sounds[id].syncSound.stop()
+                console.log('stop')
+                delete field.sounds[id]
+            } else {
+                let p = this.clip.getPositionInfo(obj.gx, obj.gy)
+                p.time = obj.time
+                p.areaDist = this.areaDist
+                field.sounds[id].setGain(p)
+                field.sounds[id].setDoppler(p)
+            }
+        } else {
+            if (obj.event == 'sound_start') {
+                // sound
+                this.startSound(obj.id, '和風メロディ', obj.startTime, {
+                    loop: true
+                })
+            }
         }
     })
 }
@@ -158,7 +168,10 @@ Field.prototype.mousePressed = function(x, y) {
         if (!obj.isOtherMove && obj.isOver(x, y)) {
             obj.isSync = true
             obj.isMove = true
+            obj.event = 'sound_start'
             obj.click()
+            let out = obj.output()
+            this.sendObjectInfoToServer(out, true)
             break
         }
     }
@@ -174,6 +187,9 @@ Field.prototype.mouseReleased = function(x, y) {
             obj.isMove = false
             obj.over = false
             obj.isSync = false
+            obj.event = 'sound_stop'
+            let out = obj.output()
+            this.sendObjectInfoToServer(out, true)
             // this.sendObjectInfoToServer(obj, true)
         }
         // this.updatePannerPosition(obj, this.speaker)
@@ -189,7 +205,8 @@ Field.prototype.mouseMoved = function(x, y) {
             let out = this.objects[id].output()
             obj.over = true
             out.x = x
-            out.y = y - 2
+            out.y = y
+            out.event = 'e'
             this.sendObjectInfoToServer(out, true)
         }
     }

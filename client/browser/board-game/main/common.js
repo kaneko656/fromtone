@@ -10,7 +10,7 @@ const Job = require('./../Job/cron.js')
 let socketDir = 'board_game_'
 let socketType = 'board_game'
 
-
+let log = require('./../player/log.js')
 // const cardList = {
 //     'アリバイ': 'lib/image/card/アリバイ.png',
 //     'いぬ': 'lib/image/card/いぬ.png',
@@ -43,18 +43,42 @@ exports.start = (element, context, socket, clientTime, config) => {
     field.setClientID(clientID)
     field.setClip(0, 0.3, 0.8, 0.8)
 
-    let timeout = 10
-    let lastEmitTime = 0
+    // send
+    let bufferTime = 10
+    let sendObjectBuffer = []
     field.sendObjectInfo((sendObj, option) => {
-        console.log(sendObj)
-        if (Date.now() - lastEmitTime > timeout) {
-            sendObj.timestamp = Math.floor(clientTime.correctionToServerTime(sendObj.timestamp))
-            socket.emit(socketDir + 'sendObjectInfo', sendObj)
-            if (field.objects[sendObj.id]) {
-                field.updateObjects(sendObj)
-            }
-            lastEmitTime = Date.now()
+        let start = (sendObjectBuffer.length == 0)
+
+        sendObj.timestamp = Math.floor(clientTime.correctionToServerTime(sendObj.timestamp))
+        sendObjectBuffer.push(sendObj)
+        if (field.objects[sendObj.id]) {
+            field.updateObjects(sendObj)
         }
+        let now = Date.now()
+        let date1 = new Date(Math.floor(now / bufferTime) * bufferTime + bufferTime)
+        let date2 = new Date(Math.floor(now / bufferTime) * bufferTime + bufferTime * 2)
+        if (start) {
+            Job(date1, () => {
+                if (sendObjectBuffer.length >= 1) {
+                    socket.emit(socketDir + 'sendObjectInfo', sendObjectBuffer)
+                    sendObjectBuffer = []
+                }
+            })
+            Job(date2, () => {
+                if (sendObjectBuffer.length >= 1) {
+                    socket.emit(socketDir + 'sendObjectInfo', sendObjectBuffer)
+                    sendObjectBuffer = []
+                }
+            })
+        }
+        // if (Date.now() - lastEmitTime > timeout) {
+        //     sendObj.timestamp = Math.floor(clientTime.correctionToServerTime(sendObj.timestamp))
+        //     socket.emit(socketDir + 'sendObjectInfo', sendObj)
+        //     if (field.objects[sendObj.id]) {
+        //         field.updateObjects(sendObj)
+        //     }
+        //     lastEmitTime = Date.now()
+        // }
     })
 
     socket.on(socketDir + 'sendObjectInfo', (objects) => {

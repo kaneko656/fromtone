@@ -11,7 +11,7 @@ module.exports = (icon) => {
         y: 0,
         scale: 1.0,
         isSync: false,
-
+        event: 'e',
         // over: false,
         isMove: false,
         isOtherMove: false,
@@ -52,6 +52,7 @@ module.exports = (icon) => {
                 type: obj.type,
                 x: obj.x,
                 y: obj.y,
+                event: obj.event,
                 // scale: obj.scale,
                 isSync: obj.isSync
             }
@@ -63,6 +64,7 @@ module.exports = (icon) => {
               obj.y = upObj.y
               // obj.scale = obj.scale
               obj.isSync = upObj.isSync
+              obj.event = upObj.event
             }
         }
     }
