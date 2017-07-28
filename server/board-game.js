@@ -110,11 +110,10 @@ exports.start = (socket, disconnect, _serverTime) => {
         bodys.forEach((body) => {
             objectInfoBuffer.push(body)
             body.time = body.timestamp ? Math.floor(body.timestamp) : serverTime()
-            // console.log(body.timestamp, serverTime())
             body.time += bufferTime
 
             // startTime
-            if (!objectStartTime[body.id] || !objectLastTime[body.id]) {
+            if (!objectStartTime[body.id] || !objectLastTime[body.id] || (body.event && body.event == 'sound_start') ) {
                 objectStartTime[body.id] = body.time
                 objectLastTime[body.id] = body.time
                 body.startTime = body.time

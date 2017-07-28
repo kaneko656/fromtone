@@ -10,6 +10,7 @@ const cardList = {
     '情報交換': 'lib/image/card/情報交換.png',
     '第一発見者': 'lib/image/card/第一発見者.png',
     '犯人': 'lib/image/card/犯人.png',
+    '探偵': 'lib/image/card/探偵.png',
     '目撃者': 'lib/image/card/目撃者.png',
     '裏': 'lib/image/card/裏.png'
 }

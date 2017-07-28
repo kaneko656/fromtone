@@ -3,6 +3,7 @@ const uuid = require('node-uuid')
 const Canvas = require('./../canvas/canvas.js')
 const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
+const CardCase = require('./../card/objectCase.js')
 
 const Job = require('./../Job/cron.js')
 
@@ -19,11 +20,13 @@ exports.start = (element, context, socket, clientTime, config) => {
     // element.style.margin = '30px'
     log.set(element)
 
+    let canvas = Canvas(element)
+
     let start = false
-    let button = document.createElement('button')
-    button.setAttribute('class', 'btn btn-info')
-    button.innerHTML = 'start'
-    element.appendChild(button)
+    // let button = document.createElement('button')
+    // button.setAttribute('class', 'btn btn-info')
+    // button.innerHTML = 'start'
+    // element.appendChild(button)
 
 
     let loadSound = (url, callback = () => {}) => {
@@ -31,7 +34,6 @@ exports.start = (element, context, socket, clientTime, config) => {
         request.open('GET', url, true)
         request.responseType = 'arraybuffer'
         request.onload = function() {
-            console.log('load')
             context.decodeAudioData(request.response, function(buffer) {
                 callback(buffer)
             }, (err) => {
@@ -40,30 +42,38 @@ exports.start = (element, context, socket, clientTime, config) => {
         }
         request.send()
     }
-    button.onclick = () => {
-        context.createBufferSource().start(0)
-        button.innerHTML = 'sound on'
-        let url = 'lib/sound/notification-common.mp3'
-        loadSound(url, (buffer) => {
-            let source = context.createBufferSource()
-            source.buffer = buffer
-            source.connect(context.destination)
-            source.start(0)
 
-            let main = Main.start(element, context, socket, clientTime, config)
-            let field = main.field
-            let canvas = main.canvas
-            field.setClip(0, -0.5, 0.5, 0.5)
-            field.setLocalPosition(0, 0, canvas.width, canvas.height)
-            field.rotate(Math.PI)
+    canvas.addEventListener('mousedown', function(e) {
+        // context.createBufferSource().start(0)
+        if (!start) {
+            let url = 'lib/sound/notification-common.mp3'
+            loadSound(url, (buffer) => {
+                let source = context.createBufferSource()
+                source.buffer = buffer
+                source.connect(context.destination)
+                source.start(0)
 
-        })
+                let main = Main.start(canvas, context, socket, clientTime, config)
+                let field = main.field
 
-        // let note = field.syncPlay.createSyncSound('３音', Date.now(), null, (note) => {
-        //     console.log(note)
-        //     field.syncPlay.play(context.destination, note)
-        // })
-
-    }
+                if (config.user == 'up') {
+                    field.setClip(0, -0.5, 0.5, 0.5)
+                    field.rotate(Math.PI)
+                }
+                if (config.user == 'down') {
+                    field.setClip(0, 0.5, 0.5, 0.5)
+                }
+                if (config.user == 'left') {
+                    field.setClip(-0.5, 0, 0.5, 0.5)
+                    field.rotate(Math.PI/2)
+                }
+                if (config.user == 'right') {
+                    field.setClip(0.5, 0, 0.5, 0.5)
+                    field.rotate(-Math.PI/2)
+                }
+                field.setLocalPosition(0, 0, canvas.width, canvas.height)
+            })
+        }
+    })
 
 }

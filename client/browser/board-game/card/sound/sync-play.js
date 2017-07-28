@@ -1,4 +1,4 @@
-let log = require('./../player/log.js')
+let log = require('./../../player/log.js')
 
 module.exports = (context) => {
     return new SyncPlay(context)

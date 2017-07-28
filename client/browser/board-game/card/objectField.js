@@ -1,5 +1,5 @@
 const GlobalPosition = require('./position.js')
-const SoundManager = require('./../sound/soundManager.js')
+const SoundManager = require('./sound/soundManager.js')
 const Card = require('./../card/cardList.js')
 
 let log = require('./../player/log.js')
@@ -26,6 +26,7 @@ function Field(canvas, context) {
 
     this.sounds = {}
     this.objects = {}
+    this.objectCase = {}
 
     this.syncPlay = SoundManager.init(context)
 
@@ -36,6 +37,14 @@ function Field(canvas, context) {
 
     this.callSendObjectInfo = () => {}
 }
+
+Field.prototype.setClientID = function(clientID) {
+    this.clientID = clientID
+}
+
+/**
+ * LocalPosition
+ */
 
 Field.prototype.setClip = function(cx, cy, halfW, halfH) {
     this.clip = this.globalPosition.clip(cx, cy, halfW, halfH)
@@ -50,10 +59,9 @@ Field.prototype.setLocalPosition = function(x, y, w, h) {
     this.clip.setLocalPosition(x, y, w, h)
 }
 
-Field.prototype.setClientID = function(clientID) {
-    this.clientID = clientID
-}
-
+/**
+ * Object
+ */
 
 Field.prototype.setObject = function(obj) {
     let id = obj.id
@@ -67,7 +75,26 @@ Field.prototype.setObject = function(obj) {
     this.objects[id].icon.onload = function() {
         field.render()
     }
+    if (this.objects[id].type == 'card') {
+        this.objects[id].scale = (this.canvas.width / 10) / this.objects[id].w
+    }
 }
+
+Field.prototype.removeObject = function(id) {
+    delete this.objects[id]
+}
+
+Field.prototype.isObject = function(id) {
+    if (this.objects[id]) {
+        return true
+    }
+    return false
+}
+
+/**
+ * update
+ * if null, setObject
+ */
 
 Field.prototype.updateObjects = function(objects) {
     if (!Array.isArray(objects)) {
@@ -82,9 +109,9 @@ Field.prototype.updateObjects = function(objects) {
             obj.x = encodePosition.x
             obj.y = encodePosition.y
             this.objects[id].update(obj)
-            // console.log(id, obj.name, 'update')
         } else {
-            // sound
+
+            // card
             if (obj.type == 'card') {
                 let card = Card(obj.name)
                 card.id = obj.id
@@ -95,6 +122,11 @@ Field.prototype.updateObjects = function(objects) {
     })
     this.render()
 }
+
+
+/**
+ * Sound
+ */
 
 Field.prototype.startSound = function(id, bufferName, startTime, option = {}) {
     // sound
@@ -122,28 +154,34 @@ Field.prototype.updateSounds = function(objects) {
     let field = this
     objects.forEach((obj) => {
         let id = obj.id
-        console.log(obj.event)
         if (field.sounds[id]) {
-            if (obj.event == 'sound_stop') {
-                field.sounds[id].syncSound.stop()
+            if (obj.events.indexOf('sound_stop') >= 0) {
+                field.sounds[id].stop()
                 console.log('stop')
                 delete field.sounds[id]
             } else {
                 let p = this.clip.getPositionInfo(obj.gx, obj.gy)
                 p.time = obj.time
                 p.areaDist = this.areaDist
-                field.sounds[id].setGain(p)
-                field.sounds[id].setDoppler(p)
+                field.sounds[id].setEffect(p)
             }
         } else {
-            if (obj.event == 'sound_start') {
+            if (obj.events.indexOf('sound_start')) {
                 // sound
-                this.startSound(obj.id, '和風メロディ', obj.startTime, {
+                this.startSound(obj.id, 'カード', obj.startTime, {
                     loop: true
                 })
             }
         }
     })
+}
+
+/**
+ * ObjectCase
+ */
+
+Field.prototype.setObjectCase = function(objectCase) {
+    this.objectCase[objectCase.id] = objectCase
 }
 
 
@@ -154,23 +192,31 @@ Field.prototype.render = function() {
 
     ctx.save()
 
+    for (let id in this.objectCase) {
+        this.objectCase[id].render(ctx)
+    }
     for (let id in this.objects) {
         this.objects[id].draw(ctx)
     }
+
     ctx.restore()
 }
 
 
 Field.prototype.mousePressed = function(x, y) {
-    this.context.createBufferSource().start(0)
+
+    /**
+     * Object (Card)
+     */
+    // this.context.createBufferSource().start(0)
     for (let id in this.objects) {
         let obj = this.objects[id]
         if (!obj.isOtherMove && obj.isOver(x, y)) {
             obj.isSync = true
             obj.isMove = true
-            obj.event = 'sound_start'
             obj.click()
             let out = obj.output()
+            out.events.push('sound_start')
             this.sendObjectInfoToServer(out, true)
             break
         }
@@ -179,6 +225,11 @@ Field.prototype.mousePressed = function(x, y) {
 
 
 Field.prototype.mouseReleased = function(x, y) {
+
+    /**
+     * Object (Card)
+     */
+
     for (let id in this.objects) {
         let obj = this.objects[id]
         if (!obj.isOtherMove && obj.isMove) {
@@ -187,18 +238,20 @@ Field.prototype.mouseReleased = function(x, y) {
             obj.isMove = false
             obj.over = false
             obj.isSync = false
-            obj.event = 'sound_stop'
             let out = obj.output()
+            out.events.push('sound_stop')
             this.sendObjectInfoToServer(out, true)
-            // this.sendObjectInfoToServer(obj, true)
         }
-        // this.updatePannerPosition(obj, this.speaker)
     }
-    // this.sendSpeakerInfoToServer(this.speaker)
+
     this.render()
 }
 
 Field.prototype.mouseMoved = function(x, y) {
+
+    /**
+     * Object (Card)
+     */
     for (let id in this.objects) {
         if (this.objects[id].isMove) {
             let obj = this.objects[id]
@@ -206,7 +259,7 @@ Field.prototype.mouseMoved = function(x, y) {
             obj.over = true
             out.x = x
             out.y = y
-            out.event = 'e'
+            out.events.push('move')
             this.sendObjectInfoToServer(out, true)
         }
     }
@@ -224,7 +277,6 @@ Field.prototype.sendObjectInfoToServer = function(sendObj, release) {
     sendObj.gy = globalPos.y
     sendObj.clientID = this.clientID
     sendObj.timestamp = Date.now()
-    // console.log(sendObj)
     this.callSendObjectInfo(sendObj)
 }
 

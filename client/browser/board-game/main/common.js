@@ -25,8 +25,11 @@ let log = require('./../player/log.js')
 //     '裏': 'lib/image/card/裏.png'
 // }
 
-exports.start = (element, context, socket, clientTime, config) => {
-    // element.style.margin = '30px'
+exports.start = (canvas, context, socket, clientTime, config) => {
+
+    /**
+     * init
+     */
 
     let clientID = uuid.v4()
 
@@ -36,21 +39,30 @@ exports.start = (element, context, socket, clientTime, config) => {
         user: config.user
     })
 
-    // loginWindow.start(element, context, socket, clientTime, config)
-    let canvas = Canvas(element)
     let field = CardField(canvas, context)
-
     field.setClientID(clientID)
-    field.setClip(0, 0.3, 0.8, 0.8)
+    // field.setClip(0, 0.3, 0.8, 0.8)
 
-    // send
-    let bufferTime = 10
+
+    /**
+     * send object
+     */
+
+    let bufferTime = 30
     let sendObjectBuffer = []
     field.sendObjectInfo((sendObj, option) => {
         let start = (sendObjectBuffer.length == 0)
+        if (sendObj.events.length >= 1) {
+            start = true
+        }
+        if (!start) {
+            return
+        }
 
         sendObj.timestamp = Math.floor(clientTime.correctionToServerTime(sendObj.timestamp))
         sendObjectBuffer.push(sendObj)
+
+        // 自分の描画を高速に
         if (field.objects[sendObj.id]) {
             field.updateObjects(sendObj)
         }
@@ -71,23 +83,31 @@ exports.start = (element, context, socket, clientTime, config) => {
                 }
             })
         }
-        // if (Date.now() - lastEmitTime > timeout) {
-        //     sendObj.timestamp = Math.floor(clientTime.correctionToServerTime(sendObj.timestamp))
-        //     socket.emit(socketDir + 'sendObjectInfo', sendObj)
-        //     if (field.objects[sendObj.id]) {
-        //         field.updateObjects(sendObj)
-        //     }
-        //     lastEmitTime = Date.now()
-        // }
     })
+
+    /**
+     * catch Object
+     */
 
     socket.on(socketDir + 'sendObjectInfo', (objects) => {
         objects.forEach((obj) => {
-            obj.time = clientTime.correctionServerTime(obj.time)
-            obj.startTime = clientTime.correctionServerTime(obj.startTime)
+            // remove myObject
             if (field.objects[obj.id] && obj.clientID == clientID) {
                 return
             }
+
+            // card set
+            if (!field.isObject(obj.id)) {
+                let card = Card(obj.name)
+                card.id = obj.id
+                field.setObject(card)
+            }
+
+            // time correction
+            obj.time = clientTime.correctionServerTime(obj.time)
+            obj.startTime = clientTime.correctionServerTime(obj.startTime)
+
+            // update at time
             let date = new Date(obj.time)
             if (date <= Date.now()) {
                 field.updateObjects(obj)
@@ -97,9 +117,15 @@ exports.start = (element, context, socket, clientTime, config) => {
                 })
             }
         })
+
+        // sound Update
         field.updateSounds(objects)
     })
 
+
+    /**
+     * Key
+     */
 
     let moved = (x, y) => {
         field.mouseMoved(x, y)

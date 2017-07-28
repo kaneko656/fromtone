@@ -21372,7 +21372,7 @@ module.exports = (onTick, callback, start = true) => {
     })
 }
 
-},{"cron":168}],146:[function(require,module,exports){
+},{"cron":171}],146:[function(require,module,exports){
 
 module.exports = (element) => {
     var canvas = document.createElement('canvas')
@@ -21397,6 +21397,7 @@ const cardList = {
     '情報交換': 'lib/image/card/情報交換.png',
     '第一発見者': 'lib/image/card/第一発見者.png',
     '犯人': 'lib/image/card/犯人.png',
+    '探偵': 'lib/image/card/探偵.png',
     '目撃者': 'lib/image/card/目撃者.png',
     '裏': 'lib/image/card/裏.png'
 }
@@ -21437,7 +21438,7 @@ module.exports = (icon) => {
         y: 0,
         scale: 1.0,
         isSync: false,
-        event: 'e',
+        events: [],
         // over: false,
         isMove: false,
         isOtherMove: false,
@@ -21478,10 +21479,12 @@ module.exports = (icon) => {
                 type: obj.type,
                 x: obj.x,
                 y: obj.y,
-                event: obj.event,
+                events: [].concat(obj.events),
                 // scale: obj.scale,
                 isSync: obj.isSync
             }
+
+            obj.events = []
             return out
         },
         update: (upObj) => {
@@ -21490,7 +21493,7 @@ module.exports = (icon) => {
               obj.y = upObj.y
               // obj.scale = obj.scale
               obj.isSync = upObj.isSync
-              obj.event = upObj.event
+              // obj.events = [].concat(upObj.events)
             }
         }
     }
@@ -21500,6 +21503,78 @@ module.exports = (icon) => {
 },{}],149:[function(require,module,exports){
 const GlobalPosition = require('./position.js')
 const SoundManager = require('./../sound/soundManager.js')
+const Card = require('./../card/cardList.js')
+
+let log = require('./../player/log.js')
+
+module.exports = () => {
+    return new ObjectCase()
+}
+
+function ObjectCase() {
+    this.objects = []
+    this.id = 'id'
+    this.limit = null
+    // this.info = {}
+    this.interval = 0
+    this.area = {
+        x: 0,
+        y: 0,
+        w: 100,
+        h: 100
+    }
+}
+
+
+ObjectCase.prototype.push = function(object, posX = 0) {
+    this.objects.push({
+        info: {},
+        object: object,
+        posX: posX,
+        posY: this.area.y + this.area.h / 2
+    })
+    this.sort()
+}
+
+ObjectCase.prototype.pop = function(num) {
+    let obj = this.objects[num].objects
+    this.objects.splice(num, 1)
+    this.sort()
+    return obj
+}
+
+ObjectCase.prototype.sort = function() {
+    this.objects.sort((a, b) => {
+        if (a.posX < b.posX) return -1
+        if (a.posX > b.posX) return 1
+        return 0
+    })
+    let interval = this.area.w / this.objects.length
+    this.interval = interval
+    this.objects.forEach((obj, i) => {
+        obj.posX = interval / 2 + interval * i
+    })
+}
+
+ObjectCase.prototype.isOver = function(x, y) {
+    let a = this.area
+    let over = (a.x <= x && x <= a.x + a.w && a.y <= y && y <= a.y + a.h)
+    if (over) {
+        let interval = this.area.w / this.objects.length
+        let num = Math.floor((x - a.x) / interval)
+        num = num < this.objects.length ? num : this.objects.length - 1
+        return num
+    }
+    return -1
+}
+
+ObjectCase.prototype.render = function() {
+
+}
+
+},{"./../card/cardList.js":147,"./../player/log.js":160,"./../sound/soundManager.js":162,"./position.js":151}],150:[function(require,module,exports){
+const GlobalPosition = require('./position.js')
+const SoundManager = require('./sound/soundManager.js')
 const Card = require('./../card/cardList.js')
 
 let log = require('./../player/log.js')
@@ -21526,6 +21601,7 @@ function Field(canvas, context) {
 
     this.sounds = {}
     this.objects = {}
+    this.objectCase = {}
 
     this.syncPlay = SoundManager.init(context)
 
@@ -21536,6 +21612,14 @@ function Field(canvas, context) {
 
     this.callSendObjectInfo = () => {}
 }
+
+Field.prototype.setClientID = function(clientID) {
+    this.clientID = clientID
+}
+
+/**
+ * LocalPosition
+ */
 
 Field.prototype.setClip = function(cx, cy, halfW, halfH) {
     this.clip = this.globalPosition.clip(cx, cy, halfW, halfH)
@@ -21550,10 +21634,9 @@ Field.prototype.setLocalPosition = function(x, y, w, h) {
     this.clip.setLocalPosition(x, y, w, h)
 }
 
-Field.prototype.setClientID = function(clientID) {
-    this.clientID = clientID
-}
-
+/**
+ * Object
+ */
 
 Field.prototype.setObject = function(obj) {
     let id = obj.id
@@ -21567,7 +21650,26 @@ Field.prototype.setObject = function(obj) {
     this.objects[id].icon.onload = function() {
         field.render()
     }
+    if (this.objects[id].type == 'card') {
+        this.objects[id].scale = (this.canvas.width / 10) / this.objects[id].w
+    }
 }
+
+Field.prototype.removeObject = function(id) {
+    delete this.objects[id]
+}
+
+Field.prototype.isObject = function(id) {
+    if (this.objects[id]) {
+        return true
+    }
+    return false
+}
+
+/**
+ * update
+ * if null, setObject
+ */
 
 Field.prototype.updateObjects = function(objects) {
     if (!Array.isArray(objects)) {
@@ -21582,9 +21684,9 @@ Field.prototype.updateObjects = function(objects) {
             obj.x = encodePosition.x
             obj.y = encodePosition.y
             this.objects[id].update(obj)
-            // console.log(id, obj.name, 'update')
         } else {
-            // sound
+
+            // card
             if (obj.type == 'card') {
                 let card = Card(obj.name)
                 card.id = obj.id
@@ -21595,6 +21697,11 @@ Field.prototype.updateObjects = function(objects) {
     })
     this.render()
 }
+
+
+/**
+ * Sound
+ */
 
 Field.prototype.startSound = function(id, bufferName, startTime, option = {}) {
     // sound
@@ -21622,28 +21729,34 @@ Field.prototype.updateSounds = function(objects) {
     let field = this
     objects.forEach((obj) => {
         let id = obj.id
-        console.log(obj.event)
         if (field.sounds[id]) {
-            if (obj.event == 'sound_stop') {
-                field.sounds[id].syncSound.stop()
+            if (obj.events.indexOf('sound_stop') >= 0) {
+                field.sounds[id].stop()
                 console.log('stop')
                 delete field.sounds[id]
             } else {
                 let p = this.clip.getPositionInfo(obj.gx, obj.gy)
                 p.time = obj.time
                 p.areaDist = this.areaDist
-                field.sounds[id].setGain(p)
-                field.sounds[id].setDoppler(p)
+                field.sounds[id].setEffect(p)
             }
         } else {
-            if (obj.event == 'sound_start') {
+            if (obj.events.indexOf('sound_start')) {
                 // sound
-                this.startSound(obj.id, '和風メロディ', obj.startTime, {
+                this.startSound(obj.id, 'カード', obj.startTime, {
                     loop: true
                 })
             }
         }
     })
+}
+
+/**
+ * ObjectCase
+ */
+
+Field.prototype.setObjectCase = function(objectCase) {
+    this.objectCase[objectCase.id] = objectCase
 }
 
 
@@ -21654,23 +21767,31 @@ Field.prototype.render = function() {
 
     ctx.save()
 
+    for (let id in this.objectCase) {
+        this.objectCase[id].render(ctx)
+    }
     for (let id in this.objects) {
         this.objects[id].draw(ctx)
     }
+
     ctx.restore()
 }
 
 
 Field.prototype.mousePressed = function(x, y) {
-    this.context.createBufferSource().start(0)
+
+    /**
+     * Object (Card)
+     */
+    // this.context.createBufferSource().start(0)
     for (let id in this.objects) {
         let obj = this.objects[id]
         if (!obj.isOtherMove && obj.isOver(x, y)) {
             obj.isSync = true
             obj.isMove = true
-            obj.event = 'sound_start'
             obj.click()
             let out = obj.output()
+            out.events.push('sound_start')
             this.sendObjectInfoToServer(out, true)
             break
         }
@@ -21679,6 +21800,11 @@ Field.prototype.mousePressed = function(x, y) {
 
 
 Field.prototype.mouseReleased = function(x, y) {
+
+    /**
+     * Object (Card)
+     */
+
     for (let id in this.objects) {
         let obj = this.objects[id]
         if (!obj.isOtherMove && obj.isMove) {
@@ -21687,18 +21813,20 @@ Field.prototype.mouseReleased = function(x, y) {
             obj.isMove = false
             obj.over = false
             obj.isSync = false
-            obj.event = 'sound_stop'
             let out = obj.output()
+            out.events.push('sound_stop')
             this.sendObjectInfoToServer(out, true)
-            // this.sendObjectInfoToServer(obj, true)
         }
-        // this.updatePannerPosition(obj, this.speaker)
     }
-    // this.sendSpeakerInfoToServer(this.speaker)
+
     this.render()
 }
 
 Field.prototype.mouseMoved = function(x, y) {
+
+    /**
+     * Object (Card)
+     */
     for (let id in this.objects) {
         if (this.objects[id].isMove) {
             let obj = this.objects[id]
@@ -21706,7 +21834,7 @@ Field.prototype.mouseMoved = function(x, y) {
             obj.over = true
             out.x = x
             out.y = y
-            out.event = 'e'
+            out.events.push('move')
             this.sendObjectInfoToServer(out, true)
         }
     }
@@ -21724,7 +21852,6 @@ Field.prototype.sendObjectInfoToServer = function(sendObj, release) {
     sendObj.gy = globalPos.y
     sendObj.clientID = this.clientID
     sendObj.timestamp = Date.now()
-    // console.log(sendObj)
     this.callSendObjectInfo(sendObj)
 }
 
@@ -21736,7 +21863,7 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{"./../card/cardList.js":147,"./../player/log.js":157,"./../sound/soundManager.js":159,"./position.js":150}],150:[function(require,module,exports){
+},{"./../card/cardList.js":147,"./../player/log.js":160,"./position.js":151,"./sound/soundManager.js":152}],151:[function(require,module,exports){
 module.exports = () => {
     return new GlobalPosition()
 }
@@ -21850,7 +21977,396 @@ GlobalPosition.prototype.clip = function(cx, cy, halfW, halfH) {
     return clip
 }
 
-},{}],151:[function(require,module,exports){
+},{}],152:[function(require,module,exports){
+const SyncPlay = require('./sync-play.js')
+let syncPlay
+let log = require('./../../player/log.js')
+
+let soundList = {
+    '３音': 'lib/sound/notification-common.mp3',
+    // 'Violin1': 'lib/sound/orchestra/beethoven/No5_Mov3_Violin1.mp3',
+    // 'Violin2': 'lib/sound/orchestra/beethoven/No5_Mov3_Violin2.mp3',
+    // 'Viola': 'lib/sound/orchestra/beethoven/No5_Mov3_Viola.mp3',
+    // 'Cello': 'lib/sound/orchestra/beethoven/No5_Mov3_Cello.mp3',
+    // 'DoubleBass': 'lib/sound/orchestra/beethoven/No5_Mov3_DoubleBass.mp3'
+    '和風メロディ': 'lib/sound/wafuringtone.mp3',
+    'ウィンドチャイム': 'lib/sound/windchime.mp3',
+    'カード': 'lib/sound/wind1.mp3',
+    // 'music': 'lib/sound/clock3.mp3',
+    // 'voice': 'lib/sound/voice.mp3',
+    // '太鼓': 'lib/sound/taiko.mp3',
+    // 'コーリング': 'lib/sound/emargency_calling.mp3',
+    // 'アラーム': 'lib/sound/clockbell.mp3',
+    // '掃除機': 'lib/sound/cleaner.mp3',
+    // '電子レンジ': 'lib/sound/microwave.mp3',
+    // '扇風機': 'lib/sound/fan.mp3',
+    // '洗濯機': 'lib/sound/washing.mp3',
+    // 'プリンタ': 'lib/sound/printer.mp3',
+    // 'ポッド注ぐ': 'lib/sound/pod.mp3',
+    // '炒める': 'lib/sound/roasting.mp3',
+    // '足音（走る）': 'lib/sound/dashing.mp3',
+    // '足音（スリッパ）': 'lib/sound/walking.mp3',
+    // '雨音': 'lib/sound/rain.mp3'
+}
+let soundNameList = []
+for (let name in soundList) {
+    soundNameList.push(name)
+}
+
+exports.init = (context) => {
+    syncPlay = SyncPlay(context)
+    syncPlay.loadBuffer(soundList, () => {})
+    return syncPlay
+}
+
+
+exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
+    syncPlay.createSyncSound(bufferName, time, offset, (syncSound) => {
+        if (option.loop) {
+            syncSound.source.loop = true
+        }
+
+        let gainNode = context.createGain()
+        gainNode.connect(context.destination)
+
+        syncSound.started((leftTime) => {})
+
+        let lastGainValue = null
+        let lastDoppler = null
+        let setEffect = (p) => {
+
+            let dist = Math.sqrt(p.gx * p.gx + p.gy * p.gy)
+
+            let st = syncSound.startTime
+            let soundTargetTime = p.time - syncSound.startDate
+            soundTargetTime = soundTargetTime > 0 ? soundTargetTime : 0
+
+            let diffDist = 0
+            let diffTime = 0
+            if (!lastDoppler) {
+                diffDist = 0
+                diffTime = soundTargetTime
+                lastDoppler = {
+                    time: p.time,
+                    dist: dist,
+                    velocity: 0,
+                    diffTime: diffTime,
+                    diffDist: 0,
+                    rate: 1.0
+                }
+            } else {
+                diffDist = (dist - lastDoppler.dist) / 2 + diffDist / 2
+                diffTime = p.time - lastDoppler.time
+                if (diffTime == 0) {
+                    return
+                }
+                // m
+                let areaDist = p.areaDist || 3
+                // m / ms
+                let vs = areaDist * diffDist / diffTime
+
+                // km/h
+                // vs = vs * 60 * 60 * 1000 / 1000
+                vs = vs * 3600
+
+                let rate = 340 / (340 - vs)
+
+                // console.log(diffDist.toFixed(5), diffTime.toFixed(1), 'rate', rate.toFixed(4), 'vs', vs.toFixed(4))
+                syncSound.source.playbackRate.linearRampToValueAtTime(rate, st / 1000 + soundTargetTime / 1000)
+                lastDoppler = {
+                    time: p.time,
+                    dist: dist,
+                    velocity: vs,
+                    diffTime: diffTime,
+                    diffDist: diffDist,
+                    rate: rate
+                }
+            }
+
+            let vs = Math.abs(lastDoppler.velocity)
+            vs = vs > 3 ? 3 : vs
+            let volumeRate = vs / 3
+            // dist
+            // maxDist
+            // time
+            //
+            let value = 0
+            if (!lastGainValue) {
+                value = p.dist < p.maxDist ? 1.0 - p.dist / p.maxDist : 0
+                value = value * 0.1 + value * 0.9 * volumeRate
+            } else {
+                value = p.dist < p.maxDist ? 1.0 - p.dist / p.maxDist : 0
+                value = value / 2 + lastGainValue.value / 2
+                value = value * 0.3 + value * 0.7 * volumeRate
+            }
+            // console.log(Math.abs(lastDoppler.velocity), volumeRate, value)
+
+            lastGainValue = {
+                value: value,
+                time: soundTargetTime
+            }
+            gainNode.gain.linearRampToValueAtTime(value, st / 1000 + soundTargetTime / 1000)
+        }
+
+        let stop = () => {
+            let ct = syncPlay.getCurrentTime()
+            gainNode.gain.linearRampToValueAtTime(0, ct + 0.2)
+            setTimeout(() => {
+                syncSound.stop()
+            }, 200)
+        }
+
+        syncPlay.play(gainNode, syncSound)
+        let returnObj = {
+            bufferName: bufferName,
+            gainNode: gainNode,
+            time: time,
+            syncSound: syncSound,
+            setEffect: setEffect,
+            stop: stop
+        }
+        call(returnObj)
+    })
+}
+
+},{"./../../player/log.js":160,"./sync-play.js":153}],153:[function(require,module,exports){
+let log = require('./../../player/log.js')
+
+module.exports = (context) => {
+    return new SyncPlay(context)
+}
+
+function SyncPlay(context, clientTime) {
+    this.context = context
+    this.buffer = {}
+    this.source = {}
+    this.panner = {}
+    this.audioUrlList = {}
+}
+
+
+/**
+ * @param {Object.<string, string>} audioUrlList - key: audioName value: audioUrl
+ */
+
+SyncPlay.prototype.setAudioList = function(audioUrlList) {
+    this.audioUrlList = audioUrlList
+}
+
+
+SyncPlay.prototype.getCurrentTime = function() {
+    return this.context.currentTime
+}
+
+let finishLoad = () => {}
+SyncPlay.prototype.loadBuffer = function(audioUrlList, callback = () => {}) {
+    audioUrlList = audioUrlList || this.audioUrlList
+    load(audioUrlList, (bufferList) => {
+        this.buffer = bufferList
+        callback()
+        finishLoad()
+    })
+}
+
+SyncPlay.prototype.createSyncSound = function(sourceName, startDate, offset, call = () => {}) {
+    let leftTime = startDate - Date.now()
+    let call_start = []
+    let call_finish = []
+    let call_stop = []
+    let syncPlay = this
+    let syncSound = {
+        sourceName: sourceName,
+        startDate: startDate, // UTC millis
+        startTime: 0, //  time of context(ms)   Rewrite the value in this method
+        offset: offset || 0, // (ms) If offset > duration, rewrite the value in this method
+        duration: null, //  (ms) If undefined, rewrite the value in this method
+        buffer: null, // Rewrite the value in this method
+        source: null, // Rewrite the value in this method
+        isPlaying: false,
+        // oscillator: oscillator || null,
+        start: () => {
+            if (!syncSound.buffer) {
+                return
+            }
+            // console.log(syncSound)
+            let currentTime = syncPlay.context.currentTime
+            // ms
+            let leftStartTime = syncSound.startTime - currentTime * 1000
+            let delayOffset = leftStartTime < 0 ? -leftStartTime : 0
+            leftStartTime = leftStartTime < 0 ? 0 : leftStartTime
+            // sec
+            log.text((syncSound.startTime / 1000) + '  off' + (syncSound.offset / 1000) + '   ' + (delayOffset) / 1000 + '  ct: ' + currentTime)
+            syncSound.source.start(syncSound.startTime / 1000, (syncSound.offset + delayOffset) / 1000)
+
+            let leftTime = leftStartTime + syncSound.duration - (syncSound.offset + delayOffset)
+
+            syncSound.isPlaying = true
+            syncSound.fireStart(leftStartTime)
+
+            setTimeout(() => {
+                if (!syncSound.source.loop) {
+                    syncSound.isPlaying = false
+                    syncSound.fireFinish()
+                }
+            }, leftTime)
+        },
+        connect: (destination) => {
+            syncSound.source.connect(destination)
+        },
+        stop: () => {
+            if (syncSound.isPlaying) {
+                syncSound.source.stop()
+                syncSound.fireStop()
+            }
+        },
+        fireStart: (leftTime) => {
+            call_start.forEach((c) => {
+                c(leftTime)
+            })
+        },
+        fireFinish: () => {
+            call_finish.forEach((c) => {
+                c()
+            })
+        },
+        fireStop: () => {
+            call_stop.forEach((c) => {
+                c()
+            })
+        },
+        started: (callback = () => {}) => {
+            call_start.push(callback)
+        },
+        finished: (callback = () => {}) => {
+            call_finish.push(callback)
+        },
+        stoped: (callback = () => {}) => {
+            call_stop.push(callback)
+        }
+    }
+
+    // set buffer & source
+    let source = context.createBufferSource()
+    let buffer = this.buffer[sourceName] || null
+
+    let sourceProcess = function() {
+        source.buffer = buffer
+        syncSound.buffer = buffer
+        syncSound.source = source
+
+        // set startTime
+        let ct = this.context.currentTime * 1000 // sec -> ms
+        syncSound.startTime = ct + leftTime
+
+        // If undefined, set duration
+        if (!syncSound.duration) {
+            syncSound.duration = syncSound.buffer.duration * 1000 // sec -> ms
+        }
+        syncSound.offset = syncSound.offset % syncSound.duration
+        call(syncSound)
+    }
+
+    if (!buffer) {
+        console.log('error this.buffer[sourceName] sync-play.js')
+        finishLoad = () => {
+            buffer = this.buffer[sourceName] || null
+            sourceProcess()
+        }
+    } else {
+        sourceProcess()
+    }
+
+    // return syncSound
+}
+
+SyncPlay.prototype.preConnect = function(destination, syncSound) {
+    // to array
+    if (!Array.isArray(syncSound)) {
+        let temp = syncSound
+        syncSound = []
+        syncSound.push(temp)
+    }
+
+    // play
+    syncSound.forEach((note) => {
+        note.connect(destination)
+        note.start()
+    })
+}
+
+SyncPlay.prototype.speedPlay = function(syncSound) {
+    // to array
+    syncSound.start()
+}
+
+
+SyncPlay.prototype.play = function(destination, syncSound) {
+    // to array
+    if (!Array.isArray(syncSound)) {
+        let temp = syncSound
+        syncSound = []
+        syncSound.push(temp)
+    }
+
+    // play
+    syncSound.forEach((note) => {
+        note.connect(destination)
+        note.start()
+    })
+}
+
+
+SyncPlay.prototype.addBuffer = function(name, buffer, callback = () => {}) {
+    let syncPlay = this
+    context.decodeAudioData(buffer, function(decodedBuffer) {
+        syncPlay.buffer[name] = decodedBuffer
+        callback()
+    }, (err) => {
+        console.log(err)
+    })
+}
+
+
+
+/**
+ * load Audio File
+ * load() -> loadSound()
+ * -> return
+ * @param {string[]|string} urlList -
+ * @return {Object[]} - buffer[]
+ */
+
+let load = (urlList, callback = () => {}) => {
+    let bufferList = {}
+    let cnt = 0
+    let length = Object.keys(urlList).length
+    for (let key in urlList) {
+        loadSound(urlList[key], (buf) => {
+            bufferList[key] = buf
+            cnt++
+            if (cnt == length) {
+                callback(bufferList)
+            }
+        })
+    }
+}
+
+let loadSound = (url, callback = () => {}) => {
+    let request = new XMLHttpRequest()
+    request.open('GET', url, true)
+    request.responseType = 'arraybuffer'
+    request.onload = function() {
+        console.log('load')
+        context.decodeAudioData(request.response, function(buffer) {
+            callback(buffer)
+        }, (err) => {
+            console.log(err)
+        })
+    }
+    request.send()
+}
+
+},{"./../../player/log.js":160}],154:[function(require,module,exports){
 module.exports = (element) => {
     let text = {
         status: null,
@@ -21870,7 +22386,7 @@ module.exports = (element) => {
     return text
 }
 
-},{}],152:[function(require,module,exports){
+},{}],155:[function(require,module,exports){
 module.exports = (element) => {
     let s = new SwitchButton(element)
     s.create()
@@ -21953,7 +22469,7 @@ SwitchButton.prototype.onDopplerSwitch = function(callback = () => {}) {
     this.callDoppler = callback
 }
 
-},{}],153:[function(require,module,exports){
+},{}],156:[function(require,module,exports){
 const uuid = require('node-uuid')
 
 const Canvas = require('./../canvas/canvas.js')
@@ -21981,8 +22497,11 @@ let log = require('./../player/log.js')
 //     '裏': 'lib/image/card/裏.png'
 // }
 
-exports.start = (element, context, socket, clientTime, config) => {
-    // element.style.margin = '30px'
+exports.start = (canvas, context, socket, clientTime, config) => {
+
+    /**
+     * init
+     */
 
     let clientID = uuid.v4()
 
@@ -21992,21 +22511,30 @@ exports.start = (element, context, socket, clientTime, config) => {
         user: config.user
     })
 
-    // loginWindow.start(element, context, socket, clientTime, config)
-    let canvas = Canvas(element)
     let field = CardField(canvas, context)
-
     field.setClientID(clientID)
-    field.setClip(0, 0.3, 0.8, 0.8)
+    // field.setClip(0, 0.3, 0.8, 0.8)
 
-    // send
-    let bufferTime = 10
+
+    /**
+     * send object
+     */
+
+    let bufferTime = 30
     let sendObjectBuffer = []
     field.sendObjectInfo((sendObj, option) => {
         let start = (sendObjectBuffer.length == 0)
+        if (sendObj.events.length >= 1) {
+            start = true
+        }
+        if (!start) {
+            return
+        }
 
         sendObj.timestamp = Math.floor(clientTime.correctionToServerTime(sendObj.timestamp))
         sendObjectBuffer.push(sendObj)
+
+        // 自分の描画を高速に
         if (field.objects[sendObj.id]) {
             field.updateObjects(sendObj)
         }
@@ -22027,23 +22555,31 @@ exports.start = (element, context, socket, clientTime, config) => {
                 }
             })
         }
-        // if (Date.now() - lastEmitTime > timeout) {
-        //     sendObj.timestamp = Math.floor(clientTime.correctionToServerTime(sendObj.timestamp))
-        //     socket.emit(socketDir + 'sendObjectInfo', sendObj)
-        //     if (field.objects[sendObj.id]) {
-        //         field.updateObjects(sendObj)
-        //     }
-        //     lastEmitTime = Date.now()
-        // }
     })
+
+    /**
+     * catch Object
+     */
 
     socket.on(socketDir + 'sendObjectInfo', (objects) => {
         objects.forEach((obj) => {
-            obj.time = clientTime.correctionServerTime(obj.time)
-            obj.startTime = clientTime.correctionServerTime(obj.startTime)
+            // remove myObject
             if (field.objects[obj.id] && obj.clientID == clientID) {
                 return
             }
+
+            // card set
+            if (!field.isObject(obj.id)) {
+                let card = Card(obj.name)
+                card.id = obj.id
+                field.setObject(card)
+            }
+
+            // time correction
+            obj.time = clientTime.correctionServerTime(obj.time)
+            obj.startTime = clientTime.correctionServerTime(obj.startTime)
+
+            // update at time
             let date = new Date(obj.time)
             if (date <= Date.now()) {
                 field.updateObjects(obj)
@@ -22053,9 +22589,15 @@ exports.start = (element, context, socket, clientTime, config) => {
                 })
             }
         })
+
+        // sound Update
         field.updateSounds(objects)
     })
 
+
+    /**
+     * Key
+     */
 
     let moved = (x, y) => {
         field.mouseMoved(x, y)
@@ -22120,12 +22662,13 @@ exports.start = (element, context, socket, clientTime, config) => {
     }
 }
 
-},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":147,"./../card/objectField.js":149,"./../player/log.js":157,"./loginWindow.js":155,"node-uuid":173}],154:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":147,"./../card/objectField.js":150,"./../player/log.js":160,"./loginWindow.js":158,"node-uuid":176}],157:[function(require,module,exports){
 const uuid = require('node-uuid')
 
 const Canvas = require('./../canvas/canvas.js')
 const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
+const CardCase = require('./../card/objectCase.js')
 
 const Job = require('./../Job/cron.js')
 
@@ -22138,13 +22681,41 @@ const Main = require('./common.js')
 
 exports.start = (element, context, socket, clientTime, config) => {
     // element.style.margin = '30px'
-    let main = Main.start(element, context, socket, clientTime, config)
+    //
+    let canvas = Canvas(element)
+
+    let main = Main.start(canvas, context, socket, clientTime, config)
     let field = main.field
-    let canvas = main.canvas
+
+    let cardCase = CardCase()
+    cardCase.id = config.user + '_case'
+    cardCase.area.y = 100
+    cardCase.area.w = canvas.width
+    cardCase.push(Card('たくらみ'))
+    cardCase.push(Card('探偵'))
+    cardCase.push(Card('うわさ'), 50)
+    cardCase.render = (ctx) => {
+        cardCase.objects.forEach((object) => {
+            let obj = object.object
+            let posX = object.posX
+            let posY = object.posY
+            let temp = obj.icon
+            obj.x = posX
+            obj.y = posY
+            obj.icon = Card('裏').icon
+            obj.scale = 0.3
+            obj.draw(ctx)
+        })
+    }
+    field.setObjectCase(cardCase)
+
+    console.log(cardCase.objects)
+
     let card = Card('アリバイ')
 
-    card.x = canvas.width/2
-    card.y = canvas.height/2
+
+    card.x = canvas.width / 2
+    card.y = canvas.height / 2
     card.scale = 0.5
     field.sendObjectInfoToServer(card.output())
     field.setClip(0, 0, 0.5, 0.5)
@@ -22152,7 +22723,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     // field.rotate(Math.PI)
 }
 
-},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":147,"./../card/objectField.js":149,"./common.js":153,"node-uuid":173}],155:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":147,"./../card/objectCase.js":149,"./../card/objectField.js":150,"./common.js":156,"node-uuid":176}],158:[function(require,module,exports){
 const uuid = require('node-uuid')
 let HtmlText = require('./../html/html-text.js')
 let SelectList = require('./../../demo-common/html/select-list.js')
@@ -22254,7 +22825,7 @@ exports.start = (element, context, socket, clientTime, config) => {
 
 }
 
-},{"./../../demo-common/html/button-notification.js":161,"./../../demo-common/html/homeButton.js":162,"./../../demo-common/html/select-list.js":163,"./../html/html-text.js":151,"./../html/switchButton.js":152,"node-uuid":173}],156:[function(require,module,exports){
+},{"./../../demo-common/html/button-notification.js":164,"./../../demo-common/html/homeButton.js":165,"./../../demo-common/html/select-list.js":166,"./../html/html-text.js":154,"./../html/switchButton.js":155,"node-uuid":176}],159:[function(require,module,exports){
 const uuid = require('node-uuid')
 
 const player = require('./player.js')
@@ -22266,7 +22837,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     player.start(element, context, socket, clientTime, config)
 }
 
-},{"./player.js":158,"node-uuid":173}],157:[function(require,module,exports){
+},{"./player.js":161,"node-uuid":176}],160:[function(require,module,exports){
 let log
 exports.set = (element) => {
     log = document.createElement('p')
@@ -22280,12 +22851,13 @@ exports.text = (text) => {
     }
 }
 
-},{}],158:[function(require,module,exports){
+},{}],161:[function(require,module,exports){
 const uuid = require('node-uuid')
 
 const Canvas = require('./../canvas/canvas.js')
 const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
+const CardCase = require('./../card/objectCase.js')
 
 const Job = require('./../Job/cron.js')
 
@@ -22302,11 +22874,13 @@ exports.start = (element, context, socket, clientTime, config) => {
     // element.style.margin = '30px'
     log.set(element)
 
+    let canvas = Canvas(element)
+
     let start = false
-    let button = document.createElement('button')
-    button.setAttribute('class', 'btn btn-info')
-    button.innerHTML = 'start'
-    element.appendChild(button)
+    // let button = document.createElement('button')
+    // button.setAttribute('class', 'btn btn-info')
+    // button.innerHTML = 'start'
+    // element.appendChild(button)
 
 
     let loadSound = (url, callback = () => {}) => {
@@ -22314,7 +22888,6 @@ exports.start = (element, context, socket, clientTime, config) => {
         request.open('GET', url, true)
         request.responseType = 'arraybuffer'
         request.onload = function() {
-            console.log('load')
             context.decodeAudioData(request.response, function(buffer) {
                 callback(buffer)
             }, (err) => {
@@ -22323,35 +22896,43 @@ exports.start = (element, context, socket, clientTime, config) => {
         }
         request.send()
     }
-    button.onclick = () => {
-        context.createBufferSource().start(0)
-        button.innerHTML = 'sound on'
-        let url = 'lib/sound/notification-common.mp3'
-        loadSound(url, (buffer) => {
-            let source = context.createBufferSource()
-            source.buffer = buffer
-            source.connect(context.destination)
-            source.start(0)
 
-            let main = Main.start(element, context, socket, clientTime, config)
-            let field = main.field
-            let canvas = main.canvas
-            field.setClip(0, -0.5, 0.5, 0.5)
-            field.setLocalPosition(0, 0, canvas.width, canvas.height)
-            field.rotate(Math.PI)
+    canvas.addEventListener('mousedown', function(e) {
+        // context.createBufferSource().start(0)
+        if (!start) {
+            let url = 'lib/sound/notification-common.mp3'
+            loadSound(url, (buffer) => {
+                let source = context.createBufferSource()
+                source.buffer = buffer
+                source.connect(context.destination)
+                source.start(0)
 
-        })
+                let main = Main.start(canvas, context, socket, clientTime, config)
+                let field = main.field
 
-        // let note = field.syncPlay.createSyncSound('３音', Date.now(), null, (note) => {
-        //     console.log(note)
-        //     field.syncPlay.play(context.destination, note)
-        // })
-
-    }
+                if (config.user == 'up') {
+                    field.setClip(0, -0.5, 0.5, 0.5)
+                    field.rotate(Math.PI)
+                }
+                if (config.user == 'down') {
+                    field.setClip(0, 0.5, 0.5, 0.5)
+                }
+                if (config.user == 'left') {
+                    field.setClip(-0.5, 0, 0.5, 0.5)
+                    field.rotate(Math.PI/2)
+                }
+                if (config.user == 'right') {
+                    field.setClip(0.5, 0, 0.5, 0.5)
+                    field.rotate(-Math.PI/2)
+                }
+                field.setLocalPosition(0, 0, canvas.width, canvas.height)
+            })
+        }
+    })
 
 }
 
-},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":147,"./../card/objectField.js":149,"./../main/common.js":153,"./log.js":157,"node-uuid":173}],159:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":147,"./../card/objectCase.js":149,"./../card/objectField.js":150,"./../main/common.js":156,"./log.js":160,"node-uuid":176}],162:[function(require,module,exports){
 const SyncPlay = require('./sync-play.js')
 let syncPlay
 
@@ -22363,7 +22944,8 @@ let soundList = {
     // 'Cello': 'lib/sound/orchestra/beethoven/No5_Mov3_Cello.mp3',
     // 'DoubleBass': 'lib/sound/orchestra/beethoven/No5_Mov3_DoubleBass.mp3'
     '和風メロディ': 'lib/sound/wafuringtone.mp3',
-    'ウィンドチャイム': 'lib/sound/windchime.mp3'
+    'ウィンドチャイム': 'lib/sound/windchime.mp3',
+    'カード': 'lib/sound/wind1.mp3',
     // 'music': 'lib/sound/clock3.mp3',
     // 'voice': 'lib/sound/voice.mp3',
     // '太鼓': 'lib/sound/taiko.mp3',
@@ -22429,24 +23011,81 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
 
         syncSound.started((leftTime) => {})
 
-        let lastGain = {}
-        let setGain = (p) => {
+        let lastGainValue = null
+        let lastDoppler = null
+        let setEffect = (p) => {
+
+            let dist = Math.sqrt(p.gx * p.gx + p.gy * p.gy)
+
+            let st = syncSound.startTime
+            let soundTargetTime = p.time - syncSound.startDate
+            soundTargetTime = soundTargetTime > 0 ? soundTargetTime : 0
+
+            let diffDist = 0
+            let diffTime = 0
+            if (!lastDoppler) {
+                diffDist = 0
+                diffTime = soundTargetTime
+                lastDoppler = {
+                    time: p.time,
+                    dist: dist,
+                    velocity: 0,
+                    diffTime: diffTime,
+                    diffDist: 0,
+                    rate: 1.0
+                }
+            } else {
+                diffDist = (dist - lastDoppler.dist) / 2 + diffDist / 2
+                diffTime = p.time - lastDoppler.time
+                if (diffTime == 0) {
+                    return
+                }
+                // m
+                let areaDist = p.areaDist || 3
+                // m / ms
+                let vs = areaDist * diffDist / diffTime
+
+                // km/h
+                // vs = vs * 60 * 60 * 1000 / 1000
+                vs = vs * 3600
+
+                let rate = 340 / (340 - vs)
+
+                console.log(diffDist.toFixed(5), diffTime.toFixed(1), 'rate', rate.toFixed(4), 'vs', vs.toFixed(4))
+                syncSound.source.playbackRate.linearRampToValueAtTime(rate, st / 1000 + soundTargetTime / 1000)
+                lastDoppler = {
+                    time: p.time,
+                    dist: dist,
+                    velocity: vs,
+                    diffTime: diffTime,
+                    diffDist: diffDist,
+                    rate: rate
+                }
+            }
+
+            let vs = Math.abs(lastDoppler.velocity)
+            vs = vs > 3 ? 3 : vs
+            let volumeRate = vs / 3
             // dist
             // maxDist
             // time
-            let value = p.dist < p.maxDist ? 1.0 - p.dist / p.maxDist : 0
+            //
+            let value = 0
+            if (!lastGainValue) {
+                value = p.dist < p.maxDist ? 1.0 - p.dist / p.maxDist : 0
+                value = value * 0.1 + value * 0.9 * volumeRate
+            } else {
+                value = p.dist < p.maxDist ? 1.0 - p.dist / p.maxDist : 0
+                value = value / 2 + lastGainValue.value / 2
+                value = value * 0.3 + value * 0.7 * volumeRate
+            }
+            console.log(Math.abs(lastDoppler.velocity), volumeRate, value)
 
-            let st = syncSound.startTime
-            let startDate = syncSound.startDate
-            let t = p.time - startDate
-            let soundTime = st / 1000 + t / 1000
-            soundTime = soundTime > 0 ? soundTime : 0
             lastGainValue = {
                 value: value,
-                time: soundTime
+                time: soundTargetTime
             }
-            gainNode.gain.linearRampToValueAtTime(value, soundTime)
-
+            gainNode.gain.linearRampToValueAtTime(value, st / 1000 + soundTargetTime / 1000)
             // console.log(value)
             // let position = body.position || {}
             // objects.forEach((obj, i) => {
@@ -22464,7 +23103,15 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             // })
         }
 
-        let lastDoppler = null
+        let stop = () => {
+            let ct = syncPlay.getCurrentTime()
+            gainNode.gain.linearRampToValueAtTime(0, ct + 0.2)
+            setTimeout(() => {
+                syncSound.stop()
+            }, 200)
+        }
+
+
         let setDoppler = (p) => {
             // dist
             // maxDist
@@ -22474,49 +23121,6 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             // gx
             // gy
             // 単位時間あたりのDistの変化でいい？
-            let dist = Math.sqrt(p.gx * p.gx + p.gy * p.gy)
-            p.dist = dist
-
-            let st = syncSound.startTime
-            let soundTargetTime = p.time - syncSound.startDate
-
-            let diffDist = 0
-            let diffTime = 0
-            if (!lastDoppler) {
-                diffDist = 0
-                diffTime = soundTargetTime
-                lastDoppler = {
-                    time: p.time,
-                    dist: p.dist,
-                    diffTime: diffTime,
-                    diffDist: 0,
-                    rate: 1.0
-                }
-            } else {
-                diffDist = p.dist - lastDoppler.dist
-                diffTime = p.time - lastDoppler.time
-                // m
-                let areaDist = p.areaDist || 3
-                // m / ms
-                let vs = areaDist * diffDist / diffTime
-
-                // km/h
-                // vs = vs * 60 * 60 * 1000 / 1000
-                vs = vs * 3600
-
-                let rate = 340 / (340 - vs)
-
-                console.log(diffDist.toFixed(5), diffTime.toFixed(1), 'rate', rate.toFixed(4), 'vs', vs.toFixed(4))
-                syncSound.source.playbackRate.linearRampToValueAtTime(rate, st / 1000 + soundTargetTime / 1000)
-                lastDoppler = {
-                    time: p.time,
-                    dist: p.dist,
-                    diffTime: diffTime,
-                    diffDist: diffDist,
-                    rate: rate
-                }
-
-            }
 
 
 
@@ -22584,8 +23188,8 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             gainNode: gainNode,
             time: time,
             syncSound: syncSound,
-            setGain: setGain,
-            setDoppler: setDoppler
+            setEffect: setEffect,
+            stop: stop
         }
         call(returnObj)
     })
@@ -22594,7 +23198,7 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
 
 }
 
-},{"./../player/log.js":157,"./sync-play.js":160}],160:[function(require,module,exports){
+},{"./../player/log.js":160,"./sync-play.js":163}],163:[function(require,module,exports){
 let log = require('./../player/log.js')
 
 module.exports = (context) => {
@@ -22831,7 +23435,7 @@ let loadSound = (url, callback = () => {}) => {
     request.send()
 }
 
-},{"./../player/log.js":157}],161:[function(require,module,exports){
+},{"./../player/log.js":160}],164:[function(require,module,exports){
 module.exports = (element) => {
     let button = {
         test: null,
@@ -22871,7 +23475,7 @@ module.exports = (element) => {
     return button
 }
 
-},{}],162:[function(require,module,exports){
+},{}],165:[function(require,module,exports){
 // <button class="btn btn-default">Default</button>
 module.exports = (element, user) => {
     let p = document.createElement('p')
@@ -22906,7 +23510,7 @@ module.exports = (element, user) => {
 
 }
 
-},{}],163:[function(require,module,exports){
+},{}],166:[function(require,module,exports){
 // let div = null
 //
 // let selectStatus = {}
@@ -23118,7 +23722,7 @@ SelectList.prototype.check = function(targetName) {
 //     return null
 // }
 
-},{}],164:[function(require,module,exports){
+},{}],167:[function(require,module,exports){
 exports.userNameCheck = (user, callback = () => {}) => {
     if (!user || typeof user != 'string' || user == 'unknown') {
         module.exports.userNameInput(callback)
@@ -23152,7 +23756,7 @@ exports.userNameInput = (callback = () => {}, caution = '') => {
 
 }
 
-},{}],165:[function(require,module,exports){
+},{}],168:[function(require,module,exports){
 window.addEventListener('load', init, false)
 
 /*
@@ -23242,7 +23846,7 @@ function init() {
     }
 }
 
-},{"./board-game/main/index.js":154,"./board-game/player/index.js":156,"./demo-common/prompt.js":164,"./ntp-client.js":166,"./socket-client/index.js":167}],166:[function(require,module,exports){
+},{"./board-game/main/index.js":157,"./board-game/player/index.js":159,"./demo-common/prompt.js":167,"./ntp-client.js":169,"./socket-client/index.js":170}],169:[function(require,module,exports){
 let socket
 let dateDiff = 0
 
@@ -23369,7 +23973,7 @@ let emit = () => {
     }, 1000 * 1 + Math.floor((Math.random() * 500)))
 }
 
-},{}],167:[function(require,module,exports){
+},{}],170:[function(require,module,exports){
 // const io = require('socket.io-client')
 let url = 'http://192.168.144.110:8001'
 // let url = 'http://192.168.100.16:8001'
@@ -23418,7 +24022,7 @@ socket.on('disconnect', () => {
     call.emit('disconnect', url)
 })
 
-},{"./../../../exCall-module/simpleCall":178}],168:[function(require,module,exports){
+},{"./../../../exCall-module/simpleCall":181}],171:[function(require,module,exports){
 (function (root, factory) {
 	if (typeof define === 'function' && define.amd) {
 		define(['moment-timezone'], factory);
@@ -23960,7 +24564,7 @@ return exports;
 
 }));
 
-},{"child_process":44,"moment-timezone":170}],169:[function(require,module,exports){
+},{"child_process":44,"moment-timezone":173}],172:[function(require,module,exports){
 module.exports={
 	"version": "2017b",
 	"zones": [
@@ -24561,11 +25165,11 @@ module.exports={
 		"Pacific/Tarawa|Pacific/Wallis"
 	]
 }
-},{}],170:[function(require,module,exports){
+},{}],173:[function(require,module,exports){
 var moment = module.exports = require("./moment-timezone");
 moment.tz.load(require('./data/packed/latest.json'));
 
-},{"./data/packed/latest.json":169,"./moment-timezone":171}],171:[function(require,module,exports){
+},{"./data/packed/latest.json":172,"./moment-timezone":174}],174:[function(require,module,exports){
 //! moment-timezone.js
 //! version : 0.5.13
 //! Copyright (c) JS Foundation and other contributors
@@ -25168,7 +25772,7 @@ moment.tz.load(require('./data/packed/latest.json'));
 	return moment;
 }));
 
-},{"moment":172}],172:[function(require,module,exports){
+},{"moment":175}],175:[function(require,module,exports){
 //! moment.js
 //! version : 2.18.1
 //! authors : Tim Wood, Iskren Chernev, Moment.js contributors
@@ -29633,7 +30237,7 @@ return hooks;
 
 })));
 
-},{}],173:[function(require,module,exports){
+},{}],176:[function(require,module,exports){
 (function (Buffer){
 //     uuid.js
 //
@@ -29909,7 +30513,7 @@ return hooks;
 })('undefined' !== typeof window ? window : null);
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":46,"crypto":55}],174:[function(require,module,exports){
+},{"buffer":46,"crypto":55}],177:[function(require,module,exports){
 const CallbackChild = require('./CallbackChild.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -30087,7 +30691,7 @@ let keyCheck = (key) => {
     return key
 }
 
-},{"./CallOperator.js":176,"./CallbackChild.js":177}],175:[function(require,module,exports){
+},{"./CallOperator.js":179,"./CallbackChild.js":180}],178:[function(require,module,exports){
 /**
  * 一連の流れで連続するcallback
  * contextInfoを受け継ぐ
@@ -30243,7 +30847,7 @@ CallMeasure.prototype.Operator = function(num, next) {
     }
 }
 
-},{}],176:[function(require,module,exports){
+},{}],179:[function(require,module,exports){
 // CallOperator
 
 module.exports = (Child, num) => {
@@ -30263,7 +30867,7 @@ module.exports = (Child, num) => {
     }
 }
 
-},{}],177:[function(require,module,exports){
+},{}],180:[function(require,module,exports){
 const CallMeasure = require('./CallMeasure.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -30442,7 +31046,7 @@ CallbackChild.prototype.emit = function(...option) {
     callMeasure.start()
 }
 
-},{"./CallMeasure.js":175,"./CallOperator.js":176}],178:[function(require,module,exports){
+},{"./CallMeasure.js":178,"./CallOperator.js":179}],181:[function(require,module,exports){
 module.exports = require('./Call/Call.js')()
 
-},{"./Call/Call.js":174}]},{},[165]);
+},{"./Call/Call.js":177}]},{},[168]);

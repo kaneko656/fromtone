@@ -11,7 +11,7 @@ module.exports = (icon) => {
         y: 0,
         scale: 1.0,
         isSync: false,
-        event: 'e',
+        events: [],
         // over: false,
         isMove: false,
         isOtherMove: false,
@@ -52,10 +52,12 @@ module.exports = (icon) => {
                 type: obj.type,
                 x: obj.x,
                 y: obj.y,
-                event: obj.event,
+                events: [].concat(obj.events),
                 // scale: obj.scale,
                 isSync: obj.isSync
             }
+
+            obj.events = []
             return out
         },
         update: (upObj) => {
@@ -64,7 +66,7 @@ module.exports = (icon) => {
               obj.y = upObj.y
               // obj.scale = obj.scale
               obj.isSync = upObj.isSync
-              obj.event = upObj.event
+              // obj.events = [].concat(upObj.events)
             }
         }
     }
