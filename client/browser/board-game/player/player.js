@@ -11,7 +11,7 @@ const Job = require('./../Job/cron.js')
 let socketDir = 'board_game_'
 let socketType = 'board_game'
 
-const Main = require('./../main/index.js')
+const Main = require('./../main/common.js')
 
 exports.start = (element, context, socket, clientTime, config) => {
     // element.style.margin = '30px'

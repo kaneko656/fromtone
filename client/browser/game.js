@@ -45,6 +45,13 @@ function init() {
     ntp.setSocket(socket)
     ntp_status.innerHTML = '...<br>...'
 
+    ntp_status.addEventListener('touchstart', function(event) {
+        context.createBufferSource().start(0)
+        ntp_status.innerHTML = 'tounch'
+    })
+
+
+
     ntp.getDiff((dif) => {
         let text = 'offset time: ' + (dif.offset).toFixed(1) + 'ms  　trans delay: ' + (dif.delay).toFixed(1) + 'ms<br>'
         text += 'correctionTime: ' + (dif.correctionTime).toFixed(1) + 'ms ==? ' + (dif.temp_delay).toFixed(1) + 'ms  (temporary delay)'

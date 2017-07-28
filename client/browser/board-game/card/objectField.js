@@ -1,5 +1,6 @@
 const GlobalPosition = require('./position.js')
 const SoundManager = require('./../sound/soundManager.js')
+const Card = require('./../card/cardList.js')
 
 module.exports = (canvas, context) => {
     return new Field(canvas, context)
@@ -7,6 +8,7 @@ module.exports = (canvas, context) => {
 
 function Field(canvas, context) {
     this.canvas = canvas
+    this.context = context
     this.clientID = ''
     this.center = {
         x: canvas.width / 2,
@@ -54,7 +56,7 @@ Field.prototype.setClientID = function(clientID) {
 Field.prototype.setObject = function(obj) {
     let id = obj.id
     this.objects[id] = obj
-    let encodePosition = this.clip.encodeToLocal(obj.x, obj.y)
+    let encodePosition = this.clip.encodeToLocal(obj.gx, obj.gy)
     this.objects[id].x = encodePosition.x
     this.objects[id].y = encodePosition.y
 
@@ -72,21 +74,47 @@ Field.prototype.updateObjects = function(objects) {
         objects.push(temp)
     }
     objects.forEach((obj) => {
+        console.log(obj)
         let id = obj.id
         if (this.objects[id]) {
-            let encodePosition = this.clip.encodeToLocal(obj.x, obj.y)
+            let encodePosition = this.clip.encodeToLocal(obj.gx, obj.gy)
             obj.x = encodePosition.x
             obj.y = encodePosition.y
             this.objects[id].update(obj)
-            console.log(id, obj.name, 'update')
+            // console.log(id, obj.name, 'update')
+        } else {
+            // sound
+            if (obj.type == 'card') {
+                let card = Card(obj.name)
+                card.id = obj.id
+                this.setObject(card)
+
+                // sound
+                this.startSound(obj.id, 'ウィンドチャイム', obj.startTime, {
+                    loop: true
+                })
+
+                this.updateObjects(obj)
+            }
         }
     })
     this.render()
 }
 
-Field.prototype.startSound = function(id, bufferName) {
+Field.prototype.startSound = function(id, bufferName, startTime, option = {}) {
     // sound
-    this.sounds[id] = SoundManager.play('ウィンドチャイム', Date.now(), 0, true)
+    let now = Date.now()
+    let field = this
+    if (startTime < now) {
+        SoundManager.play(bufferName, now, (now - startTime), option, (sound) => {
+            field.sounds[id] = sound
+        })
+    } else {
+        SoundManager.play(bufferName, startTime, 0, option, (sound) => {
+            field.sounds[id] = sound
+        })
+    }
+
 }
 
 Field.prototype.updateSounds = function(objects) {
@@ -95,14 +123,15 @@ Field.prototype.updateSounds = function(objects) {
         objects = []
         objects.push(temp)
     }
+    let field = this
     objects.forEach((obj) => {
         let id = obj.id
-        if (this.sounds[id]) {
-            let p = this.clip.getPositionInfo(obj.x, obj.y)
+        if (field.sounds[id]) {
+            let p = this.clip.getPositionInfo(obj.gx, obj.gy)
             p.time = obj.time
             p.areaDist = this.areaDist
-            this.sounds[id].setGain(p)
-            this.sounds[id].setDoppler(p)
+            field.sounds[id].setGain(p)
+            field.sounds[id].setDoppler(p)
         }
     })
 }
@@ -123,10 +152,12 @@ Field.prototype.render = function() {
 
 
 Field.prototype.mousePressed = function(x, y) {
+    this.context.createBufferSource().start(0)
     for (let id in this.objects) {
         let obj = this.objects[id]
         if (!obj.isOtherMove && obj.isOver(x, y)) {
             obj.isSync = true
+            obj.isMove = true
             obj.click()
             break
         }
@@ -137,7 +168,7 @@ Field.prototype.mousePressed = function(x, y) {
 Field.prototype.mouseReleased = function(x, y) {
     for (let id in this.objects) {
         let obj = this.objects[id]
-        if (!obj.isOtherMove && obj.isSync) {
+        if (!obj.isOtherMove && obj.isMove) {
             // obj.x = x
             // obj.y = y
             obj.isMove = false
@@ -153,7 +184,7 @@ Field.prototype.mouseReleased = function(x, y) {
 
 Field.prototype.mouseMoved = function(x, y) {
     for (let id in this.objects) {
-        if (this.objects[id].isSync) {
+        if (this.objects[id].isMove) {
             let obj = this.objects[id]
             let out = this.objects[id].output()
             obj.over = true
@@ -172,8 +203,8 @@ Field.prototype.sendObjectInfo = function(callback = () => {}) {
 
 Field.prototype.sendObjectInfoToServer = function(sendObj, release) {
     let globalPos = this.clip.encodeToGloval(sendObj.x, sendObj.y)
-    sendObj.x = globalPos.x
-    sendObj.y = globalPos.y
+    sendObj.gx = globalPos.x
+    sendObj.gy = globalPos.y
     sendObj.clientID = this.clientID
     sendObj.timestamp = Date.now()
     // console.log(sendObj)

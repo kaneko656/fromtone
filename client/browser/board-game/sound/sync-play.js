@@ -24,18 +24,18 @@ SyncPlay.prototype.getCurrentTime = function() {
     return this.context.currentTime
 }
 
-
+let finishLoad = () => {}
 SyncPlay.prototype.loadBuffer = function(audioUrlList, callback = () => {}) {
     audioUrlList = audioUrlList || this.audioUrlList
     load(audioUrlList, (bufferList) => {
         this.buffer = bufferList
         callback()
+        finishLoad()
     })
 }
 
-SyncPlay.prototype.createSyncSound = function(sourceName, startDate, offset) {
+SyncPlay.prototype.createSyncSound = function(sourceName, startDate, offset, call = () => {}) {
     let leftTime = startDate - Date.now()
-
     let call_start = []
     let call_finish = []
     let call_stop = []
@@ -54,6 +54,7 @@ SyncPlay.prototype.createSyncSound = function(sourceName, startDate, offset) {
             if (!syncSound.buffer) {
                 return
             }
+            console.log(syncSound)
             let currentTime = syncPlay.context.currentTime
             // ms
             let leftStartTime = syncSound.startTime - currentTime * 1000
@@ -110,23 +111,34 @@ SyncPlay.prototype.createSyncSound = function(sourceName, startDate, offset) {
     // set buffer & source
     let source = context.createBufferSource()
     let buffer = this.buffer[sourceName] || null
+
+    let sourceProcess = function() {
+        source.buffer = buffer
+        syncSound.buffer = buffer
+        syncSound.source = source
+
+        // set startTime
+        let ct = this.context.currentTime * 1000 // sec -> ms
+        syncSound.startTime = ct + leftTime
+
+        // If undefined, set duration
+        if (!syncSound.duration) {
+            syncSound.duration = syncSound.buffer.duration * 1000 // sec -> ms
+        }
+        call(syncSound)
+    }
+
     if (!buffer) {
         console.log('error this.buffer[sourceName] sync-play.js')
-    }
-    source.buffer = buffer
-    syncSound.buffer = buffer
-    syncSound.source = source
-
-    // set startTime
-    let ct = this.context.currentTime * 1000 // sec -> ms
-    syncSound.startTime = ct + leftTime
-
-    // If undefined, set duration
-    if (!syncSound.duration) {
-        syncSound.duration = syncSound.buffer.duration * 1000 // sec -> ms
+        finishLoad = () => {
+            buffer = this.buffer[sourceName] || null
+            sourceProcess()
+        }
+    } else {
+        sourceProcess()
     }
 
-    return syncSound
+    // return syncSound
 }
 
 SyncPlay.prototype.preConnect = function(destination, syncSound) {

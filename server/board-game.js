@@ -94,12 +94,34 @@ exports.start = (socket, disconnect, _serverTime) => {
         })
     }
 
+    let objectStartTime = {}
+    let objectLastTime = {}
+    let timeout = 15000
+
     socket.on(socketDir + 'sendObjectInfo', (body) => {
+
+
+
         let start = (objectInfoBuffer.length == 0)
         objectInfoBuffer.push(body)
-        body.time = body.timestamp ? body.timestamp : serverTime()
-        console.log(body.timestamp, serverTime()) 
+        body.time = body.timestamp ? Math.floor(body.timestamp) : serverTime()
+        // console.log(body.timestamp, serverTime())
         body.time += bufferTime
+
+        // startTime
+        if (!objectStartTime[body.id] || !objectLastTime[body.id]) {
+            objectStartTime[body.id] = body.time
+            objectLastTime[body.id] = body.time
+            body.startTime = body.time
+        } else if (objectLastTime[body.id] - serverTime() > timeout) {
+            objectStartTime[body.id] = body.time
+            objectLastTime[body.id] = body.time
+            body.startTime = body.time
+        } else {
+            objectLastTime[body.id] = body.time
+            body.startTime = objectStartTime[body.id]
+        }
+
         let now = new Date()
         let date1 = new Date(Math.floor(now.getTime() / bufferTime) * bufferTime + bufferTime)
         let date2 = new Date(Math.floor(now.getTime() / bufferTime) * bufferTime + bufferTime * 2)
@@ -107,6 +129,10 @@ exports.start = (socket, disconnect, _serverTime) => {
             newJob(date1, () => {
 
                 if (objectInfoBuffer.length >= 1) {
+                    // objectInfoBuffer.forEach((body, i) => {
+                    //     console.log(i, body.clientID)
+                    //     console.log(body.x, body.y)
+                    // })
                     emitAllClient(socketDir + 'sendObjectInfo', objectInfoBuffer)
                     objectInfoBuffer = []
                 }
@@ -114,6 +140,10 @@ exports.start = (socket, disconnect, _serverTime) => {
 
             newJob(date2, () => {
                 if (objectInfoBuffer.length >= 1) {
+                    // objectInfoBuffer.forEach((body, i) => {
+                    //     console.log(i, body.clientID)
+                    //     console.log(body.x, body.y)
+                    // })
                     emitAllClient(socketDir + 'sendObjectInfo', objectInfoBuffer)
                     objectInfoBuffer = []
                 }

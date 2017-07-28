@@ -3,6 +3,7 @@ module.exports = (icon) => {
     let obj = {
         name: 'default',
         id: 'id',
+        type: ['unknown'],
         icon: icon,
         w: icon.width,
         h: icon.height,
@@ -48,6 +49,7 @@ module.exports = (icon) => {
             let out = {
                 name: obj.name,
                 id: obj.id,
+                type: obj.type,
                 x: obj.x,
                 y: obj.y,
                 // scale: obj.scale,
