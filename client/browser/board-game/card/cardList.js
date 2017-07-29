@@ -33,6 +33,6 @@ module.exports = (cardName) => {
     let card = Card(icon)
     card.name = cardName
     card.id = cardName
-    card.type = 'card'
+    card.types.push('card')
     return card
 }

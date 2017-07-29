@@ -26,6 +26,7 @@ function Field(canvas, context) {
 
     this.sounds = {}
     this.objects = {}
+    this.localObjects = {}
     this.objectCase = {}
 
     this.syncPlay = SoundManager.init(context)
@@ -75,8 +76,8 @@ Field.prototype.setObject = function(obj) {
     this.objects[id].icon.onload = function() {
         field.render()
     }
-    if (this.objects[id].type == 'card') {
-        this.objects[id].scale = (this.canvas.width / 10) / this.objects[id].w
+    if (this.objects[id].types.indexOf('card') >= 0) {
+        this.objects[id].scale = (this.canvas.width / 5) / this.objects[id].w
     }
 }
 
@@ -89,6 +90,17 @@ Field.prototype.isObject = function(id) {
         return true
     }
     return false
+}
+
+Field.prototype.setLocalObject = function(obj) {
+    let id = obj.id
+    let field = this
+    this.localObjects[id] = obj
+    field.render()
+}
+
+Field.prototype.removeLocalObject = function(id) {
+    delete this.localObjects[id]
 }
 
 /**
@@ -112,7 +124,7 @@ Field.prototype.updateObjects = function(objects) {
         } else {
 
             // card
-            if (obj.type == 'card') {
+            if (obj.types.indexOf('card') >= 0) {
                 let card = Card(obj.name)
                 card.id = obj.id
                 this.setObject(card)
@@ -166,7 +178,7 @@ Field.prototype.updateSounds = function(objects) {
                 field.sounds[id].setEffect(p)
             }
         } else {
-            if (obj.events.indexOf('sound_start')) {
+            if (obj.events.indexOf('sound_start') >= 0) {
                 // sound
                 this.startSound(obj.id, 'カード', obj.startTime, {
                     loop: true
@@ -189,8 +201,10 @@ Field.prototype.render = function() {
     // Draw points onto the canvas element.
     var ctx = this.canvas.getContext('2d')
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-
+    ctx.beginPath()
     ctx.save()
+
+
 
     for (let id in this.objectCase) {
         this.objectCase[id].render(ctx)
@@ -198,9 +212,17 @@ Field.prototype.render = function() {
     for (let id in this.objects) {
         this.objects[id].draw(ctx)
     }
+    for (let id in this.localObjects) {
+        this.localObjects[id].draw(ctx)
+    }
+
+    this.flexibleDraw(ctx, this)
 
     ctx.restore()
 }
+
+//  override
+Field.prototype.flexibleDraw = function() {}
 
 
 Field.prototype.mousePressed = function(x, y) {
@@ -209,9 +231,11 @@ Field.prototype.mousePressed = function(x, y) {
      * Object (Card)
      */
     // this.context.createBufferSource().start(0)
+    let isObjMove = false
     for (let id in this.objects) {
         let obj = this.objects[id]
         if (!obj.isOtherMove && obj.isOver(x, y)) {
+            isObjMove = true
             obj.isSync = true
             obj.isMove = true
             obj.click()
@@ -221,6 +245,29 @@ Field.prototype.mousePressed = function(x, y) {
             break
         }
     }
+    if (!isObjMove) {
+        for (let id in this.objectCase) {
+            let objCase = this.objectCase[id]
+            let n = objCase.isOver(x, y)
+            if (n >= 0) {
+                let obj = objCase.pop(n)
+                let out = obj.output()
+                out.events.push('pop_case')
+                this.sendObjectInfoToServer(out, true)
+                console.log(obj)
+            }
+        }
+
+        for (let id in this.localObjects) {
+            let obj = this.localObjects[id]
+            if (obj.isOver(x, y)) {
+                obj.isMove = true
+                obj.click()
+                break
+            }
+        }
+    }
+    this.flexiblePressed(x,y, this)
 }
 
 
@@ -230,20 +277,38 @@ Field.prototype.mouseReleased = function(x, y) {
      * Object (Card)
      */
 
+    let isObjMove = false
     for (let id in this.objects) {
         let obj = this.objects[id]
         if (!obj.isOtherMove && obj.isMove) {
-            // obj.x = x
-            // obj.y = y
+            isObjMove = true
             obj.isMove = false
             obj.over = false
             obj.isSync = false
             let out = obj.output()
             out.events.push('sound_stop')
             this.sendObjectInfoToServer(out, true)
+
+            for (let id in this.objectCase) {
+                let objCase = this.objectCase[id]
+                let n = objCase.isOver(x, y)
+                if (n >= 0) {
+                    objCase.push(obj)
+                }
+            }
+
         }
     }
 
+    for (let id in this.localObjects) {
+        let obj = this.localObjects[id]
+        if (obj.isMove) {
+            obj.isMove = false
+            obj.release()
+            break
+        }
+    }
+    this.flexibleReleased(x,y, this)
     this.render()
 }
 
@@ -263,8 +328,26 @@ Field.prototype.mouseMoved = function(x, y) {
             this.sendObjectInfoToServer(out, true)
         }
     }
+
+    for (let id in this.localObjects) {
+        let obj = this.localObjects[id]
+        if (obj.isMove) {
+            obj.x = x
+            obj.y = y
+            obj.move()
+            break
+        }
+    }
+    this.flexibleMoved(x,y, this)
     this.render()
 }
+
+//  override
+Field.prototype.flexiblePressed = function() {}
+
+Field.prototype.flexibleReleased = function() {}
+
+Field.prototype.flexibleMoved = function() {}
 
 
 Field.prototype.sendObjectInfo = function(callback = () => {}) {

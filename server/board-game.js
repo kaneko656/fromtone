@@ -38,7 +38,6 @@ exports.start = (socket, disconnect, _serverTime) => {
 
     let id = ''
     socket.on(socketDir + 'register', (body) => {
-        console.log(body)
         id = body.id || 'null'
         clientList[id] = {
             id: id,

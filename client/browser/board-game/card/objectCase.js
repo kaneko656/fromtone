@@ -1,5 +1,5 @@
 const GlobalPosition = require('./position.js')
-const SoundManager = require('./../sound/soundManager.js')
+const SoundManager = require('./sound/soundManager.js')
 const Card = require('./../card/cardList.js')
 
 let log = require('./../player/log.js')
@@ -34,7 +34,7 @@ ObjectCase.prototype.push = function(object, posX = 0) {
 }
 
 ObjectCase.prototype.pop = function(num) {
-    let obj = this.objects[num].objects
+    let obj = this.objects[num].object
     this.objects.splice(num, 1)
     this.sort()
     return obj
@@ -56,11 +56,13 @@ ObjectCase.prototype.sort = function() {
 ObjectCase.prototype.isOver = function(x, y) {
     let a = this.area
     let over = (a.x <= x && x <= a.x + a.w && a.y <= y && y <= a.y + a.h)
-    if (over) {
+    if (over && this.objects.length >= 1) {
         let interval = this.area.w / this.objects.length
         let num = Math.floor((x - a.x) / interval)
         num = num < this.objects.length ? num : this.objects.length - 1
         return num
+    } else if (over) {
+        return 0.9
     }
     return -1
 }

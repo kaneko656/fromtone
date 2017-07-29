@@ -37,6 +37,17 @@ exports.correctionTime = () => {
     return -dateDiff
 }
 
+exports.restart = () => {
+    isRestart = true
+    buffer = []
+    buffer_head = 0
+    isFirstBuffer = true
+    average_delay = 0
+    average_offset = 0
+    stableCheckNum = 0
+    emit()
+}
+
 
 // 最初の10回は平均を取る
 // 以降は平均よりdelayが大きい値は無視
@@ -48,6 +59,9 @@ let buffer_max = 10
 let isFirstBuffer = true
 let average_delay = 0
 let average_offset = 0
+let stableCheckNum = 0
+let stopCheckNum = 10
+let isRestart = false
 let smoothing = (obj) => {
     if (isFirstBuffer && buffer_head < buffer_max) {
         buffer.push(obj)
@@ -60,7 +74,14 @@ let smoothing = (obj) => {
         if (obj.delay < average_delay) {
             buffer[buffer_head] = obj
             buffer_head++
-        }else{
+        } else {
+            stableCheckNum++
+            if (isRestart && stableCheckNum == stopCheckNum) {
+                dateDiff = average_offset
+            }
+            if (stableCheckNum == stopCheckNum) {
+                console.log('ntp stable', dateDiff)
+            }
             return
         }
     }
@@ -93,7 +114,9 @@ let setAverage = (buf) => {
         average_offset = offset / length
         average_delay = delay / length
     }
-    dateDiff = average_offset
+    if (!isRestart) {
+        dateDiff = average_offset
+    }
 }
 
 
@@ -120,6 +143,8 @@ let emit = () => {
         socket.emit('ntp_server', {
             send: send
         })
-        emit()
-    }, 1000 * 1 + Math.floor((Math.random() * 500)))
+        if (stableCheckNum < stopCheckNum) {
+            emit()
+        }
+    }, 300 * 1 + Math.floor((Math.random() * 200)))
 }

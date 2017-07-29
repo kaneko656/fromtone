@@ -7,6 +7,7 @@ window.addEventListener('load', init, false)
 
 let socket = require('./socket-client/index.js')
 let ntp = require('./ntp-client.js')
+let connect = require('./connect.js')
 
 
 function init() {
@@ -30,32 +31,37 @@ function init() {
     console.log(demo_type)
 
     // common
-    let websokcet_status = document.getElementById('websocket_status')
-    websokcet_status.style.margin = '30px'
+      connect.set('socket_status', {
+        connect: false,
+        url: ''
+    })
     socket.call.on('connect', (operator, url) => {
-        console.log(operator, url)
-        websokcet_status.innerHTML = 'WebSocket: connect　' + url
+        console.log('connect', url)
+        connect.set('socket_status', {
+            connect: true,
+            url: url
+        })
     })
     socket.call.on('disconnect', (operator, url) => {
-        websokcet_status.innerHTML = 'WebSocket: disconnect　' + url
+        connect.set('socket_status', {
+            connect: false,
+            url: url
+        })
     })
 
-    let ntp_status = document.getElementById('ntp_status')
-    ntp_status.style.margin = '30px'
+
     ntp.setSocket(socket)
-    ntp_status.innerHTML = '...<br>...'
-
-    ntp_status.addEventListener('touchstart', function(event) {
-        context.createBufferSource().start(0)
-        ntp_status.innerHTML = 'tounch'
-    })
-
-
-
+    let restartTime = 60000
+    let lastStartTime = Date.now()
     ntp.getDiff((dif) => {
         let text = 'offset time: ' + (dif.offset).toFixed(1) + 'ms  　trans delay: ' + (dif.delay).toFixed(1) + 'ms<br>'
         text += 'correctionTime: ' + (dif.correctionTime).toFixed(1) + 'ms ==? ' + (dif.temp_delay).toFixed(1) + 'ms  (temporary delay)'
-        ntp_status.innerHTML = text
+        dif.text = text
+        connect.set('ntp_status', dif)
+        if (Date.now() - lastStartTime > restartTime) {
+            lastStartTime = Date.now()
+            ntp.restart()
+        }
     })
 
     if (demo_type == 'board-game') {
@@ -68,7 +74,7 @@ function init() {
         let inputUserName = require('./demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {
             config.user = user
-            game.start(document.getElementById('canvas'), context, socket, ntp, config)
+            game.start(document.getElementById('wrap'), context, socket, ntp, config)
         })
     }
 
@@ -82,7 +88,7 @@ function init() {
         let inputUserName = require('./demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {
             config.user = user
-            game.start(document.getElementById('canvas'), context, socket, ntp, config)
+            game.start(document.getElementById('wrap'), context, socket, ntp, config)
         })
     }
 }

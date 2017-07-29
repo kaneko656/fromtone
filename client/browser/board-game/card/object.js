@@ -1,9 +1,11 @@
 module.exports = (icon) => {
     let callClick = () => {}
+    let callMove = () => {}
+    let callRelease = () => {}
     let obj = {
         name: 'default',
         id: 'id',
-        type: ['unknown'],
+        types: [],
         icon: icon,
         w: icon.width,
         h: icon.height,
@@ -33,6 +35,18 @@ module.exports = (icon) => {
         click: () => {
             callClick(obj.name)
         },
+        moved: (callback) => {
+            callMove = callback
+        },
+        move: () => {
+            callMove(obj.name)
+        },
+        released: (callback) => {
+            callRelease = callback
+        },
+        release: () => {
+            callRelease(obj.name)
+        },
         draw: (ctx) => {
             if (obj.isChild) {
                 obj.x = obj.parentObject.x + obj.childPosition.x * obj.canvasW
@@ -42,14 +56,18 @@ module.exports = (icon) => {
             ctx.translate(obj.x, obj.y)
             // image
             ctx.scale(obj.scale, obj.scale)
-            ctx.drawImage(obj.icon, -obj.w / 2, -obj.h / 2, obj.w, obj.h)
+            if (obj.icon) {
+                ctx.drawImage(obj.icon, -obj.w / 2, -obj.h / 2, obj.w, obj.h)
+            }
+            obj.flexibleDraw(ctx, obj)
             ctx.restore()
         },
+        flexibleDraw: () => {},
         output: () => {
             let out = {
                 name: obj.name,
                 id: obj.id,
-                type: obj.type,
+                types: [].concat(obj.types),
                 x: obj.x,
                 y: obj.y,
                 events: [].concat(obj.events),
@@ -61,12 +79,12 @@ module.exports = (icon) => {
             return out
         },
         update: (upObj) => {
-            if(upObj.id == obj.id){
-              obj.x = upObj.x
-              obj.y = upObj.y
-              // obj.scale = obj.scale
-              obj.isSync = upObj.isSync
-              // obj.events = [].concat(upObj.events)
+            if (upObj.id == obj.id) {
+                obj.x = upObj.x
+                obj.y = upObj.y
+                // obj.scale = obj.scale
+                obj.isSync = upObj.isSync
+                obj.types = [].concat(upObj.types)
             }
         }
     }

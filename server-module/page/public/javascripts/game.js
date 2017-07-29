@@ -21372,7 +21372,7 @@ module.exports = (onTick, callback, start = true) => {
     })
 }
 
-},{"cron":171}],146:[function(require,module,exports){
+},{"cron":174}],146:[function(require,module,exports){
 
 module.exports = (element) => {
     var canvas = document.createElement('canvas')
@@ -21385,6 +21385,26 @@ module.exports = (element) => {
 }
 
 },{}],147:[function(require,module,exports){
+module.exports = (element, widthRate = 1, heightRate = 1) => {
+    let canvas = document.createElement('canvas')
+    canvas.display = 'block'
+    element.appendChild(canvas)
+    // let size = width < height ? width : height
+    sizing()
+
+    function sizing() {
+        canvas.height = element.offsetHeight * heightRate
+        canvas.width = element.offsetWidth * widthRate
+    }
+
+    window.addEventListener('resize', function() {
+        (!window.requestAnimationFrame) ? setTimeout(sizing, 300): window.requestAnimationFrame(sizing)
+    })
+
+    return canvas
+}
+
+},{}],148:[function(require,module,exports){
 const Card = require('./object.js')
 
 const cardList = {
@@ -21420,17 +21440,19 @@ module.exports = (cardName) => {
     let card = Card(icon)
     card.name = cardName
     card.id = cardName
-    card.type = 'card'
+    card.types.push('card')
     return card
 }
 
-},{"./object.js":148}],148:[function(require,module,exports){
+},{"./object.js":149}],149:[function(require,module,exports){
 module.exports = (icon) => {
     let callClick = () => {}
+    let callMove = () => {}
+    let callRelease = () => {}
     let obj = {
         name: 'default',
         id: 'id',
-        type: ['unknown'],
+        types: [],
         icon: icon,
         w: icon.width,
         h: icon.height,
@@ -21460,6 +21482,18 @@ module.exports = (icon) => {
         click: () => {
             callClick(obj.name)
         },
+        moved: (callback) => {
+            callMove = callback
+        },
+        move: () => {
+            callMove(obj.name)
+        },
+        released: (callback) => {
+            callRelease = callback
+        },
+        release: () => {
+            callRelease(obj.name)
+        },
         draw: (ctx) => {
             if (obj.isChild) {
                 obj.x = obj.parentObject.x + obj.childPosition.x * obj.canvasW
@@ -21469,14 +21503,18 @@ module.exports = (icon) => {
             ctx.translate(obj.x, obj.y)
             // image
             ctx.scale(obj.scale, obj.scale)
-            ctx.drawImage(obj.icon, -obj.w / 2, -obj.h / 2, obj.w, obj.h)
+            if (obj.icon) {
+                ctx.drawImage(obj.icon, -obj.w / 2, -obj.h / 2, obj.w, obj.h)
+            }
+            obj.flexibleDraw(ctx, obj)
             ctx.restore()
         },
+        flexibleDraw: () => {},
         output: () => {
             let out = {
                 name: obj.name,
                 id: obj.id,
-                type: obj.type,
+                types: [].concat(obj.types),
                 x: obj.x,
                 y: obj.y,
                 events: [].concat(obj.events),
@@ -21488,21 +21526,21 @@ module.exports = (icon) => {
             return out
         },
         update: (upObj) => {
-            if(upObj.id == obj.id){
-              obj.x = upObj.x
-              obj.y = upObj.y
-              // obj.scale = obj.scale
-              obj.isSync = upObj.isSync
-              // obj.events = [].concat(upObj.events)
+            if (upObj.id == obj.id) {
+                obj.x = upObj.x
+                obj.y = upObj.y
+                // obj.scale = obj.scale
+                obj.isSync = upObj.isSync
+                obj.types = [].concat(upObj.types)
             }
         }
     }
     return obj
 }
 
-},{}],149:[function(require,module,exports){
+},{}],150:[function(require,module,exports){
 const GlobalPosition = require('./position.js')
-const SoundManager = require('./../sound/soundManager.js')
+const SoundManager = require('./sound/soundManager.js')
 const Card = require('./../card/cardList.js')
 
 let log = require('./../player/log.js')
@@ -21537,7 +21575,7 @@ ObjectCase.prototype.push = function(object, posX = 0) {
 }
 
 ObjectCase.prototype.pop = function(num) {
-    let obj = this.objects[num].objects
+    let obj = this.objects[num].object
     this.objects.splice(num, 1)
     this.sort()
     return obj
@@ -21559,11 +21597,13 @@ ObjectCase.prototype.sort = function() {
 ObjectCase.prototype.isOver = function(x, y) {
     let a = this.area
     let over = (a.x <= x && x <= a.x + a.w && a.y <= y && y <= a.y + a.h)
-    if (over) {
+    if (over && this.objects.length >= 1) {
         let interval = this.area.w / this.objects.length
         let num = Math.floor((x - a.x) / interval)
         num = num < this.objects.length ? num : this.objects.length - 1
         return num
+    } else if (over) {
+        return 0.9
     }
     return -1
 }
@@ -21572,7 +21612,7 @@ ObjectCase.prototype.render = function() {
 
 }
 
-},{"./../card/cardList.js":147,"./../player/log.js":160,"./../sound/soundManager.js":162,"./position.js":151}],150:[function(require,module,exports){
+},{"./../card/cardList.js":148,"./../player/log.js":164,"./position.js":152,"./sound/soundManager.js":153}],151:[function(require,module,exports){
 const GlobalPosition = require('./position.js')
 const SoundManager = require('./sound/soundManager.js')
 const Card = require('./../card/cardList.js')
@@ -21601,6 +21641,7 @@ function Field(canvas, context) {
 
     this.sounds = {}
     this.objects = {}
+    this.localObjects = {}
     this.objectCase = {}
 
     this.syncPlay = SoundManager.init(context)
@@ -21650,8 +21691,8 @@ Field.prototype.setObject = function(obj) {
     this.objects[id].icon.onload = function() {
         field.render()
     }
-    if (this.objects[id].type == 'card') {
-        this.objects[id].scale = (this.canvas.width / 10) / this.objects[id].w
+    if (this.objects[id].types.indexOf('card') >= 0) {
+        this.objects[id].scale = (this.canvas.width / 5) / this.objects[id].w
     }
 }
 
@@ -21664,6 +21705,17 @@ Field.prototype.isObject = function(id) {
         return true
     }
     return false
+}
+
+Field.prototype.setLocalObject = function(obj) {
+    let id = obj.id
+    let field = this
+    this.localObjects[id] = obj
+    field.render()
+}
+
+Field.prototype.removeLocalObject = function(id) {
+    delete this.localObjects[id]
 }
 
 /**
@@ -21687,7 +21739,7 @@ Field.prototype.updateObjects = function(objects) {
         } else {
 
             // card
-            if (obj.type == 'card') {
+            if (obj.types.indexOf('card') >= 0) {
                 let card = Card(obj.name)
                 card.id = obj.id
                 this.setObject(card)
@@ -21741,7 +21793,7 @@ Field.prototype.updateSounds = function(objects) {
                 field.sounds[id].setEffect(p)
             }
         } else {
-            if (obj.events.indexOf('sound_start')) {
+            if (obj.events.indexOf('sound_start') >= 0) {
                 // sound
                 this.startSound(obj.id, 'カード', obj.startTime, {
                     loop: true
@@ -21764,8 +21816,10 @@ Field.prototype.render = function() {
     // Draw points onto the canvas element.
     var ctx = this.canvas.getContext('2d')
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-
+    ctx.beginPath()
     ctx.save()
+
+
 
     for (let id in this.objectCase) {
         this.objectCase[id].render(ctx)
@@ -21773,9 +21827,17 @@ Field.prototype.render = function() {
     for (let id in this.objects) {
         this.objects[id].draw(ctx)
     }
+    for (let id in this.localObjects) {
+        this.localObjects[id].draw(ctx)
+    }
+
+    this.flexibleDraw(ctx, this)
 
     ctx.restore()
 }
+
+//  override
+Field.prototype.flexibleDraw = function() {}
 
 
 Field.prototype.mousePressed = function(x, y) {
@@ -21784,9 +21846,11 @@ Field.prototype.mousePressed = function(x, y) {
      * Object (Card)
      */
     // this.context.createBufferSource().start(0)
+    let isObjMove = false
     for (let id in this.objects) {
         let obj = this.objects[id]
         if (!obj.isOtherMove && obj.isOver(x, y)) {
+            isObjMove = true
             obj.isSync = true
             obj.isMove = true
             obj.click()
@@ -21796,6 +21860,29 @@ Field.prototype.mousePressed = function(x, y) {
             break
         }
     }
+    if (!isObjMove) {
+        for (let id in this.objectCase) {
+            let objCase = this.objectCase[id]
+            let n = objCase.isOver(x, y)
+            if (n >= 0) {
+                let obj = objCase.pop(n)
+                let out = obj.output()
+                out.events.push('pop_case')
+                this.sendObjectInfoToServer(out, true)
+                console.log(obj)
+            }
+        }
+
+        for (let id in this.localObjects) {
+            let obj = this.localObjects[id]
+            if (obj.isOver(x, y)) {
+                obj.isMove = true
+                obj.click()
+                break
+            }
+        }
+    }
+    this.flexiblePressed(x,y, this)
 }
 
 
@@ -21805,20 +21892,38 @@ Field.prototype.mouseReleased = function(x, y) {
      * Object (Card)
      */
 
+    let isObjMove = false
     for (let id in this.objects) {
         let obj = this.objects[id]
         if (!obj.isOtherMove && obj.isMove) {
-            // obj.x = x
-            // obj.y = y
+            isObjMove = true
             obj.isMove = false
             obj.over = false
             obj.isSync = false
             let out = obj.output()
             out.events.push('sound_stop')
             this.sendObjectInfoToServer(out, true)
+
+            for (let id in this.objectCase) {
+                let objCase = this.objectCase[id]
+                let n = objCase.isOver(x, y)
+                if (n >= 0) {
+                    objCase.push(obj)
+                }
+            }
+
         }
     }
 
+    for (let id in this.localObjects) {
+        let obj = this.localObjects[id]
+        if (obj.isMove) {
+            obj.isMove = false
+            obj.release()
+            break
+        }
+    }
+    this.flexibleReleased(x,y, this)
     this.render()
 }
 
@@ -21838,8 +21943,26 @@ Field.prototype.mouseMoved = function(x, y) {
             this.sendObjectInfoToServer(out, true)
         }
     }
+
+    for (let id in this.localObjects) {
+        let obj = this.localObjects[id]
+        if (obj.isMove) {
+            obj.x = x
+            obj.y = y
+            obj.move()
+            break
+        }
+    }
+    this.flexibleMoved(x,y, this)
     this.render()
 }
+
+//  override
+Field.prototype.flexiblePressed = function() {}
+
+Field.prototype.flexibleReleased = function() {}
+
+Field.prototype.flexibleMoved = function() {}
 
 
 Field.prototype.sendObjectInfo = function(callback = () => {}) {
@@ -21863,7 +21986,7 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{"./../card/cardList.js":147,"./../player/log.js":160,"./position.js":151,"./sound/soundManager.js":152}],151:[function(require,module,exports){
+},{"./../card/cardList.js":148,"./../player/log.js":164,"./position.js":152,"./sound/soundManager.js":153}],152:[function(require,module,exports){
 module.exports = () => {
     return new GlobalPosition()
 }
@@ -21977,7 +22100,7 @@ GlobalPosition.prototype.clip = function(cx, cy, halfW, halfH) {
     return clip
 }
 
-},{}],152:[function(require,module,exports){
+},{}],153:[function(require,module,exports){
 const SyncPlay = require('./sync-play.js')
 let syncPlay
 let log = require('./../../player/log.js')
@@ -22129,7 +22252,7 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
     })
 }
 
-},{"./../../player/log.js":160,"./sync-play.js":153}],153:[function(require,module,exports){
+},{"./../../player/log.js":164,"./sync-play.js":154}],154:[function(require,module,exports){
 let log = require('./../../player/log.js')
 
 module.exports = (context) => {
@@ -22366,7 +22489,229 @@ let loadSound = (url, callback = () => {}) => {
     request.send()
 }
 
-},{"./../../player/log.js":160}],154:[function(require,module,exports){
+},{"./../../player/log.js":164}],155:[function(require,module,exports){
+
+
+module.exports = (x, y, w, h) => {
+    return new Tool(x, y, w, h)
+}
+
+function Tool(x, y, w, h) {
+    this.x = x
+    this.y = y
+    this.w = w
+    this.h = h
+    this.id = ''
+    this.callRender = () => {}
+}
+
+Tool.prototype.render = function(ctx) {
+    this.callRender(ctx, this)
+}
+
+Tool.prototype.setID = function(id) {
+    this.id = id
+}
+
+Tool.prototype.onOver = function(x, y) {
+    if (x >= this.x && x <= this.x + this.w &&
+        y >= this.y && y <= this.y + this.h) {
+        return {
+            id: this.id
+        }
+    }
+    return null
+}
+
+Tool.prototype.line = (ctx, x1, y1, x2, y2) => {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+}
+
+},{}],156:[function(require,module,exports){
+let connect = require('./../../../connect.js')
+let Tool = require('./tool.js')
+
+module.exports = (canvas) => {
+    return new Field(canvas)
+}
+
+function Field(canvas) {
+    this.canvas = canvas
+    this.clientID = ''
+    this.w = canvas.width
+    this.h = canvas.height
+
+    this.tool = []
+    this.selectToolNum = 0
+    this.selectToolMode = 'pointMove'
+    connect.set('toolMode', 'pointMove')
+
+    let tw = this.h
+    let th = this.h
+    let margin = th*0.1
+    let moveTool = Tool(30, 0, tw, th - margin * 2)
+    let plusTool = Tool(30 + tw * 1.1, 0, tw, th - margin * 2)
+
+    moveTool.setID('pointMove')
+    plusTool.setID('separate')
+
+    let my = this
+    moveTool.callRender = (ctx, tool) => {
+        let toolMode = my.selectToolMode
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.strokeStyle = 'rgba(0,0,100,0.5)'
+        ctx.fillStyle = 'rgba(0,0,100,0.15)'
+        ctx.rect(tool.x, tool.y, tool.w, tool.h)
+        ctx.stroke()
+        if (tool.id == toolMode) {
+            ctx.fill()
+        }
+
+        let cx = tool.x + tool.w / 2
+        let cy = tool.y + tool.h / 2
+        let r = tool.h / 5
+        //
+        // ctx.beginPath()
+        // ctx.strokeStyle = 'rgba(150,150,150,1)'
+        // ctx.arc(cx - r * 1.5, cy, r / 2, 0, Math.PI * 2)
+        // ctx.stroke()
+
+        ctx.beginPath()
+        ctx.fillStyle = 'rgba(50,50,50,1)'
+        ctx.arc(cx, cy, r / 2, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.translate(cx, cy)
+        for (let rot = 0; rot < 4; rot++) {
+            ctx.rotate(Math.PI / 2)
+            ctx.strokeStyle = 'rgba(50,50,50,1)'
+            tool.line(ctx, r, 0, r * 2, 0)
+            tool.line(ctx, r * 2, 0, r * 2 - r / 3, -r / 3)
+            tool.line(ctx, r * 2, 0, r * 2 - r / 3, r / 3)
+        }
+        ctx.restore()
+    }
+
+    plusTool.callRender = (ctx, tool) => {
+        let toolMode = my.selectToolMode
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.strokeStyle = 'rgba(0,0,100,0.5)'
+        ctx.fillStyle = 'rgba(0,0,100,0.15)'
+        ctx.rect(tool.x, tool.y, tool.w, tool.h)
+        ctx.stroke()
+        if (tool.id == toolMode) {
+            ctx.fill()
+        }
+
+        let cx = tool.x + tool.w / 2
+        let cy = tool.y + tool.h / 2
+        ctx.translate(cx, cy)
+        ctx.scale(2, 2)
+        ctx.textAlign = "center"
+        ctx.textBaseline = "middle"
+        ctx.fillStyle = 'rgba(0,0,0,1.0)'
+        ctx.fillText('＋', 0, 0, tool.w / 2)
+        ctx.restore()
+    }
+    this.tool.push(moveTool)
+    this.tool.push(plusTool)
+
+    let field = this
+    // canvas
+    canvas.addEventListener('mousemove', function(e) {
+        field.mouseMoved(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        field.mouseMoved(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mousedown', function(e) {
+        field.mousePressed(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        field.mousePressed(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mouseup', function(e) {
+        field.mouseReleased(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        field.mouseReleased(x, y)
+        return false
+    })
+}
+
+Field.prototype.render = function() {
+    // Draw points onto the canvas element.
+    let h = this.h
+    let ctx = this.canvas.getContext('2d')
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+
+    ctx.save()
+
+    this.tool.forEach((t) => {
+        t.render(ctx)
+    })
+    ctx.restore()
+}
+
+
+Field.prototype.mousePressed = function(x, y) {
+    let my = this
+    this.tool.forEach((t, i) => {
+        let onID = t.onOver(x, y)
+        if (onID) {
+            console.log(onID)
+            my.selectToolNum = i
+            my.selectToolMode = onID.id
+            connect.set('toolMode', onID.id)
+        }
+    })
+    this.render()
+}
+
+
+Field.prototype.mouseReleased = function(x, y) {
+    this.render()
+
+}
+
+Field.prototype.mouseMoved = function(x, y) {
+    this.render()
+}
+
+Field.prototype.line = (ctx, x1, y1, x2, y2) => {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+}
+
+},{"./../../../connect.js":166,"./tool.js":155}],157:[function(require,module,exports){
 module.exports = (element) => {
     let text = {
         status: null,
@@ -22386,7 +22731,7 @@ module.exports = (element) => {
     return text
 }
 
-},{}],155:[function(require,module,exports){
+},{}],158:[function(require,module,exports){
 module.exports = (element) => {
     let s = new SwitchButton(element)
     s.create()
@@ -22469,7 +22814,7 @@ SwitchButton.prototype.onDopplerSwitch = function(callback = () => {}) {
     this.callDoppler = callback
 }
 
-},{}],156:[function(require,module,exports){
+},{}],159:[function(require,module,exports){
 const uuid = require('node-uuid')
 
 const Canvas = require('./../canvas/canvas.js')
@@ -22662,10 +23007,10 @@ exports.start = (canvas, context, socket, clientTime, config) => {
     }
 }
 
-},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":147,"./../card/objectField.js":150,"./../player/log.js":160,"./loginWindow.js":158,"node-uuid":176}],157:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":148,"./../card/objectField.js":151,"./../player/log.js":164,"./loginWindow.js":161,"node-uuid":179}],160:[function(require,module,exports){
 const uuid = require('node-uuid')
 
-const Canvas = require('./../canvas/canvas.js')
+const Canvas = require('./../card/canvas.js')
 const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
 const CardCase = require('./../card/objectCase.js')
@@ -22678,14 +23023,56 @@ let socketDir = 'board_game_'
 let socketType = 'board_game'
 
 const Main = require('./common.js')
+const PlayRoom = require('./playRoom.js')
+let ToolField = require('./../card/tool/toolField.js')
+
+exports.init = (_element) => {
+    element = _element
+    let width = window.innerWidth - 60 > 300 ? window.innerWidth - 60 : 300
+    let eleEditer = document.createElement('editer')
+    let eleTool = document.createElement('tool')
+    let eleListener = document.createElement('listener')
+    eleEditer.style.margin = '30px'
+    eleTool.style.margin = '30px'
+    eleListener.style.margin = '30px'
+    element.appendChild(eleEditer)
+    element.appendChild(eleTool)
+    element.appendChild(eleListener)
+    let editerCanvas = Canvas(eleEditer, width, 300)
+    let toolCanvas = Canvas(eleTool, width, 50)
+    let listenerCanvas = Canvas(eleListener, width, 150)
+    field = Field(editerCanvas)
+    tool = ToolField(toolCanvas)
+    listener = ListenerField(listenerCanvas)
+    field.render()
+    tool.render()
+    listener.render()
+}
+
 
 exports.start = (element, context, socket, clientTime, config) => {
     // element.style.margin = '30px'
+    config.socketDir = socketDir
+    config.socketType = socketType
     //
-    let canvas = Canvas(element)
+    console.log(document.body)
+    element.style.width = window.innerWidth + 'px'
+    element.style.height = window.innerHeight + 'px'
+    // element.style.width = '100%'
+    // element.style.height = '100%'
+    // console.log(element)
+    // element.style.overflow = 'hidden'
+// console.log(width, height, document.body.clientHeight)
+    let canvas = Canvas(element, 1.0, 0.9)
+    let toolCanvas = Canvas(element, 1.0, 0.1)
+    let tool = ToolField(toolCanvas)
+    tool.render()
 
     let main = Main.start(canvas, context, socket, clientTime, config)
     let field = main.field
+
+    let playRoom = PlayRoom.start(canvas, field, socket, clientTime, config)
+
 
     let cardCase = CardCase()
     cardCase.id = config.user + '_case'
@@ -22723,7 +23110,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     // field.rotate(Math.PI)
 }
 
-},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":147,"./../card/objectCase.js":149,"./../card/objectField.js":150,"./common.js":156,"node-uuid":176}],158:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../card/canvas.js":147,"./../card/cardList.js":148,"./../card/objectCase.js":150,"./../card/objectField.js":151,"./../card/tool/toolField.js":156,"./common.js":159,"./playRoom.js":162,"node-uuid":179}],161:[function(require,module,exports){
 const uuid = require('node-uuid')
 let HtmlText = require('./../html/html-text.js')
 let SelectList = require('./../../demo-common/html/select-list.js')
@@ -22825,7 +23212,68 @@ exports.start = (element, context, socket, clientTime, config) => {
 
 }
 
-},{"./../../demo-common/html/button-notification.js":164,"./../../demo-common/html/homeButton.js":165,"./../../demo-common/html/select-list.js":166,"./../html/html-text.js":154,"./../html/switchButton.js":155,"node-uuid":176}],159:[function(require,module,exports){
+},{"./../../demo-common/html/button-notification.js":167,"./../../demo-common/html/homeButton.js":168,"./../../demo-common/html/select-list.js":169,"./../html/html-text.js":157,"./../html/switchButton.js":158,"node-uuid":179}],162:[function(require,module,exports){
+const myObject = require('./../card/object.js')
+
+exports.start = (canvas, field, socket, clientTime, config, callback = () => {}) => {
+    let socketDir = config.socketDir
+    let socketType = config.socketType
+
+    let list = {}
+    socket.on(socketDir + 'user_list', (list) => {})
+
+    socket.on(socketDir + 'user_add', (user) => {
+        let icon = {
+            width: 50,
+            height: 50
+        }
+        let obj = myObject(icon)
+        obj.icon = null
+        obj.id = user
+        obj.x = canvas.width / 2
+        obj.y = canvas.height / 2
+        obj.flexibleDraw = (ctx, obj) => {
+            let font = ctx.font.split(' ')
+            ctx.font = "15px '" + font[1] + "'"
+            ctx.textAlign = 'center'
+            ctx.beginPath()
+            ctx.strokeStyle = 'rgba(0,0,0,0.8)'
+            ctx.fillText(user, 0, -30)
+            ctx.arc(0, 0, 25, 0, Math.PI * 2)
+            ctx.stroke()
+        }
+        field.setLocalObject(obj)
+        let gPos = field.clip.encodeToGloval(obj.x, obj.y)
+        list[user] = {
+            user: user,
+            x: obj.x,
+            y: obj.y,
+            gx: gPos.x,
+            gy: gPos.y
+        }
+    })
+
+    socket.on(socketDir + 'user_remove', (user) => {
+        field.removeLocalObject(user)
+    })
+
+    field.flexibleDraw = (ctx, field) => {
+        ctx.beginPath()
+        ctx.rect(0, 0, field.w, field.h)
+        ctx.rect(field.w / 4, field.h - 80, field.w / 2, 50)
+        ctx.stroke()
+    }
+
+    field.flexibleReleased = (x, y, field) => {
+        if(field.w / 4 <= x && x <= field.w / 4 + field.w / 2 && field.h - 80 <= y && y <= field.h - 80 + 50){
+            console.log('startup')
+        }
+    }
+
+
+}
+
+},{"./../card/object.js":149}],163:[function(require,module,exports){
 const uuid = require('node-uuid')
 
 const player = require('./player.js')
@@ -22837,7 +23285,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     player.start(element, context, socket, clientTime, config)
 }
 
-},{"./player.js":161,"node-uuid":176}],160:[function(require,module,exports){
+},{"./player.js":165,"node-uuid":179}],164:[function(require,module,exports){
 let log
 exports.set = (element) => {
     log = document.createElement('p')
@@ -22851,7 +23299,7 @@ exports.text = (text) => {
     }
 }
 
-},{}],161:[function(require,module,exports){
+},{}],165:[function(require,module,exports){
 const uuid = require('node-uuid')
 
 const Canvas = require('./../canvas/canvas.js')
@@ -22932,510 +23380,25 @@ exports.start = (element, context, socket, clientTime, config) => {
 
 }
 
-},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":147,"./../card/objectCase.js":149,"./../card/objectField.js":150,"./../main/common.js":156,"./log.js":160,"node-uuid":176}],162:[function(require,module,exports){
-const SyncPlay = require('./sync-play.js')
-let syncPlay
-
-let soundList = {
-    '３音': 'lib/sound/notification-common.mp3',
-    // 'Violin1': 'lib/sound/orchestra/beethoven/No5_Mov3_Violin1.mp3',
-    // 'Violin2': 'lib/sound/orchestra/beethoven/No5_Mov3_Violin2.mp3',
-    // 'Viola': 'lib/sound/orchestra/beethoven/No5_Mov3_Viola.mp3',
-    // 'Cello': 'lib/sound/orchestra/beethoven/No5_Mov3_Cello.mp3',
-    // 'DoubleBass': 'lib/sound/orchestra/beethoven/No5_Mov3_DoubleBass.mp3'
-    '和風メロディ': 'lib/sound/wafuringtone.mp3',
-    'ウィンドチャイム': 'lib/sound/windchime.mp3',
-    'カード': 'lib/sound/wind1.mp3',
-    // 'music': 'lib/sound/clock3.mp3',
-    // 'voice': 'lib/sound/voice.mp3',
-    // '太鼓': 'lib/sound/taiko.mp3',
-    // 'コーリング': 'lib/sound/emargency_calling.mp3',
-    // 'アラーム': 'lib/sound/clockbell.mp3',
-    // '掃除機': 'lib/sound/cleaner.mp3',
-    // '電子レンジ': 'lib/sound/microwave.mp3',
-    // '扇風機': 'lib/sound/fan.mp3',
-    // '洗濯機': 'lib/sound/washing.mp3',
-    // 'プリンタ': 'lib/sound/printer.mp3',
-    // 'ポッド注ぐ': 'lib/sound/pod.mp3',
-    // '炒める': 'lib/sound/roasting.mp3',
-    // '足音（走る）': 'lib/sound/dashing.mp3',
-    // '足音（スリッパ）': 'lib/sound/walking.mp3',
-    // '雨音': 'lib/sound/rain.mp3'
-}
-let soundNameList = []
-for (let name in soundList) {
-    soundNameList.push(name)
-}
-
-exports.init = (context) => {
-    syncPlay = SyncPlay(context)
-    syncPlay.loadBuffer(soundList, () => {})
-    return syncPlay
-}
-
-// exports.getSncPlay = () => {
-//     return syncPlay
-// }
-
-let log = require('./../player/log.js')
-
-exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
-    // let correctionTime = clientTime.correctionServerTime(time)
-    syncPlay.createSyncSound(bufferName, time, offset, (syncSound) => {
-        if (option.loop) {
-            syncSound.source.loop = true
-        }
-
-
-
-        //
-        // offset = offset%syncSound.duration
-        //
-        // log.text('offset ' + offset + '   t: ' + (time - Date.now()))
-
-        let gainNode = context.createGain()
-        gainNode.connect(context.destination)
-
-        // let doppler = body.doppler
-
-        // let consol = (t, duration) => {
-        //     htmlText.log.innerHTML = 'Volume[0-1]: ' + gainNode.gain.value.toFixed(4) + ',  Doppler: ' + syncNote.source.playbackRate.value.toFixed(4)
-        //     // gyroLog.innerHTML = gainNode.gain.value.toFixed(4) + ', ' + syncNote.source.playbackRate.value.toFixed(4)
-        //     setTimeout(() => {
-        //         t += 100
-        //         if (t < duration) {
-        //             consol(t, duration)
-        //         }
-        //     }, 100)
-        // }
-
-        syncSound.started((leftTime) => {})
-
-        let lastGainValue = null
-        let lastDoppler = null
-        let setEffect = (p) => {
-
-            let dist = Math.sqrt(p.gx * p.gx + p.gy * p.gy)
-
-            let st = syncSound.startTime
-            let soundTargetTime = p.time - syncSound.startDate
-            soundTargetTime = soundTargetTime > 0 ? soundTargetTime : 0
-
-            let diffDist = 0
-            let diffTime = 0
-            if (!lastDoppler) {
-                diffDist = 0
-                diffTime = soundTargetTime
-                lastDoppler = {
-                    time: p.time,
-                    dist: dist,
-                    velocity: 0,
-                    diffTime: diffTime,
-                    diffDist: 0,
-                    rate: 1.0
-                }
-            } else {
-                diffDist = (dist - lastDoppler.dist) / 2 + diffDist / 2
-                diffTime = p.time - lastDoppler.time
-                if (diffTime == 0) {
-                    return
-                }
-                // m
-                let areaDist = p.areaDist || 3
-                // m / ms
-                let vs = areaDist * diffDist / diffTime
-
-                // km/h
-                // vs = vs * 60 * 60 * 1000 / 1000
-                vs = vs * 3600
-
-                let rate = 340 / (340 - vs)
-
-                console.log(diffDist.toFixed(5), diffTime.toFixed(1), 'rate', rate.toFixed(4), 'vs', vs.toFixed(4))
-                syncSound.source.playbackRate.linearRampToValueAtTime(rate, st / 1000 + soundTargetTime / 1000)
-                lastDoppler = {
-                    time: p.time,
-                    dist: dist,
-                    velocity: vs,
-                    diffTime: diffTime,
-                    diffDist: diffDist,
-                    rate: rate
-                }
-            }
-
-            let vs = Math.abs(lastDoppler.velocity)
-            vs = vs > 3 ? 3 : vs
-            let volumeRate = vs / 3
-            // dist
-            // maxDist
-            // time
-            //
-            let value = 0
-            if (!lastGainValue) {
-                value = p.dist < p.maxDist ? 1.0 - p.dist / p.maxDist : 0
-                value = value * 0.1 + value * 0.9 * volumeRate
-            } else {
-                value = p.dist < p.maxDist ? 1.0 - p.dist / p.maxDist : 0
-                value = value / 2 + lastGainValue.value / 2
-                value = value * 0.3 + value * 0.7 * volumeRate
-            }
-            console.log(Math.abs(lastDoppler.velocity), volumeRate, value)
-
-            lastGainValue = {
-                value: value,
-                time: soundTargetTime
-            }
-            gainNode.gain.linearRampToValueAtTime(value, st / 1000 + soundTargetTime / 1000)
-            // console.log(value)
-            // let position = body.position || {}
-            // objects.forEach((obj, i) => {
-            //     let v = d.value
-            //     let t = d.div
-            //     if (from) {
-            //         v = v
-            //     } else if (to) {
-            //         v = 1 - v
-            //     }
-            //     if (i == 0) {
-            //         gainNode.gain.value = v
-            //     }
-            //     gainNode.gain.linearRampToValueAtTime(v, st + duration * t)
-            // })
-        }
-
-        let stop = () => {
-            let ct = syncPlay.getCurrentTime()
-            gainNode.gain.linearRampToValueAtTime(0, ct + 0.2)
-            setTimeout(() => {
-                syncSound.stop()
-            }, 200)
-        }
-
-
-        let setDoppler = (p) => {
-            // dist
-            // maxDist
-            // clipX
-            // clipY
-            // time
-            // gx
-            // gy
-            // 単位時間あたりのDistの変化でいい？
-
-
-
-            // let position = body.position || {}
-
-            // let v = d.value
-            // let t = d.div
-            //
-            // // s
-            // // 0 - 1 -> 0.1
-            // let interT = i >= 1 ? ev[i].div - ev[i - 1].div : ev[i].div
-            // // 0 - duration -> duration * 0.1
-            // interT *= duration
-            // // m
-            // let dist = position.d || 1
-            //
-            //
-            // // m/s fromからtoに向かうときプラス方向
-            // let vs = d.velocity * dist / duration
-            // // km/h
-            // // vs = vs * 60 * 60 / 1000
-            // vs = vs * 3.6
-            //
-            // // vcos
-            // // 音源位置
-            // // from 0[m] - dist[m] to
-            // let meter = (1 - d.value) * dist
-            // let ang = 0
-            // let px = meter
-            // let py = 0
-            // if (position.target == 'from') {
-            //     let lx = position.offsetX
-            //     let ly = position.offsetY
-            //     ang = Math.atan2(ly - py, lx - px)
-            // }
-            // if (position.target == 'to') {
-            //     let lx = dist + position.offsetX
-            //     let ly = position.offsetY
-            //     ang = Math.atan2(ly - py, lx - px)
-            // }
-            //
-            // let rate = 340 / (340 - vs * Math.cos(ang))
-            // if (i == 0) {
-            //     gainNode.gain.value = rate
-            // }
-            // if (doppler && !isNaN(vs)) {
-            //     syncSound.source.playbackRate.linearRampToValueAtTime(rate, st + duration * t)
-            // } else {
-            //     syncSound.source.playbackRate.value = 1
-            // }
-            // fromを自分とすると
-            // from 1 to 0
-            // マイナス方向が離れる
-            // v0 = 0 観測者は静止
-            // V = 340
-            // let rate = 340 / (340 - vs)
-            //
-            // // 加速度のデータ転送がsocketなのでずれる　-> 時間差がシビアな音では厳しい
-            // // あらかじめ動きのセットを送るのならセーフだけど，インタラクティブにやるのは厳しい？
-
-        }
-        syncPlay.play(gainNode, syncSound)
-        let returnObj = {
-            bufferName: bufferName,
-            gainNode: gainNode,
-            time: time,
-            syncSound: syncSound,
-            setEffect: setEffect,
-            stop: stop
-        }
-        call(returnObj)
-    })
-
-
-
-}
-
-},{"./../player/log.js":160,"./sync-play.js":163}],163:[function(require,module,exports){
-let log = require('./../player/log.js')
-
-module.exports = (context) => {
-    return new SyncPlay(context)
-}
-
-function SyncPlay(context, clientTime) {
-    this.context = context
-    this.buffer = {}
-    this.source = {}
-    this.panner = {}
-    this.audioUrlList = {}
-}
-
-
-/**
- * @param {Object.<string, string>} audioUrlList - key: audioName value: audioUrl
- */
-
-SyncPlay.prototype.setAudioList = function(audioUrlList) {
-    this.audioUrlList = audioUrlList
-}
-
-
-SyncPlay.prototype.getCurrentTime = function() {
-    return this.context.currentTime
-}
-
-let finishLoad = () => {}
-SyncPlay.prototype.loadBuffer = function(audioUrlList, callback = () => {}) {
-    audioUrlList = audioUrlList || this.audioUrlList
-    load(audioUrlList, (bufferList) => {
-        this.buffer = bufferList
-        callback()
-        finishLoad()
-    })
-}
-
-SyncPlay.prototype.createSyncSound = function(sourceName, startDate, offset, call = () => {}) {
-    let leftTime = startDate - Date.now()
-    let call_start = []
-    let call_finish = []
-    let call_stop = []
-    let syncPlay = this
-    let syncSound = {
-        sourceName: sourceName,
-        startDate: startDate, // UTC millis
-        startTime: 0, //  time of context(ms)   Rewrite the value in this method
-        offset: offset || 0, // (ms) If offset > duration, rewrite the value in this method
-        duration: null, //  (ms) If undefined, rewrite the value in this method
-        buffer: null, // Rewrite the value in this method
-        source: null, // Rewrite the value in this method
-        isPlaying: false,
-        // oscillator: oscillator || null,
-        start: () => {
-            if (!syncSound.buffer) {
-                return
-            }
-            // console.log(syncSound)
-            let currentTime = syncPlay.context.currentTime
-            // ms
-            let leftStartTime = syncSound.startTime - currentTime * 1000
-            let delayOffset = leftStartTime < 0 ? -leftStartTime : 0
-            leftStartTime = leftStartTime < 0 ? 0 : leftStartTime
-            // sec
-            log.text((syncSound.startTime / 1000) + '  off' + (syncSound.offset / 1000) + '   ' + (delayOffset) / 1000 + '  ct: ' + currentTime)
-            syncSound.source.start(syncSound.startTime / 1000, (syncSound.offset + delayOffset) / 1000)
-
-            let leftTime = leftStartTime + syncSound.duration - (syncSound.offset + delayOffset)
-
-            syncSound.isPlaying = true
-            syncSound.fireStart(leftStartTime)
-
-            setTimeout(() => {
-                if (!syncSound.source.loop) {
-                    syncSound.isPlaying = false
-                    syncSound.fireFinish()
-                }
-            }, leftTime)
-        },
-        connect: (destination) => {
-            syncSound.source.connect(destination)
-        },
-        stop: () => {
-            if (syncSound.isPlaying) {
-                syncSound.source.stop()
-                syncSound.fireStop()
-            }
-        },
-        fireStart: (leftTime) => {
-            call_start.forEach((c) => {
-                c(leftTime)
-            })
-        },
-        fireFinish: () => {
-            call_finish.forEach((c) => {
-                c()
-            })
-        },
-        fireStop: () => {
-            call_stop.forEach((c) => {
-                c()
-            })
-        },
-        started: (callback = () => {}) => {
-            call_start.push(callback)
-        },
-        finished: (callback = () => {}) => {
-            call_finish.push(callback)
-        },
-        stoped: (callback = () => {}) => {
-            call_stop.push(callback)
-        }
-    }
-
-    // set buffer & source
-    let source = context.createBufferSource()
-    let buffer = this.buffer[sourceName] || null
-
-    let sourceProcess = function() {
-        source.buffer = buffer
-        syncSound.buffer = buffer
-        syncSound.source = source
-
-        // set startTime
-        let ct = this.context.currentTime * 1000 // sec -> ms
-        syncSound.startTime = ct + leftTime
-
-        // If undefined, set duration
-        if (!syncSound.duration) {
-            syncSound.duration = syncSound.buffer.duration * 1000 // sec -> ms
-        }
-        syncSound.offset = syncSound.offset % syncSound.duration
-        call(syncSound)
-    }
-
-    if (!buffer) {
-        console.log('error this.buffer[sourceName] sync-play.js')
-        finishLoad = () => {
-            buffer = this.buffer[sourceName] || null
-            sourceProcess()
-        }
-    } else {
-        sourceProcess()
-    }
-
-    // return syncSound
-}
-
-SyncPlay.prototype.preConnect = function(destination, syncSound) {
-    // to array
-    if (!Array.isArray(syncSound)) {
-        let temp = syncSound
-        syncSound = []
-        syncSound.push(temp)
-    }
-
-    // play
-    syncSound.forEach((note) => {
-        note.connect(destination)
-        note.start()
-    })
-}
-
-SyncPlay.prototype.speedPlay = function(syncSound) {
-    // to array
-    syncSound.start()
-}
-
-
-SyncPlay.prototype.play = function(destination, syncSound) {
-    // to array
-    if (!Array.isArray(syncSound)) {
-        let temp = syncSound
-        syncSound = []
-        syncSound.push(temp)
-    }
-
-    // play
-    syncSound.forEach((note) => {
-        note.connect(destination)
-        note.start()
-    })
-}
-
-
-SyncPlay.prototype.addBuffer = function(name, buffer, callback = () => {}) {
-    let syncPlay = this
-    context.decodeAudioData(buffer, function(decodedBuffer) {
-        syncPlay.buffer[name] = decodedBuffer
-        callback()
-    }, (err) => {
-        console.log(err)
-    })
-}
-
-
-
-/**
- * load Audio File
- * load() -> loadSound()
- * -> return
- * @param {string[]|string} urlList -
- * @return {Object[]} - buffer[]
- */
-
-let load = (urlList, callback = () => {}) => {
-    let bufferList = {}
-    let cnt = 0
-    let length = Object.keys(urlList).length
-    for (let key in urlList) {
-        loadSound(urlList[key], (buf) => {
-            bufferList[key] = buf
-            cnt++
-            if (cnt == length) {
-                callback(bufferList)
-            }
-        })
+},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":148,"./../card/objectCase.js":150,"./../card/objectField.js":151,"./../main/common.js":159,"./log.js":164,"node-uuid":179}],166:[function(require,module,exports){
+let value = {}
+let call = {}
+exports.set = (name, v) => {
+    value[name] = v
+    if (typeof call[name] == 'function') {
+        call[name](v)
     }
 }
 
-let loadSound = (url, callback = () => {}) => {
-    let request = new XMLHttpRequest()
-    request.open('GET', url, true)
-    request.responseType = 'arraybuffer'
-    request.onload = function() {
-        console.log('load')
-        context.decodeAudioData(request.response, function(buffer) {
-            callback(buffer)
-        }, (err) => {
-            console.log(err)
-        })
-    }
-    request.send()
+exports.get = (name) => {
+    return value[name]
 }
 
-},{"./../player/log.js":160}],164:[function(require,module,exports){
+exports.on = (name, callback) => {
+    call[name] = callback
+}
+
+},{}],167:[function(require,module,exports){
 module.exports = (element) => {
     let button = {
         test: null,
@@ -23475,7 +23438,7 @@ module.exports = (element) => {
     return button
 }
 
-},{}],165:[function(require,module,exports){
+},{}],168:[function(require,module,exports){
 // <button class="btn btn-default">Default</button>
 module.exports = (element, user) => {
     let p = document.createElement('p')
@@ -23510,7 +23473,7 @@ module.exports = (element, user) => {
 
 }
 
-},{}],166:[function(require,module,exports){
+},{}],169:[function(require,module,exports){
 // let div = null
 //
 // let selectStatus = {}
@@ -23722,7 +23685,7 @@ SelectList.prototype.check = function(targetName) {
 //     return null
 // }
 
-},{}],167:[function(require,module,exports){
+},{}],170:[function(require,module,exports){
 exports.userNameCheck = (user, callback = () => {}) => {
     if (!user || typeof user != 'string' || user == 'unknown') {
         module.exports.userNameInput(callback)
@@ -23756,7 +23719,7 @@ exports.userNameInput = (callback = () => {}, caution = '') => {
 
 }
 
-},{}],168:[function(require,module,exports){
+},{}],171:[function(require,module,exports){
 window.addEventListener('load', init, false)
 
 /*
@@ -23766,6 +23729,7 @@ window.addEventListener('load', init, false)
 
 let socket = require('./socket-client/index.js')
 let ntp = require('./ntp-client.js')
+let connect = require('./connect.js')
 
 
 function init() {
@@ -23789,32 +23753,37 @@ function init() {
     console.log(demo_type)
 
     // common
-    let websokcet_status = document.getElementById('websocket_status')
-    websokcet_status.style.margin = '30px'
+      connect.set('socket_status', {
+        connect: false,
+        url: ''
+    })
     socket.call.on('connect', (operator, url) => {
-        console.log(operator, url)
-        websokcet_status.innerHTML = 'WebSocket: connect　' + url
+        console.log('connect', url)
+        connect.set('socket_status', {
+            connect: true,
+            url: url
+        })
     })
     socket.call.on('disconnect', (operator, url) => {
-        websokcet_status.innerHTML = 'WebSocket: disconnect　' + url
+        connect.set('socket_status', {
+            connect: false,
+            url: url
+        })
     })
 
-    let ntp_status = document.getElementById('ntp_status')
-    ntp_status.style.margin = '30px'
+
     ntp.setSocket(socket)
-    ntp_status.innerHTML = '...<br>...'
-
-    ntp_status.addEventListener('touchstart', function(event) {
-        context.createBufferSource().start(0)
-        ntp_status.innerHTML = 'tounch'
-    })
-
-
-
+    let restartTime = 60000
+    let lastStartTime = Date.now()
     ntp.getDiff((dif) => {
         let text = 'offset time: ' + (dif.offset).toFixed(1) + 'ms  　trans delay: ' + (dif.delay).toFixed(1) + 'ms<br>'
         text += 'correctionTime: ' + (dif.correctionTime).toFixed(1) + 'ms ==? ' + (dif.temp_delay).toFixed(1) + 'ms  (temporary delay)'
-        ntp_status.innerHTML = text
+        dif.text = text
+        connect.set('ntp_status', dif)
+        if (Date.now() - lastStartTime > restartTime) {
+            lastStartTime = Date.now()
+            ntp.restart()
+        }
     })
 
     if (demo_type == 'board-game') {
@@ -23827,7 +23796,7 @@ function init() {
         let inputUserName = require('./demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {
             config.user = user
-            game.start(document.getElementById('canvas'), context, socket, ntp, config)
+            game.start(document.getElementById('wrap'), context, socket, ntp, config)
         })
     }
 
@@ -23841,12 +23810,12 @@ function init() {
         let inputUserName = require('./demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {
             config.user = user
-            game.start(document.getElementById('canvas'), context, socket, ntp, config)
+            game.start(document.getElementById('wrap'), context, socket, ntp, config)
         })
     }
 }
 
-},{"./board-game/main/index.js":157,"./board-game/player/index.js":159,"./demo-common/prompt.js":167,"./ntp-client.js":169,"./socket-client/index.js":170}],169:[function(require,module,exports){
+},{"./board-game/main/index.js":160,"./board-game/player/index.js":163,"./connect.js":166,"./demo-common/prompt.js":170,"./ntp-client.js":172,"./socket-client/index.js":173}],172:[function(require,module,exports){
 let socket
 let dateDiff = 0
 
@@ -23886,6 +23855,17 @@ exports.correctionTime = () => {
     return -dateDiff
 }
 
+exports.restart = () => {
+    isRestart = true
+    buffer = []
+    buffer_head = 0
+    isFirstBuffer = true
+    average_delay = 0
+    average_offset = 0
+    stableCheckNum = 0
+    emit()
+}
+
 
 // 最初の10回は平均を取る
 // 以降は平均よりdelayが大きい値は無視
@@ -23897,6 +23877,9 @@ let buffer_max = 10
 let isFirstBuffer = true
 let average_delay = 0
 let average_offset = 0
+let stableCheckNum = 0
+let stopCheckNum = 10
+let isRestart = false
 let smoothing = (obj) => {
     if (isFirstBuffer && buffer_head < buffer_max) {
         buffer.push(obj)
@@ -23909,7 +23892,14 @@ let smoothing = (obj) => {
         if (obj.delay < average_delay) {
             buffer[buffer_head] = obj
             buffer_head++
-        }else{
+        } else {
+            stableCheckNum++
+            if (isRestart && stableCheckNum == stopCheckNum) {
+                dateDiff = average_offset
+            }
+            if (stableCheckNum == stopCheckNum) {
+                console.log('ntp stable', dateDiff)
+            }
             return
         }
     }
@@ -23942,7 +23932,9 @@ let setAverage = (buf) => {
         average_offset = offset / length
         average_delay = delay / length
     }
-    dateDiff = average_offset
+    if (!isRestart) {
+        dateDiff = average_offset
+    }
 }
 
 
@@ -23969,11 +23961,13 @@ let emit = () => {
         socket.emit('ntp_server', {
             send: send
         })
-        emit()
-    }, 1000 * 1 + Math.floor((Math.random() * 500)))
+        if (stableCheckNum < stopCheckNum) {
+            emit()
+        }
+    }, 300 * 1 + Math.floor((Math.random() * 200)))
 }
 
-},{}],170:[function(require,module,exports){
+},{}],173:[function(require,module,exports){
 // const io = require('socket.io-client')
 let url = 'http://192.168.144.110:8001'
 // let url = 'http://192.168.100.16:8001'
@@ -24022,7 +24016,7 @@ socket.on('disconnect', () => {
     call.emit('disconnect', url)
 })
 
-},{"./../../../exCall-module/simpleCall":181}],171:[function(require,module,exports){
+},{"./../../../exCall-module/simpleCall":184}],174:[function(require,module,exports){
 (function (root, factory) {
 	if (typeof define === 'function' && define.amd) {
 		define(['moment-timezone'], factory);
@@ -24564,7 +24558,7 @@ return exports;
 
 }));
 
-},{"child_process":44,"moment-timezone":173}],172:[function(require,module,exports){
+},{"child_process":44,"moment-timezone":176}],175:[function(require,module,exports){
 module.exports={
 	"version": "2017b",
 	"zones": [
@@ -25165,11 +25159,11 @@ module.exports={
 		"Pacific/Tarawa|Pacific/Wallis"
 	]
 }
-},{}],173:[function(require,module,exports){
+},{}],176:[function(require,module,exports){
 var moment = module.exports = require("./moment-timezone");
 moment.tz.load(require('./data/packed/latest.json'));
 
-},{"./data/packed/latest.json":172,"./moment-timezone":174}],174:[function(require,module,exports){
+},{"./data/packed/latest.json":175,"./moment-timezone":177}],177:[function(require,module,exports){
 //! moment-timezone.js
 //! version : 0.5.13
 //! Copyright (c) JS Foundation and other contributors
@@ -25772,7 +25766,7 @@ moment.tz.load(require('./data/packed/latest.json'));
 	return moment;
 }));
 
-},{"moment":175}],175:[function(require,module,exports){
+},{"moment":178}],178:[function(require,module,exports){
 //! moment.js
 //! version : 2.18.1
 //! authors : Tim Wood, Iskren Chernev, Moment.js contributors
@@ -30237,7 +30231,7 @@ return hooks;
 
 })));
 
-},{}],176:[function(require,module,exports){
+},{}],179:[function(require,module,exports){
 (function (Buffer){
 //     uuid.js
 //
@@ -30513,7 +30507,7 @@ return hooks;
 })('undefined' !== typeof window ? window : null);
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":46,"crypto":55}],177:[function(require,module,exports){
+},{"buffer":46,"crypto":55}],180:[function(require,module,exports){
 const CallbackChild = require('./CallbackChild.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -30691,7 +30685,7 @@ let keyCheck = (key) => {
     return key
 }
 
-},{"./CallOperator.js":179,"./CallbackChild.js":180}],178:[function(require,module,exports){
+},{"./CallOperator.js":182,"./CallbackChild.js":183}],181:[function(require,module,exports){
 /**
  * 一連の流れで連続するcallback
  * contextInfoを受け継ぐ
@@ -30847,7 +30841,7 @@ CallMeasure.prototype.Operator = function(num, next) {
     }
 }
 
-},{}],179:[function(require,module,exports){
+},{}],182:[function(require,module,exports){
 // CallOperator
 
 module.exports = (Child, num) => {
@@ -30867,7 +30861,7 @@ module.exports = (Child, num) => {
     }
 }
 
-},{}],180:[function(require,module,exports){
+},{}],183:[function(require,module,exports){
 const CallMeasure = require('./CallMeasure.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -31046,7 +31040,7 @@ CallbackChild.prototype.emit = function(...option) {
     callMeasure.start()
 }
 
-},{"./CallMeasure.js":178,"./CallOperator.js":179}],181:[function(require,module,exports){
+},{"./CallMeasure.js":181,"./CallOperator.js":182}],184:[function(require,module,exports){
 module.exports = require('./Call/Call.js')()
 
-},{"./Call/Call.js":177}]},{},[168]);
+},{"./Call/Call.js":180}]},{},[171]);

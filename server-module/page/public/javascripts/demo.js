@@ -27061,8 +27061,186 @@ arguments[4][179][0].apply(exports,arguments)
 },{"./../connect.js":199,"dup":179}],204:[function(require,module,exports){
 arguments[4][180][0].apply(exports,arguments)
 },{"dup":180}],205:[function(require,module,exports){
-arguments[4][181][0].apply(exports,arguments)
-},{"./../connect.js":199,"./tool.js":204,"dup":181}],206:[function(require,module,exports){
+let connect = require('./../connect.js')
+let Tool = require('./tool.js')
+
+module.exports = (canvas) => {
+    return new Field(canvas)
+}
+
+function Field(canvas) {
+    this.canvas = canvas
+    this.clientID = ''
+    this.w = canvas.width
+    this.h = canvas.height
+
+    this.tool = []
+    this.selectToolNum = 0
+    this.selectToolMode = 'pointMove'
+    connect.set('toolMode', 'pointMove')
+
+    let tw = this.h
+    let th = this.h
+    let moveTool = Tool(30, 0, tw, th)
+    let plusTool = Tool(30 + tw * 1.1, 0, tw, th)
+
+    moveTool.setID('pointMove')
+    plusTool.setID('separate')
+
+    let my = this
+    moveTool.callRender = (ctx, tool) => {
+        let toolMode = my.selectToolMode
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.strokeStyle = 'rgba(0,0,100,0.5)'
+        ctx.fillStyle = 'rgba(0,0,100,0.15)'
+        ctx.rect(tool.x, tool.y, tool.w, tool.h)
+        ctx.stroke()
+        if (tool.id == toolMode) {
+            ctx.fill()
+        }
+
+        let cx = tool.x + tool.w / 2
+        let cy = tool.y + tool.h / 2
+        let r = tool.w / 5
+        //
+        // ctx.beginPath()
+        // ctx.strokeStyle = 'rgba(150,150,150,1)'
+        // ctx.arc(cx - r * 1.5, cy, r / 2, 0, Math.PI * 2)
+        // ctx.stroke()
+
+        ctx.beginPath()
+        ctx.fillStyle = 'rgba(50,50,50,1)'
+        ctx.arc(cx, cy, r / 2, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.translate(cx, cy)
+        for (let rot = 0; rot < 4; rot++) {
+            ctx.rotate(Math.PI / 2)
+            ctx.strokeStyle = 'rgba(50,50,50,1)'
+            tool.line(ctx, r, 0, r * 2, 0)
+            tool.line(ctx, r * 2, 0, r * 2 - r / 3, - r / 3)
+            tool.line(ctx, r * 2, 0, r * 2 - r / 3, r / 3)
+        }
+        ctx.restore()
+    }
+
+    plusTool.callRender = (ctx, tool) => {
+        let toolMode = my.selectToolMode
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.strokeStyle = 'rgba(0,0,100,0.5)'
+        ctx.fillStyle = 'rgba(0,0,100,0.15)'
+        ctx.rect(tool.x, tool.y, tool.w, tool.h)
+        ctx.stroke()
+        if (tool.id == toolMode) {
+            ctx.fill()
+        }
+
+        let cx = tool.x + tool.w / 2
+        let cy = tool.y + tool.h / 2
+        ctx.translate(cx, cy)
+        ctx.scale(2, 2)
+        ctx.textAlign = "center"
+        ctx.textBaseline = "middle"
+        ctx.fillStyle = 'rgba(0,0,0,1.0)'
+        ctx.fillText('＋', 0, 0, tool.w / 2)
+        ctx.restore()
+    }
+    this.tool.push(moveTool)
+    this.tool.push(plusTool)
+
+    let field = this
+    // canvas
+    canvas.addEventListener('mousemove', function(e) {
+        field.mouseMoved(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        field.mouseMoved(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mousedown', function(e) {
+        field.mousePressed(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        field.mousePressed(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mouseup', function(e) {
+        field.mouseReleased(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        field.mouseReleased(x, y)
+        return false
+    })
+}
+
+Field.prototype.render = function() {
+    // Draw points onto the canvas element.
+    let h = this.h
+    let ctx = this.canvas.getContext('2d')
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+
+    ctx.save()
+
+    this.tool.forEach((t) => {
+        t.render(ctx)
+    })
+    ctx.restore()
+}
+
+
+Field.prototype.mousePressed = function(x, y) {
+    let my = this
+    this.tool.forEach((t, i) => {
+        let onID = t.onOver(x, y)
+        if (onID) {
+            console.log(onID)
+            my.selectToolNum = i
+            my.selectToolMode = onID.id
+            connect.set('toolMode', onID.id)
+        }
+    })
+    this.render()
+}
+
+
+Field.prototype.mouseReleased = function(x, y) {
+    this.render()
+
+}
+
+Field.prototype.mouseMoved = function(x, y) {
+    this.render()
+}
+
+Field.prototype.line = (ctx, x1, y1, x2, y2) => {
+    ctx.beginPath()
+    ctx.moveTo(x1, y1)
+    ctx.lineTo(x2, y2)
+    ctx.stroke()
+}
+
+},{"./../connect.js":199,"./tool.js":204}],206:[function(require,module,exports){
 arguments[4][182][0].apply(exports,arguments)
 },{"dup":182}],207:[function(require,module,exports){
 arguments[4][150][0].apply(exports,arguments)
@@ -30139,6 +30317,17 @@ exports.correctionTime = () => {
     return -dateDiff
 }
 
+exports.restart = () => {
+    isRestart = true
+    buffer = []
+    buffer_head = 0
+    isFirstBuffer = true
+    average_delay = 0
+    average_offset = 0
+    stableCheckNum = 0
+    emit()
+}
+
 
 // 最初の10回は平均を取る
 // 以降は平均よりdelayが大きい値は無視
@@ -30150,6 +30339,9 @@ let buffer_max = 10
 let isFirstBuffer = true
 let average_delay = 0
 let average_offset = 0
+let stableCheckNum = 0
+let stopCheckNum = 10
+let isRestart = false
 let smoothing = (obj) => {
     if (isFirstBuffer && buffer_head < buffer_max) {
         buffer.push(obj)
@@ -30162,7 +30354,14 @@ let smoothing = (obj) => {
         if (obj.delay < average_delay) {
             buffer[buffer_head] = obj
             buffer_head++
-        }else{
+        } else {
+            stableCheckNum++
+            if (isRestart && stableCheckNum == stopCheckNum) {
+                dateDiff = average_offset
+            }
+            if (stableCheckNum == stopCheckNum) {
+                console.log('ntp stable', dateDiff)
+            }
             return
         }
     }
@@ -30195,7 +30394,9 @@ let setAverage = (buf) => {
         average_offset = offset / length
         average_delay = delay / length
     }
-    dateDiff = average_offset
+    if (!isRestart) {
+        dateDiff = average_offset
+    }
 }
 
 
@@ -30222,8 +30423,10 @@ let emit = () => {
         socket.emit('ntp_server', {
             send: send
         })
-        emit()
-    }, 1000 * 1 + Math.floor((Math.random() * 500)))
+        if (stableCheckNum < stopCheckNum) {
+            emit()
+        }
+    }, 300 * 1 + Math.floor((Math.random() * 200)))
 }
 
 },{}],256:[function(require,module,exports){

@@ -1,4 +1,4 @@
-let connect = require('./../connect.js')
+let connect = require('./../../../connect.js')
 let Tool = require('./tool.js')
 
 module.exports = (canvas) => {
@@ -18,8 +18,9 @@ function Field(canvas) {
 
     let tw = this.h
     let th = this.h
-    let moveTool = Tool(30, 0, tw, th)
-    let plusTool = Tool(30 + tw * 1.1, 0, tw, th)
+    let margin = th*0.1
+    let moveTool = Tool(30, 0, tw, th - margin * 2)
+    let plusTool = Tool(30 + tw * 1.1, 0, tw, th - margin * 2)
 
     moveTool.setID('pointMove')
     plusTool.setID('separate')
@@ -40,7 +41,7 @@ function Field(canvas) {
 
         let cx = tool.x + tool.w / 2
         let cy = tool.y + tool.h / 2
-        let r = tool.w / 5
+        let r = tool.h / 5
         //
         // ctx.beginPath()
         // ctx.strokeStyle = 'rgba(150,150,150,1)'
@@ -57,7 +58,7 @@ function Field(canvas) {
             ctx.rotate(Math.PI / 2)
             ctx.strokeStyle = 'rgba(50,50,50,1)'
             tool.line(ctx, r, 0, r * 2, 0)
-            tool.line(ctx, r * 2, 0, r * 2 - r / 3, - r / 3)
+            tool.line(ctx, r * 2, 0, r * 2 - r / 3, -r / 3)
             tool.line(ctx, r * 2, 0, r * 2 - r / 3, r / 3)
         }
         ctx.restore()

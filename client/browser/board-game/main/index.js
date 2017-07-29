@@ -1,6 +1,6 @@
 const uuid = require('node-uuid')
 
-const Canvas = require('./../canvas/canvas.js')
+const Canvas = require('./../card/canvas.js')
 const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
 const CardCase = require('./../card/objectCase.js')
@@ -13,14 +13,56 @@ let socketDir = 'board_game_'
 let socketType = 'board_game'
 
 const Main = require('./common.js')
+const PlayRoom = require('./playRoom.js')
+let ToolField = require('./../card/tool/toolField.js')
+
+exports.init = (_element) => {
+    element = _element
+    let width = window.innerWidth - 60 > 300 ? window.innerWidth - 60 : 300
+    let eleEditer = document.createElement('editer')
+    let eleTool = document.createElement('tool')
+    let eleListener = document.createElement('listener')
+    eleEditer.style.margin = '30px'
+    eleTool.style.margin = '30px'
+    eleListener.style.margin = '30px'
+    element.appendChild(eleEditer)
+    element.appendChild(eleTool)
+    element.appendChild(eleListener)
+    let editerCanvas = Canvas(eleEditer, width, 300)
+    let toolCanvas = Canvas(eleTool, width, 50)
+    let listenerCanvas = Canvas(eleListener, width, 150)
+    field = Field(editerCanvas)
+    tool = ToolField(toolCanvas)
+    listener = ListenerField(listenerCanvas)
+    field.render()
+    tool.render()
+    listener.render()
+}
+
 
 exports.start = (element, context, socket, clientTime, config) => {
     // element.style.margin = '30px'
+    config.socketDir = socketDir
+    config.socketType = socketType
     //
-    let canvas = Canvas(element)
+    console.log(document.body)
+    element.style.width = window.innerWidth + 'px'
+    element.style.height = window.innerHeight + 'px'
+    // element.style.width = '100%'
+    // element.style.height = '100%'
+    // console.log(element)
+    // element.style.overflow = 'hidden'
+// console.log(width, height, document.body.clientHeight)
+    let canvas = Canvas(element, 1.0, 0.9)
+    let toolCanvas = Canvas(element, 1.0, 0.1)
+    let tool = ToolField(toolCanvas)
+    tool.render()
 
     let main = Main.start(canvas, context, socket, clientTime, config)
     let field = main.field
+
+    let playRoom = PlayRoom.start(canvas, field, socket, clientTime, config)
+
 
     let cardCase = CardCase()
     cardCase.id = config.user + '_case'
