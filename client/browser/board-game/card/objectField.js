@@ -77,12 +77,17 @@ Field.prototype.setObject = function(obj) {
         field.render()
     }
     if (this.objects[id].types.indexOf('card') >= 0) {
-        this.objects[id].scale = (this.canvas.width / 5) / this.objects[id].w
+        // this.objects[id].scale = (this.canvas.width / 5) / this.objects[id].w
+        this.objects[id].scale = (this.canvas.width / 15) / this.objects[id].w
     }
 }
 
 Field.prototype.removeObject = function(id) {
     delete this.objects[id]
+}
+
+Field.prototype.getObject = function(id) {
+    return this.objects[id]
 }
 
 Field.prototype.isObject = function(id) {
@@ -142,7 +147,6 @@ Field.prototype.updateObjects = function(objects) {
 
 Field.prototype.startSound = function(id, bufferName, startTime, option = {}) {
     // sound
-    console.log('start')
     let now = Date.now()
     let field = this
     log.text((now - startTime) + '   ' + (startTime < now))
@@ -169,7 +173,7 @@ Field.prototype.updateSounds = function(objects) {
         if (field.sounds[id]) {
             if (obj.events.indexOf('sound_stop') >= 0) {
                 field.sounds[id].stop()
-                console.log('stop')
+                console.log('stop', id)
                 delete field.sounds[id]
             } else {
                 let p = this.clip.getPositionInfo(obj.gx, obj.gy)
@@ -180,6 +184,8 @@ Field.prototype.updateSounds = function(objects) {
         } else {
             if (obj.events.indexOf('sound_start') >= 0) {
                 // sound
+                console.log('start', id)
+
                 this.startSound(obj.id, 'カード', obj.startTime, {
                     loop: true
                 })
@@ -196,27 +202,90 @@ Field.prototype.setObjectCase = function(objectCase) {
     this.objectCase[objectCase.id] = objectCase
 }
 
+/**
+ *
+ */
+
+Field.prototype.autoMove = function(obj, toX, toY, moveInfo = {}) {
+    let duration = moveInfo.duration || 100
+    let delay = moveInfo.delay || 0
+    let diffTime = 30
+    let x = obj.x
+    let y = obj.y
+    let now = Date.now()
+    for (let t = 0; t < duration; t += diffTime) {
+        let tx = x + (toX - x) / duration * t
+        let ty = y + (toY - y) / duration * t
+        let out = obj.output()
+        out.x = tx
+        out.y = ty
+        out.timestamp = now + t + delay
+        out.events.push('auto_move')
+        if (t == 0) {
+            out.events.push('sound_start')
+        }
+        this.sendObjectInfoToServer(out, {
+            path: true
+        })
+        if (t + diffTime >= duration) {
+            let tx = toX
+            let ty = toY
+            let out = obj.output()
+            out.x = tx
+            out.y = ty
+            out.timestamp = now + duration
+            out.events.push('auto_move')
+            out.events.push('sound_stop')
+
+            this.sendObjectInfoToServer(out, {
+                path: true
+            })
+        }
+    }
+}
+
+
 
 Field.prototype.render = function() {
     // Draw points onto the canvas element.
     var ctx = this.canvas.getContext('2d')
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+
+    // background color
+    // ctx.beginPath()
+    // ctx.rect(0, 0, this.w, this.h)
+    // ctx.fillStyle = 'rgba(245, 245, 245, 1.0)'
+    // ctx.fill()
+
     ctx.beginPath()
     ctx.save()
-
+    let range = {
+        minX: 0,
+        minY: 0,
+        maxX: this.canvas.width,
+        maxY: this.canvas.height
+    }
 
 
     for (let id in this.objectCase) {
         this.objectCase[id].render(ctx)
     }
+
+    let reverse = []
     for (let id in this.objects) {
-        this.objects[id].draw(ctx)
+        reverse.unshift(this.objects[id].draw)
     }
-    for (let id in this.localObjects) {
-        this.localObjects[id].draw(ctx)
-    }
+    reverse.forEach((draw) => {
+        draw(ctx, range)
+    })
 
     this.flexibleDraw(ctx, this)
+
+    for (let id in this.localObjects) {
+        this.localObjects[id].draw(ctx, range)
+    }
+
+
 
     ctx.restore()
 }
@@ -241,7 +310,7 @@ Field.prototype.mousePressed = function(x, y) {
             obj.click()
             let out = obj.output()
             out.events.push('sound_start')
-            this.sendObjectInfoToServer(out, true)
+            this.sendObjectInfoToServer(out)
             break
         }
     }
@@ -253,7 +322,7 @@ Field.prototype.mousePressed = function(x, y) {
                 let obj = objCase.pop(n)
                 let out = obj.output()
                 out.events.push('pop_case')
-                this.sendObjectInfoToServer(out, true)
+                this.sendObjectInfoToServer(out)
                 console.log(obj)
             }
         }
@@ -267,7 +336,7 @@ Field.prototype.mousePressed = function(x, y) {
             }
         }
     }
-    this.flexiblePressed(x,y, this)
+    this.flexiblePressed(x, y, this)
 }
 
 
@@ -287,7 +356,7 @@ Field.prototype.mouseReleased = function(x, y) {
             obj.isSync = false
             let out = obj.output()
             out.events.push('sound_stop')
-            this.sendObjectInfoToServer(out, true)
+            this.sendObjectInfoToServer(out)
 
             for (let id in this.objectCase) {
                 let objCase = this.objectCase[id]
@@ -308,7 +377,7 @@ Field.prototype.mouseReleased = function(x, y) {
             break
         }
     }
-    this.flexibleReleased(x,y, this)
+    this.flexibleReleased(x, y, this)
     this.render()
 }
 
@@ -325,7 +394,7 @@ Field.prototype.mouseMoved = function(x, y) {
             out.x = x
             out.y = y
             out.events.push('move')
-            this.sendObjectInfoToServer(out, true)
+            this.sendObjectInfoToServer(out)
         }
     }
 
@@ -338,7 +407,7 @@ Field.prototype.mouseMoved = function(x, y) {
             break
         }
     }
-    this.flexibleMoved(x,y, this)
+    this.flexibleMoved(x, y, this)
     this.render()
 }
 
@@ -354,13 +423,16 @@ Field.prototype.sendObjectInfo = function(callback = () => {}) {
     this.callSendObjectInfo = callback
 }
 
-Field.prototype.sendObjectInfoToServer = function(sendObj, release) {
+Field.prototype.sendObjectInfoToServer = function(sendObj, option = {}) {
     let globalPos = this.clip.encodeToGloval(sendObj.x, sendObj.y)
     sendObj.gx = globalPos.x
     sendObj.gy = globalPos.y
     sendObj.clientID = this.clientID
-    sendObj.timestamp = Date.now()
-    this.callSendObjectInfo(sendObj)
+    if (sendObj.events.indexOf('auto_move') == -1) {
+        sendObj.timestamp = Date.now()
+        // console.log('time')
+    }
+    this.callSendObjectInfo(sendObj, option)
 }
 
 

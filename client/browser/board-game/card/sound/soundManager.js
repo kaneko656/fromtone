@@ -48,11 +48,14 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
 
         let gainNode = context.createGain()
         gainNode.connect(context.destination)
+        gainNode.gain.value = 0
 
         syncSound.started((leftTime) => {})
 
         let lastGainValue = null
         let lastDoppler = null
+        let stoppingTime = Date.now()
+        let isStart = false
         let setEffect = (p) => {
 
             let dist = Math.sqrt(p.gx * p.gx + p.gy * p.gy)
@@ -109,7 +112,6 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             // dist
             // maxDist
             // time
-            //
             let value = 0
             if (!lastGainValue) {
                 value = p.dist < p.maxDist ? 1.0 - p.dist / p.maxDist : 0
@@ -125,7 +127,15 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
                 value: value,
                 time: soundTargetTime
             }
+            console.log(value.toFixed(4))
             gainNode.gain.linearRampToValueAtTime(value, st / 1000 + soundTargetTime / 1000)
+
+            if (!isStart && value > 0) {
+                let plus = Date.now() - stoppingTime
+                syncSound.offset += plus
+                syncPlay.play(gainNode, syncSound)
+                isStart = true
+            }
         }
 
         let stop = () => {
@@ -136,7 +146,7 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             }, 200)
         }
 
-        syncPlay.play(gainNode, syncSound)
+        // syncPlay.play(gainNode, syncSound)
         let returnObj = {
             bufferName: bufferName,
             gainNode: gainNode,

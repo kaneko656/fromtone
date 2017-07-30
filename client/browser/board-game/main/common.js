@@ -52,20 +52,26 @@ exports.start = (canvas, context, socket, clientTime, config) => {
     let sendObjectBuffer = []
     field.sendObjectInfo((sendObj, option) => {
         let start = (sendObjectBuffer.length == 0)
-        if (sendObj.events.length >= 1) {
-            start = true
-        }
-        if (!start) {
+        if (sendObjectBuffer.length > 0 && sendObj.events.length == 0) {
             return
         }
 
+        // 自分の描画を高速に
+        // if (field.objects[sendObj.id]) {
+        //     let date = new Date(sendObj.timestamp)
+        //     if (date <= Date.now()) {
+        //         field.updateObjects(sendObj)
+        //     } else {
+        //         Job(date, () => {
+        //             field.updateObjects(sendObj)
+        //         })
+        //     }
+        // }
+        // update at time
         sendObj.timestamp = Math.floor(clientTime.correctionToServerTime(sendObj.timestamp))
         sendObjectBuffer.push(sendObj)
 
-        // 自分の描画を高速に
-        if (field.objects[sendObj.id]) {
-            field.updateObjects(sendObj)
-        }
+
         let now = Date.now()
         let date1 = new Date(Math.floor(now / bufferTime) * bufferTime + bufferTime)
         let date2 = new Date(Math.floor(now / bufferTime) * bufferTime + bufferTime * 2)
@@ -92,9 +98,9 @@ exports.start = (canvas, context, socket, clientTime, config) => {
     socket.on(socketDir + 'sendObjectInfo', (objects) => {
         objects.forEach((obj) => {
             // remove myObject
-            if (field.objects[obj.id] && obj.clientID == clientID) {
-                return
-            }
+            // if (field.objects[obj.id] && obj.clientID == clientID) {
+            //     return
+            // }
 
             // card set
             if (!field.isObject(obj.id)) {
@@ -111,15 +117,14 @@ exports.start = (canvas, context, socket, clientTime, config) => {
             let date = new Date(obj.time)
             if (date <= Date.now()) {
                 field.updateObjects(obj)
+                field.updateSounds(obj)
             } else {
                 Job(date, () => {
                     field.updateObjects(obj)
+                    field.updateSounds(obj)
                 })
             }
         })
-
-        // sound Update
-        field.updateSounds(objects)
     })
 
 

@@ -56,10 +56,12 @@ SyncPlay.prototype.createSyncSound = function(sourceName, startDate, offset, cal
             if (!syncSound.buffer) {
                 return
             }
+            syncSound.offset = syncSound.offset % syncSound.duration
             // console.log(syncSound)
             let currentTime = syncPlay.context.currentTime
             // ms
             let leftStartTime = syncSound.startTime - currentTime * 1000
+            console.log('leftStartTime', leftStartTime)
             let delayOffset = leftStartTime < 0 ? -leftStartTime : 0
             leftStartTime = leftStartTime < 0 ? 0 : leftStartTime
             // sec

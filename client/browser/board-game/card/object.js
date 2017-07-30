@@ -47,10 +47,20 @@ module.exports = (icon) => {
         release: () => {
             callRelease(obj.name)
         },
-        draw: (ctx) => {
+        draw: (ctx, range = {}) => {
             if (obj.isChild) {
                 obj.x = obj.parentObject.x + obj.childPosition.x * obj.canvasW
                 obj.y = obj.parentObject.y + obj.childPosition.y * obj.canvasH
+            }
+            if (range) {
+                let minX = obj.x - obj.w / 2 * obj.scale
+                let maxX = obj.x + obj.w / 2 * obj.scale
+                let minY = obj.y - obj.h / 2 * obj.scale
+                let maxY = obj.y + obj.h / 2 * obj.scale
+                if (maxX < range.minX || minX > range.maxX ||
+                    maxY < range.minY || minY > range.maxY) {
+                    return
+                }
             }
             ctx.save()
             ctx.translate(obj.x, obj.y)

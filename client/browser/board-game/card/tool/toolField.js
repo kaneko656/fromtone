@@ -138,6 +138,19 @@ Field.prototype.render = function() {
     let ctx = this.canvas.getContext('2d')
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
+    // background color
+    // ctx.beginPath()
+    // ctx.rect(0, 0, this.w, this.h)
+    // ctx.fillStyle = 'rgba(245, 245,245, 1.0)'
+    // ctx.fill()
+
+    // separate line
+
+    // ctx.beginPath()
+    // ctx.strokeStyle = 'rgba(0,0,0, 0.4)'
+    // this.line(ctx, 0, 0, this.w, 0)
+    // ctx.stroke()
+
     ctx.save()
 
     this.tool.forEach((t) => {

@@ -57,18 +57,18 @@ exports.start = (element, context, socket, clientTime, config) => {
                 let field = main.field
 
                 if (config.user == 'up') {
-                    field.setClip(0, -0.5, 0.5, 0.5)
+                    field.setClip(0, -0.5, 0.3, 0.3)
                     field.rotate(Math.PI)
                 }
                 if (config.user == 'down') {
-                    field.setClip(0, 0.5, 0.5, 0.5)
+                    field.setClip(0, 0.5, 0.3, 0.3)
                 }
                 if (config.user == 'left') {
-                    field.setClip(-0.5, 0, 0.5, 0.5)
+                    field.setClip(-0.5, 0, 0.3, 0.3)
                     field.rotate(Math.PI/2)
                 }
                 if (config.user == 'right') {
-                    field.setClip(0.5, 0, 0.5, 0.5)
+                    field.setClip(0.5, 0, 0.3, 0.3)
                     field.rotate(-Math.PI/2)
                 }
                 field.setLocalPosition(0, 0, canvas.width, canvas.height)
