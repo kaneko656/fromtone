@@ -20,6 +20,8 @@ function Field(canvas, context) {
     this.w = canvas.width
     this.h = canvas.height
     this.areaDist = 3
+    this.displayScale = window.devicePixelRatio
+    this.fontSize = this.displayScale * 15
 
     this.globalPosition = GlobalPosition()
     this.clip = this.globalPosition.clip(0, 0, 1, 1)
@@ -38,6 +40,7 @@ function Field(canvas, context) {
     this.callUpdatePannerPosition = () => {}
 
     this.callSendObjectInfo = () => {}
+    this.callSendObjectCaseInfo = () => {}
 }
 
 Field.prototype.setClientID = function(clientID) {
@@ -136,6 +139,7 @@ Field.prototype.updateObjects = function(objects) {
 
             if (obj.events.indexOf('in_case') >= 0) {
                 // 自分のケースに入っている場合
+                console.log('in_case')
                 if (field.objectCase[field.user] && field.objectCase[field.user].inCard(obj.id)) {
                     field.objects[id].noDraw = false
                     field.objects[id].noMove = true
@@ -146,8 +150,6 @@ Field.prototype.updateObjects = function(objects) {
             }
             if (obj.events.indexOf('out_case') >= 0) {
                 console.log('out_case')
-                console.log(obj)
-                console.log(field.objects[id])
                 field.objects[id].noDraw = false
                 field.objects[id].noMove = false
             }
@@ -316,7 +318,8 @@ Field.prototype.render = function() {
 
     // font
     let font = ctx.font.split(' ')
-    ctx.font = "15px '" + font[1] + "'"
+    let fontSize = this.fontSize
+    ctx.font = fontSize + "px '" + font[1] + "'"
     ctx.textAlign = 'center'
 
     // background color
@@ -363,7 +366,8 @@ Field.prototype.flexibleDraw = function() {}
 
 
 Field.prototype.mousePressed = function(x, y) {
-
+    x = x * this.displayScale
+    y = y * this.displayScale
     /**
      * Object (Card)
      */
@@ -385,6 +389,7 @@ Field.prototype.mousePressed = function(x, y) {
     if (!isObjMove) {
 
         // out_case
+        // ポジションずれる？
         for (let id in this.objectCase) {
             let objCase = this.objectCase[id]
             let n = objCase.isOver(x, y)
@@ -394,6 +399,7 @@ Field.prototype.mousePressed = function(x, y) {
                 let out = obj.output()
                 out.events.push('out_case')
                 this.sendObjectInfoToServer(out)
+                field.sendObjectCaseInfoToServer(field.id)
             }
         }
 
@@ -411,7 +417,8 @@ Field.prototype.mousePressed = function(x, y) {
 
 
 Field.prototype.mouseReleased = function(x, y) {
-
+    x = x * this.displayScale
+    y = y * this.displayScale
     /**
      * Object (Card)
      */
@@ -436,6 +443,7 @@ Field.prototype.mouseReleased = function(x, y) {
                     objCase.push(obj, x)
                     obj.noMove = true
                     out.events.push('in_case')
+                    field.sendObjectCaseInfoToServer(field.user)
                 }
             }
             this.sendObjectInfoToServer(out)
@@ -455,6 +463,8 @@ Field.prototype.mouseReleased = function(x, y) {
 }
 
 Field.prototype.mouseMoved = function(x, y) {
+    x = x * this.displayScale
+    y = y * this.displayScale
 
     /**
      * Object (Card)
@@ -506,6 +516,20 @@ Field.prototype.sendObjectInfoToServer = function(sendObj, option = {}) {
         // console.log('time')
     }
     this.callSendObjectInfo(sendObj, option)
+}
+
+Field.prototype.sendObjectCaseInfo = function(callback = () => {}) {
+    this.callSendObjectCaseInfo = callback
+}
+
+Field.prototype.sendObjectCaseInfoToServer = function(id, option = {}) {
+    // caseはclipの中心
+    if(this.objectCase[id]){
+        objCase = this.objectCase[id]
+        let sendObj = objCase.share()
+        sendObj.clientID = this.clientID
+        this.callSendObjectCaseInfo(sendObj, option)
+    }
 }
 
 

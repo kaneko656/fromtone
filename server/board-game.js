@@ -117,7 +117,7 @@ exports.start = (socket, disconnect, _serverTime) => {
             body.time += bufferTime
 
             // startTime
-            if (!objectStartTime[body.id] || !objectLastTime[body.id] || (body.event && body.event == 'sound_start') ) {
+            if (!objectStartTime[body.id] || !objectLastTime[body.id] || (body.event && body.event == 'sound_start')) {
                 objectStartTime[body.id] = body.time
                 objectLastTime[body.id] = body.time
                 body.startTime = body.time
@@ -150,6 +150,10 @@ exports.start = (socket, disconnect, _serverTime) => {
                 }
             })
         }
+    })
+
+    socket.on(socketDir + 'sendObjectCaseInfo', (body) => {
+        emitAllClient(socketDir + 'sendObjectCaseInfo', body)
     })
 
     socket.on(socketDir + 'notification_common', (body) => {

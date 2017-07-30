@@ -5,14 +5,31 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
     let socketType = config.socketType
 
     let list = {}
+    let isFinish = false
     socket.on(socketDir + 'user_list', (list) => {
+        if (isFinish) {
+            return
+        }
         list.forEach((user) => {
             setUser(user)
         })
     })
 
     socket.on(socketDir + 'user_add', (user) => {
+        if (isFinish) {
+            return
+        }
         setUser(user)
+    })
+
+    socket.on(socketDir + 'user_remove', (user) => {
+        if (isFinish) {
+            return
+        }
+        field.removeLocalObject(user)
+        if (list[user]) {
+            delete list[user]
+        }
     })
 
     let setUser = (user) => {
@@ -46,12 +63,11 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
 
         // Player or MainField
         obj.flexibleDraw = (ctx, obj) => {
-            let font = ctx.font.split(' ')
-            ctx.font = "15px '" + font[1] + "'"
-            ctx.textAlign = 'center'
+            let fontSize = field.fontSize / field.displayScale
             ctx.beginPath()
             ctx.strokeStyle = 'rgba(0,0,0,0.8)'
-            ctx.fillText(user, 0, -obj.h / 2 - 10)
+            ctx.fillStyle = 'rgba(0,0,0, 0.8)'
+            ctx.fillText(user, 0, -obj.h / 2 - fontSize / 2)
 
             // player
             if (obj.w == obj.h) {
@@ -59,14 +75,13 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
                 ctx.arc(0, 0, obj.w / 2, 0, Math.PI * 2)
                 ctx.fill()
             }
-
             // Main Field
             else {
                 ctx.fillStyle = 'rgba(234,80,68,0.5)'
                 ctx.rect(-obj.w / 2, -obj.h / 2, obj.w, obj.h)
                 ctx.fill()
                 ctx.fillStyle = 'rgba(0,0,0,0.8)'
-                ctx.fillText('Main Field', 0, 0)
+                ctx.fillText('Main Field', 0, fontSize / 2)
             }
         }
 
@@ -90,9 +105,6 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
     // 開始ボタン
     field.flexibleDraw = (ctx, field) => {
         // ctx.fillStyle = 'rgba(234,247,247,' + (0.8 - 0.1 * r) + ')'
-        let font = ctx.font.split(' ')
-        ctx.font = "15px '" + font[1] + "'"
-        ctx.textAlign = 'center'
 
         // Circle
         for (let r = 1; r <= 3; r++) {
@@ -112,26 +124,28 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
         ctx.restore()
 
         // 開始ボタン
+        let fontSize = field.fontSize / field.displayScale
         ctx.beginPath()
         // ctx.rect(0, 0, field.w, field.h)
         if (Object.keys(list).length >= 3) {
+            ctx.fillStyle = 'rgba(0,0,0,1.0)'
+            ctx.fillText('GAME START', field.w / 2, field.h - 55 + fontSize / 2)
             ctx.strokeStyle = 'rgba(11,90,150,1.0)'
+            ctx.fillStyle = 'rgba(11,90,150,0.5)'
             ctx.rect(field.w / 8 * 3, field.h - 80, field.w / 8 * 2, 50)
-            ctx.fillText('GAME START', field.w / 2, field.h - 50)
         } else {
+            ctx.fillStyle = 'rgba(0,0,0, 0.8)'
+            ctx.fillText('3 or more players', field.w / 2, field.h - 55 + fontSize / 2)
             ctx.strokeStyle = 'rgba(11,90,150,0.3)'
+            ctx.fillStyle = 'rgba(11,90,150,0.1)'
             ctx.rect(field.w / 8 * 3, field.h - 80, field.w / 8 * 2, 50)
-            ctx.fillText('3 or more players', field.w / 2, field.h - 50)
         }
+        ctx.fill()
         ctx.stroke()
+
     }
 
-    socket.on(socketDir + 'user_remove', (user) => {
-        field.removeLocalObject(user)
-        if (list[user]) {
-            delete list[user]
-        }
-    })
+
 
 
     field.flexibleReleased = (x, y, field) => {
@@ -144,6 +158,7 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
                 for (let user in list) {
                     field.removeLocalObject(user)
                 }
+                isFinish = true
                 callback(list)
             }
         }

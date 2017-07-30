@@ -21389,12 +21389,25 @@ module.exports = (element, widthRate = 1, heightRate = 1) => {
     let canvas = document.createElement('canvas')
     canvas.display = 'block'
     canvas.margin = 0
-    element.appendChild(canvas)
+    canvas.pedding = '0px'
+
+    canvas.style.width = window.innerWidth * widthRate+ 'px'
+    canvas.style.height = window.innerHeight * heightRate + 'px'
+    canvas.width = window.innerWidth * window.devicePixelRatio
+    canvas.height = window.innerHeight * window.devicePixelRatio
+
     sizing()
+    element.appendChild(canvas)
 
     function sizing() {
-        canvas.height = element.offsetHeight * heightRate
-        canvas.width = element.offsetWidth * widthRate
+        var b = document.body
+        var d = document.documentElement
+        let width = element.width
+        let height = element.height
+        canvas.style.width = window.innerWidth * widthRate+ 'px'
+        canvas.style.height = window.innerHeight * heightRate + 'px'
+        canvas.height = window.innerHeight * window.devicePixelRatio * heightRate
+        canvas.width = window.innerWidth * window.devicePixelRatio * widthRate
     }
 
     window.addEventListener('resize', function() {
@@ -21684,11 +21697,13 @@ function ObjectCase() {
     this.objects = []
     this.id = 'id'
     this.idList = []
-    this.user = ''
+    // this.user = ''
     this.types = []
     this.events = []
     // this.info = {}
     this.interval = 0
+    this.gx = 0
+    this.gy = 0
     this.area = {
         x: 0,
         y: 0,
@@ -21701,26 +21716,58 @@ function ObjectCase() {
 
 ObjectCase.prototype.share = function() {
     let objects = []
+    let objCase = this
     this.objects.forEach((obj) => {
         let outObj = obj.object.output()
         objects.push({
-            info: Object.Assign({}, obj.info),
+            info: Object.assign({}, obj.info),
             object: outObj,
-            posX: obj.posX,
-            posY: obj.posY
+            caseX: (obj.posX - objCase.area.x) / objCase.area.w,
+            caseY: (obj.posY - objCase.area.y) / objCase.area.h
         })
     })
     let out = {
-        id: obj.id,
-        user: this.user,
-        type: [].concat(this.types),
-        events: [].concat(this.events),
-        objects: objetcs,
-        interal: this.interval,
-        area: Object.Assign({}, this.info),
+        id: objCase.id,
+        idList: [].concat(objCase.idList),
+        type: [].concat(objCase.types),
+        events: [].concat(objCase.events),
+        objects: objects,
+        gx: objCase.gx, // field.center
+        gy: objCase.gy // field.center
+        // area: Object.assign({}, this.info),
     }
     this.events = []
     return out
+}
+
+ObjectCase.prototype.update = function(upObj, x, y) {
+    let objCase = this
+
+    // 初期化
+    objCase.types = upObj.types
+    objCase.objects = []
+    objCase.gx = upObj.gx
+    objCase.gy = upObj.gy
+
+    // 昇順  小さい順
+    upObj.objects.sort((a, b) => {
+        if (a.caseX < b.caseX) return -1
+        if (a.caseX > b.caseX) return 1
+        return 0
+    })
+
+    // 更新
+    upObj.objects.forEach((object) => {
+        let obj = objects.object
+        if (obj.types.indexOf('card') >= 0) {
+            let card = Card(obj.name)
+            card.id = obj.id
+            // 右から挿入（挿入順に左から並ぶ）
+            let x = objCase.x + objCase.w
+            objCase.push(card, x)
+        }
+    })
+    // upObj.type = upObj.types
 }
 
 
@@ -21828,6 +21875,8 @@ function Field(canvas, context) {
     this.w = canvas.width
     this.h = canvas.height
     this.areaDist = 3
+    this.displayScale = window.devicePixelRatio
+    this.fontSize = this.displayScale * 15
 
     this.globalPosition = GlobalPosition()
     this.clip = this.globalPosition.clip(0, 0, 1, 1)
@@ -21846,6 +21895,7 @@ function Field(canvas, context) {
     this.callUpdatePannerPosition = () => {}
 
     this.callSendObjectInfo = () => {}
+    this.callSendObjectCaseInfo = () => {}
 }
 
 Field.prototype.setClientID = function(clientID) {
@@ -21944,6 +21994,7 @@ Field.prototype.updateObjects = function(objects) {
 
             if (obj.events.indexOf('in_case') >= 0) {
                 // 自分のケースに入っている場合
+                console.log('in_case')
                 if (field.objectCase[field.user] && field.objectCase[field.user].inCard(obj.id)) {
                     field.objects[id].noDraw = false
                     field.objects[id].noMove = true
@@ -21954,8 +22005,6 @@ Field.prototype.updateObjects = function(objects) {
             }
             if (obj.events.indexOf('out_case') >= 0) {
                 console.log('out_case')
-                console.log(obj)
-                console.log(field.objects[id])
                 field.objects[id].noDraw = false
                 field.objects[id].noMove = false
             }
@@ -22124,7 +22173,8 @@ Field.prototype.render = function() {
 
     // font
     let font = ctx.font.split(' ')
-    ctx.font = "15px '" + font[1] + "'"
+    let fontSize = this.fontSize
+    ctx.font = fontSize + "px '" + font[1] + "'"
     ctx.textAlign = 'center'
 
     // background color
@@ -22171,7 +22221,8 @@ Field.prototype.flexibleDraw = function() {}
 
 
 Field.prototype.mousePressed = function(x, y) {
-
+    x = x * this.displayScale
+    y = y * this.displayScale
     /**
      * Object (Card)
      */
@@ -22193,6 +22244,7 @@ Field.prototype.mousePressed = function(x, y) {
     if (!isObjMove) {
 
         // out_case
+        // ポジションずれる？
         for (let id in this.objectCase) {
             let objCase = this.objectCase[id]
             let n = objCase.isOver(x, y)
@@ -22202,6 +22254,7 @@ Field.prototype.mousePressed = function(x, y) {
                 let out = obj.output()
                 out.events.push('out_case')
                 this.sendObjectInfoToServer(out)
+                field.sendObjectCaseInfoToServer(field.id)
             }
         }
 
@@ -22219,7 +22272,8 @@ Field.prototype.mousePressed = function(x, y) {
 
 
 Field.prototype.mouseReleased = function(x, y) {
-
+    x = x * this.displayScale
+    y = y * this.displayScale
     /**
      * Object (Card)
      */
@@ -22244,6 +22298,7 @@ Field.prototype.mouseReleased = function(x, y) {
                     objCase.push(obj, x)
                     obj.noMove = true
                     out.events.push('in_case')
+                    field.sendObjectCaseInfoToServer(field.user)
                 }
             }
             this.sendObjectInfoToServer(out)
@@ -22263,6 +22318,8 @@ Field.prototype.mouseReleased = function(x, y) {
 }
 
 Field.prototype.mouseMoved = function(x, y) {
+    x = x * this.displayScale
+    y = y * this.displayScale
 
     /**
      * Object (Card)
@@ -22314,6 +22371,20 @@ Field.prototype.sendObjectInfoToServer = function(sendObj, option = {}) {
         // console.log('time')
     }
     this.callSendObjectInfo(sendObj, option)
+}
+
+Field.prototype.sendObjectCaseInfo = function(callback = () => {}) {
+    this.callSendObjectCaseInfo = callback
+}
+
+Field.prototype.sendObjectCaseInfoToServer = function(id, option = {}) {
+    // caseはclipの中心
+    if(this.objectCase[id]){
+        objCase = this.objectCase[id]
+        let sendObj = objCase.share()
+        sendObj.clientID = this.clientID
+        this.callSendObjectCaseInfo(sendObj, option)
+    }
 }
 
 
@@ -23305,9 +23376,11 @@ exports.start = (canvas, context, socket, clientTime, config) => {
 
             // card set
             if (!field.isObject(obj.id)) {
+                console.log(obj)
                 let card = Card(obj.name)
                 card.id = obj.id
                 card.types = obj.types
+                console.log(card)
                 field.setObject(card)
             }
 
@@ -23328,6 +23401,22 @@ exports.start = (canvas, context, socket, clientTime, config) => {
             }
         })
     }
+
+    field.sendObjectCaseInfo((sendObj, option) => {
+      console.log('sendCase')
+      console.log(sendObj)
+      socket.emit(socketDir + 'sendObjectCaseInfo', sendObj)
+    })
+
+    socket.on(socketDir + 'sendObjectCaseInfo', (upObj) => {
+        // updateObjects(objects)
+        console.log('catchCase')
+        console.log(upObj)
+        let id = upObj.id
+        if(!field.objectCase[id]){
+
+        }
+    })
 
 
     /**
@@ -23426,11 +23515,14 @@ exports.start = (element, context, socket, clientTime, config) => {
     //
     element.style.width = window.innerWidth + 'px'
     element.style.height = window.innerHeight + 'px'
+    element.style.overflow = 'hidden'
     // element.style.width = '100%'
     // element.style.height = '100%'
     // console.log(element)
     // element.style.overflow = 'hidden'
     // console.log(width, height, document.body.clientHeight)
+
+
     let canvas = Canvas(element, 1.0, 0.9)
     let main = Main.start(canvas, context, socket, clientTime, config)
     let field = main.field
@@ -23493,7 +23585,7 @@ exports.start = (element, context, socket, clientTime, config) => {
             })
             userNum++
         }
-        field.setClip(0, 0, 0.1, 0.1)
+        // field.setClip(0, 0, 0.1, 0.1)
     }
 
     let phase2 = () => {
@@ -23638,14 +23730,31 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
     let socketType = config.socketType
 
     let list = {}
+    let isFinish = false
     socket.on(socketDir + 'user_list', (list) => {
+        if (isFinish) {
+            return
+        }
         list.forEach((user) => {
             setUser(user)
         })
     })
 
     socket.on(socketDir + 'user_add', (user) => {
+        if (isFinish) {
+            return
+        }
         setUser(user)
+    })
+
+    socket.on(socketDir + 'user_remove', (user) => {
+        if (isFinish) {
+            return
+        }
+        field.removeLocalObject(user)
+        if (list[user]) {
+            delete list[user]
+        }
     })
 
     let setUser = (user) => {
@@ -23679,12 +23788,11 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
 
         // Player or MainField
         obj.flexibleDraw = (ctx, obj) => {
-            let font = ctx.font.split(' ')
-            ctx.font = "15px '" + font[1] + "'"
-            ctx.textAlign = 'center'
+            let fontSize = field.fontSize / field.displayScale
             ctx.beginPath()
             ctx.strokeStyle = 'rgba(0,0,0,0.8)'
-            ctx.fillText(user, 0, -obj.h / 2 - 10)
+            ctx.fillStyle = 'rgba(0,0,0, 0.8)'
+            ctx.fillText(user, 0, -obj.h / 2 - fontSize / 2)
 
             // player
             if (obj.w == obj.h) {
@@ -23692,14 +23800,13 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
                 ctx.arc(0, 0, obj.w / 2, 0, Math.PI * 2)
                 ctx.fill()
             }
-
             // Main Field
             else {
                 ctx.fillStyle = 'rgba(234,80,68,0.5)'
                 ctx.rect(-obj.w / 2, -obj.h / 2, obj.w, obj.h)
                 ctx.fill()
                 ctx.fillStyle = 'rgba(0,0,0,0.8)'
-                ctx.fillText('Main Field', 0, 0)
+                ctx.fillText('Main Field', 0, fontSize / 2)
             }
         }
 
@@ -23723,9 +23830,6 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
     // 開始ボタン
     field.flexibleDraw = (ctx, field) => {
         // ctx.fillStyle = 'rgba(234,247,247,' + (0.8 - 0.1 * r) + ')'
-        let font = ctx.font.split(' ')
-        ctx.font = "15px '" + font[1] + "'"
-        ctx.textAlign = 'center'
 
         // Circle
         for (let r = 1; r <= 3; r++) {
@@ -23745,26 +23849,28 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
         ctx.restore()
 
         // 開始ボタン
+        let fontSize = field.fontSize / field.displayScale
         ctx.beginPath()
         // ctx.rect(0, 0, field.w, field.h)
         if (Object.keys(list).length >= 3) {
+            ctx.fillStyle = 'rgba(0,0,0,1.0)'
+            ctx.fillText('GAME START', field.w / 2, field.h - 55 + fontSize / 2)
             ctx.strokeStyle = 'rgba(11,90,150,1.0)'
+            ctx.fillStyle = 'rgba(11,90,150,0.5)'
             ctx.rect(field.w / 8 * 3, field.h - 80, field.w / 8 * 2, 50)
-            ctx.fillText('GAME START', field.w / 2, field.h - 50)
         } else {
+            ctx.fillStyle = 'rgba(0,0,0, 0.8)'
+            ctx.fillText('3 or more players', field.w / 2, field.h - 55 + fontSize / 2)
             ctx.strokeStyle = 'rgba(11,90,150,0.3)'
+            ctx.fillStyle = 'rgba(11,90,150,0.1)'
             ctx.rect(field.w / 8 * 3, field.h - 80, field.w / 8 * 2, 50)
-            ctx.fillText('3 or more players', field.w / 2, field.h - 50)
         }
+        ctx.fill()
         ctx.stroke()
+
     }
 
-    socket.on(socketDir + 'user_remove', (user) => {
-        field.removeLocalObject(user)
-        if (list[user]) {
-            delete list[user]
-        }
-    })
+
 
 
     field.flexibleReleased = (x, y, field) => {
@@ -23777,6 +23883,7 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
                 for (let user in list) {
                     field.removeLocalObject(user)
                 }
+                isFinish = true
                 callback(list)
             }
         }
@@ -23814,7 +23921,7 @@ exports.text = (text) => {
 },{}],166:[function(require,module,exports){
 const uuid = require('node-uuid')
 
-const Canvas = require('./../canvas/canvas.js')
+const Canvas = require('./../card/canvas.js')
 const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
 const CardCase = require('./../card/objectCase.js')
@@ -23829,12 +23936,48 @@ let socketType = 'board_game'
 const Main = require('./../main/common.js')
 const log = require('./log.js')
 
+let ToolField = require('./../card/tool/toolField.js')
+
 
 exports.start = (element, context, socket, clientTime, config) => {
-    // element.style.margin = '30px'
-    log.set(element)
+    // element.style.margin = '200px'
+    // element.style.width = window.innerWidth + 'px'
+    // element.style.height = window.innerHeight + 'px'
+    element.style.position = 'fixed'
+    element.style.width = window.innerWidth + 'px';
+    element.style.height = window.innerHeight + 'px';
+    element.style.overflow = 'hidden'
+    // log.set(element)
 
-    let canvas = Canvas(element)
+    function enterFullscreen() {
+        let x = element
+        if (x.webkitRequestFullScreen) {
+            x.webkitRequestFullScreen()
+        } else if (x.mozRequestFullScreen) {
+            x.mozRequestFullScreen()
+        } else {
+            x.requestFullScreen()
+        }
+    }
+
+
+    //フルスクリーンを解除
+    function exitFullscreen() {
+        if (document.webkitCancelFullScreen) {
+            document.webkitCancelFullScreen()
+        } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen()
+        } else {
+            document.exitFullscreen()
+        }
+    }
+
+
+    element.style.width = document.documentElement.clientWidth
+    element.style.height = document.documentElement.clientHeight
+
+
+    let canvas = Canvas(element, 1.0 * 1.1, 0.9 * 1.1)
 
     let isStart = false
 
@@ -23842,7 +23985,8 @@ exports.start = (element, context, socket, clientTime, config) => {
     let startDraw = () => {
         let ctx = canvas.getContext('2d')
         let font = ctx.font.split(' ')
-        ctx.font = "15px '" + font[1] + "'"
+        let fontSize = window.devicePixelRatio * 15
+        ctx.font = fontSize + "px '" + font[1] + "'"
         ctx.textAlign = 'center'
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.save()
@@ -23854,7 +23998,8 @@ exports.start = (element, context, socket, clientTime, config) => {
     let waitDraw = () => {
         let ctx = canvas.getContext('2d')
         let font = ctx.font.split(' ')
-        ctx.font = "15px '" + font[1] + "'"
+        let fontSize = window.devicePixelRatio * 15
+        ctx.font = fontSize + "px '" + font[1] + "'"
         ctx.textAlign = 'center'
         ctx.clearRect(0, 0, canvas.width, canvas.height)
         ctx.save()
@@ -23881,8 +24026,11 @@ exports.start = (element, context, socket, clientTime, config) => {
         request.send()
     }
 
-    canvas.addEventListener('mousedown', function(e) {
-        // context.createBufferSource().start(0)
+    canvas.addEventListener('mousedown', firstClick)
+    canvas.addEventListener('touchstart', firstClick)
+
+    function firstClick() {
+
         if (!isStart) {
             let url = 'lib/sound/notification-common.mp3'
             loadSound(url, (buffer) => {
@@ -23895,7 +24043,11 @@ exports.start = (element, context, socket, clientTime, config) => {
             Main.register(canvas, context, socket, clientTime, config)
             isStart = true
         }
-    })
+        // enterFullscreen()
+        // setTimeout(() => {
+        //     exitFullscreen()
+        // }, 10000)
+    }
 
     socket.on(socketDir + 'game_start', (body) => {
         console.log(body)
@@ -23908,6 +24060,10 @@ exports.start = (element, context, socket, clientTime, config) => {
         let main = Main.start(canvas, context, socket, clientTime, config)
         let field = main.field
         field.user = config.user
+
+        let toolCanvas = Canvas(element, 1.0 * 1.1, 0.1 * 1.1)
+        let tool = ToolField(toolCanvas)
+        tool.render()
 
         if (config.user == 'up') {
             field.setClip(0, -0.5, 0.3, 0.3)
@@ -23929,10 +24085,14 @@ exports.start = (element, context, socket, clientTime, config) => {
         let cardCase = CardCase()
         cardCase.id = config.user
         cardCase.area.x = 0
-        cardCase.area.y = canvas.height - 200
+        cardCase.area.y = canvas.height - 150
         cardCase.area.h = 150
         cardCase.area.w = canvas.width
         cardCase.render = (ctx) => {
+            let a = cardCase.area
+            ctx.beginPath()
+            ctx.rect(a.x, a.y, a.w, a.h)
+            ctx.stroke()
             cardCase.objects.forEach((object) => {
                 let obj = object.object
                 let posX = object.posX
@@ -23951,7 +24111,7 @@ exports.start = (element, context, socket, clientTime, config) => {
 
 }
 
-},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../main/common.js":160,"./log.js":165,"node-uuid":180}],167:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../card/canvas.js":147,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../card/tool/toolField.js":157,"./../main/common.js":160,"./log.js":165,"node-uuid":180}],167:[function(require,module,exports){
 let value = {}
 let call = {}
 exports.set = (name, v) => {

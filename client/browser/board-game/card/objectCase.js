@@ -12,11 +12,13 @@ function ObjectCase() {
     this.objects = []
     this.id = 'id'
     this.idList = []
-    this.user = ''
+    // this.user = ''
     this.types = []
     this.events = []
     // this.info = {}
     this.interval = 0
+    this.gx = 0
+    this.gy = 0
     this.area = {
         x: 0,
         y: 0,
@@ -29,26 +31,58 @@ function ObjectCase() {
 
 ObjectCase.prototype.share = function() {
     let objects = []
+    let objCase = this
     this.objects.forEach((obj) => {
         let outObj = obj.object.output()
         objects.push({
-            info: Object.Assign({}, obj.info),
+            info: Object.assign({}, obj.info),
             object: outObj,
-            posX: obj.posX,
-            posY: obj.posY
+            caseX: (obj.posX - objCase.area.x) / objCase.area.w,
+            caseY: (obj.posY - objCase.area.y) / objCase.area.h
         })
     })
     let out = {
-        id: obj.id,
-        user: this.user,
-        type: [].concat(this.types),
-        events: [].concat(this.events),
-        objects: objetcs,
-        interal: this.interval,
-        area: Object.Assign({}, this.info),
+        id: objCase.id,
+        idList: [].concat(objCase.idList),
+        type: [].concat(objCase.types),
+        events: [].concat(objCase.events),
+        objects: objects,
+        gx: objCase.gx, // field.center
+        gy: objCase.gy // field.center
+        // area: Object.assign({}, this.info),
     }
     this.events = []
     return out
+}
+
+ObjectCase.prototype.update = function(upObj, x, y) {
+    let objCase = this
+
+    // 初期化
+    objCase.types = upObj.types
+    objCase.objects = []
+    objCase.gx = upObj.gx
+    objCase.gy = upObj.gy
+
+    // 昇順  小さい順
+    upObj.objects.sort((a, b) => {
+        if (a.caseX < b.caseX) return -1
+        if (a.caseX > b.caseX) return 1
+        return 0
+    })
+
+    // 更新
+    upObj.objects.forEach((object) => {
+        let obj = objects.object
+        if (obj.types.indexOf('card') >= 0) {
+            let card = Card(obj.name)
+            card.id = obj.id
+            // 右から挿入（挿入順に左から並ぶ）
+            let x = objCase.x + objCase.w
+            objCase.push(card, x)
+        }
+    })
+    // upObj.type = upObj.types
 }
 
 

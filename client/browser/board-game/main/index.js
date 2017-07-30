@@ -25,11 +25,14 @@ exports.start = (element, context, socket, clientTime, config) => {
     //
     element.style.width = window.innerWidth + 'px'
     element.style.height = window.innerHeight + 'px'
+    element.style.overflow = 'hidden'
     // element.style.width = '100%'
     // element.style.height = '100%'
     // console.log(element)
     // element.style.overflow = 'hidden'
     // console.log(width, height, document.body.clientHeight)
+
+
     let canvas = Canvas(element, 1.0, 0.9)
     let main = Main.start(canvas, context, socket, clientTime, config)
     let field = main.field
@@ -92,7 +95,7 @@ exports.start = (element, context, socket, clientTime, config) => {
             })
             userNum++
         }
-        field.setClip(0, 0, 0.1, 0.1)
+        // field.setClip(0, 0, 0.1, 0.1)
     }
 
     let phase2 = () => {

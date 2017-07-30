@@ -125,9 +125,11 @@ exports.start = (canvas, context, socket, clientTime, config) => {
 
             // card set
             if (!field.isObject(obj.id)) {
+                console.log(obj)
                 let card = Card(obj.name)
                 card.id = obj.id
                 card.types = obj.types
+                console.log(card)
                 field.setObject(card)
             }
 
@@ -148,6 +150,22 @@ exports.start = (canvas, context, socket, clientTime, config) => {
             }
         })
     }
+
+    field.sendObjectCaseInfo((sendObj, option) => {
+      console.log('sendCase')
+      console.log(sendObj)
+      socket.emit(socketDir + 'sendObjectCaseInfo', sendObj)
+    })
+
+    socket.on(socketDir + 'sendObjectCaseInfo', (upObj) => {
+        // updateObjects(objects)
+        console.log('catchCase')
+        console.log(upObj)
+        let id = upObj.id
+        if(!field.objectCase[id]){
+
+        }
+    })
 
 
     /**
