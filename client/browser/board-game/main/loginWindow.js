@@ -93,8 +93,4 @@ exports.start = (element, context, socket, clientTime, config) => {
             })
         })
     })
-
-
-
-
 }

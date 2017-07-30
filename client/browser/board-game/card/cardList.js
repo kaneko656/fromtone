@@ -14,22 +14,17 @@ const cardList = {
     '目撃者': 'lib/image/card/目撃者.png',
     '裏': 'lib/image/card/裏.png'
 }
-// module.exports = () => {
-//     let card = {}
-//     for (let name in cardList) {
-//         let icon = new Image(304, 430)
-//         icon.src = cardList[name]
-//         card[name] = Card(icon)
-//         card[name].name = name
-//         card[name].id = name
-//         card[name].type = 'card'
-//     }
-//     return card
-// }
+
+let imageList = {}
+for (let name in cardList) {
+    let image = new Image(304, 430)
+    image.src = cardList[name]
+    imageList[name] = image
+}
+
 
 module.exports = (cardName) => {
-    let icon = new Image(304, 430)
-    icon.src = cardList[cardName]
+    let icon = imageList[cardName]
     let card = Card(icon)
     card.name = cardName
     card.id = cardName

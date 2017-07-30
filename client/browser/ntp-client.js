@@ -22,11 +22,11 @@ exports.getDiff = (callback = () => {}) => {
 // 家の時計 5分進んでいる
 // 10時集合と言われたら10時5分に集合すればいい
 exports.correctionServerTime = (time) => {
-    return time + dateDiff
+    return Math.round(time + dateDiff)
 }
 
 exports.correctionToServerTime = (time) => {
-    return time - dateDiff
+    return Math.round(time - dateDiff)
 }
 
 exports.dateDiff = () => {

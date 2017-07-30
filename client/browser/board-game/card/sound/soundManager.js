@@ -127,7 +127,7 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
                 value: value,
                 time: soundTargetTime
             }
-            console.log(value.toFixed(4))
+            // console.log(value.toFixed(4))
             gainNode.gain.linearRampToValueAtTime(value, st / 1000 + soundTargetTime / 1000)
 
             if (!isStart && value > 0) {

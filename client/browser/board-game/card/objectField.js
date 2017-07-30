@@ -11,6 +11,7 @@ module.exports = (canvas, context) => {
 function Field(canvas, context) {
     this.canvas = canvas
     this.context = context
+    this.user = ''
     this.clientID = ''
     this.center = {
         x: canvas.width / 2,
@@ -80,6 +81,10 @@ Field.prototype.setObject = function(obj) {
         // this.objects[id].scale = (this.canvas.width / 5) / this.objects[id].w
         this.objects[id].scale = (this.canvas.width / 15) / this.objects[id].w
     }
+    // if (this.objects[id].types.indexOf('card') >= 0 && this.objects[id].types.indexOf('reverse') >= 0) {
+    //     let reverseCard = Card('裏')
+    //     this.objects[id].icon = reverseCard.icon
+    // }
 }
 
 Field.prototype.removeObject = function(id) {
@@ -119,26 +124,88 @@ Field.prototype.updateObjects = function(objects) {
         objects = []
         objects.push(temp)
     }
+    let field = this
     objects.forEach((obj) => {
         let id = obj.id
-        if (this.objects[id]) {
-            let encodePosition = this.clip.encodeToLocal(obj.gx, obj.gy)
+
+        if (field.objects[id]) {
+            let encodePosition = field.clip.encodeToLocal(obj.gx, obj.gy)
             obj.x = encodePosition.x
             obj.y = encodePosition.y
-            this.objects[id].update(obj)
-        } else {
+            field.objects[id].update(obj)
 
-            // card
-            if (obj.types.indexOf('card') >= 0) {
-                let card = Card(obj.name)
-                card.id = obj.id
-                this.setObject(card)
-                this.updateObjects(obj)
+            if (obj.events.indexOf('in_case') >= 0) {
+                // 自分のケースに入っている場合
+                if (field.objectCase[field.user] && field.objectCase[field.user].inCard(obj.id)) {
+                    field.objects[id].noDraw = false
+                    field.objects[id].noMove = true
+                } else {
+                    field.objects[id].noDraw = true
+                    field.objects[id].noMove = true
+                }
             }
+            if (obj.events.indexOf('out_case') >= 0) {
+                console.log('out_case')
+                console.log(obj)
+                console.log(field.objects[id])
+                field.objects[id].noDraw = false
+                field.objects[id].noMove = false
+            }
+            // // CardCase
+            // if (field.objectCase[field.user]) {
+            //     let objCase = field.objectCase[field.user]
+            //     let obj = field.objects[id]
+            //     // 入れる
+            //     if (obj.types.indexOf('in_case') == -1 && objCase.inArea(obj.x, obj.y)) {
+            //         // share
+            //         let out = obj.output()
+            //         out.types.push('in_case')
+            //         out.types.push('username_' + field.user)
+            //         out.events.push('in_case')
+            //         this.sendObjectInfoToServer(out)
+            //     }
+            //     // 入ったイベント
+            //     if (obj.events.indexOf('in_case') >= 0) {
+            //         if (obj.types.indexOf('username_' + field.user) >= 0) {
+            //             field.objects[id].noDraw = true
+            //             field.objects[id].noMove = true
+            //             field.inObjectCase(objCase, field.objects[id])
+            //         } else {
+            //             field.objects[id].noDraw = true
+            //             field.objects[id].noMove = true
+            //         }
+            //     }
+            // }
         }
+
+        let types = obj.types
+        let events = obj.events
+        if (types.indexOf('card') >= 0 && events.indexOf('reverse') >= 0) {
+            let reverseCard = Card('裏')
+            field.objects[id].icon = reverseCard.icon
+        } else if (types.indexOf('card') >= 0 && events.indexOf('open') >= 0) {
+            let card = Card(obj.name)
+            field.objects[id].icon = card.icon
+        }
+
     })
-    this.render()
+    field.render()
 }
+
+/**
+ * ObjectCase
+ */
+
+Field.prototype.setObjectCase = function(objectCase) {
+    this.objectCase[objectCase.id] = objectCase
+}
+
+Field.prototype.inObjectCase = function(objectCase, obj) {
+    this.objectCase[objectCase.id] = objectCase
+    objectCase.push(obj)
+    // this.removeObject(obj.id)
+}
+
 
 
 /**
@@ -173,7 +240,7 @@ Field.prototype.updateSounds = function(objects) {
         if (field.sounds[id]) {
             if (obj.events.indexOf('sound_stop') >= 0) {
                 field.sounds[id].stop()
-                console.log('stop', id)
+                console.log('sound_stop', id)
                 delete field.sounds[id]
             } else {
                 let p = this.clip.getPositionInfo(obj.gx, obj.gy)
@@ -184,7 +251,7 @@ Field.prototype.updateSounds = function(objects) {
         } else {
             if (obj.events.indexOf('sound_start') >= 0) {
                 // sound
-                console.log('start', id)
+                console.log('sound_start', id)
 
                 this.startSound(obj.id, 'カード', obj.startTime, {
                     loop: true
@@ -194,13 +261,6 @@ Field.prototype.updateSounds = function(objects) {
     })
 }
 
-/**
- * ObjectCase
- */
-
-Field.prototype.setObjectCase = function(objectCase) {
-    this.objectCase[objectCase.id] = objectCase
-}
 
 /**
  *
@@ -224,6 +284,7 @@ Field.prototype.autoMove = function(obj, toX, toY, moveInfo = {}) {
         if (t == 0) {
             out.events.push('sound_start')
         }
+
         this.sendObjectInfoToServer(out, {
             path: true
         })
@@ -233,9 +294,11 @@ Field.prototype.autoMove = function(obj, toX, toY, moveInfo = {}) {
             let out = obj.output()
             out.x = tx
             out.y = ty
-            out.timestamp = now + duration
+            out.timestamp = now + duration + delay
             out.events.push('auto_move')
             out.events.push('sound_stop')
+            out.events.push('open')
+            out.events.push('card_case')
 
             this.sendObjectInfoToServer(out, {
                 path: true
@@ -248,8 +311,13 @@ Field.prototype.autoMove = function(obj, toX, toY, moveInfo = {}) {
 
 Field.prototype.render = function() {
     // Draw points onto the canvas element.
-    var ctx = this.canvas.getContext('2d')
+    let ctx = this.canvas.getContext('2d')
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+
+    // font
+    let font = ctx.font.split(' ')
+    ctx.font = "15px '" + font[1] + "'"
+    ctx.textAlign = 'center'
 
     // background color
     // ctx.beginPath()
@@ -303,7 +371,7 @@ Field.prototype.mousePressed = function(x, y) {
     let isObjMove = false
     for (let id in this.objects) {
         let obj = this.objects[id]
-        if (!obj.isOtherMove && obj.isOver(x, y)) {
+        if (!obj.noMove && !obj.isOtherMove && obj.isOver(x, y)) {
             isObjMove = true
             obj.isSync = true
             obj.isMove = true
@@ -315,15 +383,17 @@ Field.prototype.mousePressed = function(x, y) {
         }
     }
     if (!isObjMove) {
+
+        // out_case
         for (let id in this.objectCase) {
             let objCase = this.objectCase[id]
             let n = objCase.isOver(x, y)
             if (n >= 0) {
                 let obj = objCase.pop(n)
+                obj.y = objCase.area.y - 30
                 let out = obj.output()
-                out.events.push('pop_case')
+                out.events.push('out_case')
                 this.sendObjectInfoToServer(out)
-                console.log(obj)
             }
         }
 
@@ -347,25 +417,28 @@ Field.prototype.mouseReleased = function(x, y) {
      */
 
     let isObjMove = false
+    let field = this
     for (let id in this.objects) {
         let obj = this.objects[id]
-        if (!obj.isOtherMove && obj.isMove) {
+        if (!obj.noMove && !obj.isOtherMove && obj.isMove) {
             isObjMove = true
             obj.isMove = false
             obj.over = false
             obj.isSync = false
             let out = obj.output()
             out.events.push('sound_stop')
-            this.sendObjectInfoToServer(out)
 
-            for (let id in this.objectCase) {
-                let objCase = this.objectCase[id]
+            // in_case
+            if (field.user in this.objectCase) {
+                let objCase = this.objectCase[field.user]
                 let n = objCase.isOver(x, y)
                 if (n >= 0) {
-                    objCase.push(obj)
+                    objCase.push(obj, x)
+                    obj.noMove = true
+                    out.events.push('in_case')
                 }
             }
-
+            this.sendObjectInfoToServer(out)
         }
     }
 
@@ -387,9 +460,9 @@ Field.prototype.mouseMoved = function(x, y) {
      * Object (Card)
      */
     for (let id in this.objects) {
-        if (this.objects[id].isMove) {
-            let obj = this.objects[id]
-            let out = this.objects[id].output()
+        let obj = this.objects[id]
+        if (!obj.noMove && obj.isMove) {
+            let out = obj.output()
             obj.over = true
             out.x = x
             out.y = y

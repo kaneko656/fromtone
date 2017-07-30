@@ -14,6 +14,8 @@ module.exports = (icon) => {
         scale: 1.0,
         isSync: false,
         events: [],
+        noDraw: false,
+        noMove: false,
         // over: false,
         isMove: false,
         isOtherMove: false,
@@ -48,6 +50,9 @@ module.exports = (icon) => {
             callRelease(obj.name)
         },
         draw: (ctx, range = {}) => {
+            if(obj.noDraw){
+                return
+            }
             if (obj.isChild) {
                 obj.x = obj.parentObject.x + obj.childPosition.x * obj.canvasW
                 obj.y = obj.parentObject.y + obj.childPosition.y * obj.canvasH

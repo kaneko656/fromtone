@@ -33,20 +33,22 @@ exports.start = (element, context, socket, clientTime, config) => {
     let canvas = Canvas(element, 1.0, 0.9)
     let main = Main.start(canvas, context, socket, clientTime, config)
     let field = main.field
+    field.setClip(0, 0, 1.0, 1.0)
 
     let toolCanvas = Canvas(element, 1.0, 0.1)
     let tool = ToolField(toolCanvas)
     tool.render()
 
     let playRoom = PlayRoom.start(canvas, field, socket, clientTime, config, (list) => {
+        gameStart(list)
         phase1(list)
     })
 
+    let gameStart = (userList) => {
+        socket.emit(socketDir + 'game_start', userList)
+    }
 
-
-    // field.setLocalPosition(0, 0, canvas.width, canvas.height)
-    // field.rotate(Math.PI)
-    //
+    // カードを配る
     let phase1 = (list) => {
         let cards = cardDistribution.distribution(Object.keys(list).length)
         let n = 0
@@ -65,34 +67,34 @@ exports.start = (element, context, socket, clientTime, config) => {
                 card.x = canvas.width / 2
                 card.y = canvas.height / 2
                 card.events.push('initial')
-                setTimeout(() => {
-                    field.sendObjectInfoToServer(card.output())
-                }, userNum * 1000 + i * userMaxNum * 1000)
-                setTimeout(() => {
-                    let obj = field.getObject(card.id)
-                    field.autoMove(obj, x, y, {
-                        duration: 1000,
-                        delay: 1000
-                    })
-                }, userNum * 1000 + i * userMaxNum * 1000 + 1500)
+                card.events.push('reverse')
+                // setTimeout(() => {
+                field.sendObjectInfoToServer(card.output())
+
+                // 無理やりローカルでセット
+                let out = card.output()
+                out.x = card.x
+                out.y = card.y
+                let globalPos = field.clip.encodeToGloval(out.x, out.y)
+                out.gx = globalPos.x
+                out.gy = globalPos.y
+                out.clientID = field.clientID
+                out.events.push('initial')
+                out.events.push('reverse')
+                out.time = Date.now() - 100000
+                out.startTime = Date.now() - 100000
+                main.updateObjects(out)
+                let obj = field.getObject(card.id)
+                field.autoMove(obj, x, y, {
+                    duration: 1000,
+                    delay: userNum * 1000 + i * userMaxNum * 1000 + 1500
+                })
             })
             userNum++
         }
-        // setTimeout(() => {
-        //     for (let user in list) {
-        //         let x = list[user].x
-        //         let y = list[user].y
-        //         list[user].cards.forEach((card) => {
-        //             let obj = field.getObject(card.id)
-        //             field.autoMove(obj, x, y, {
-        //                 duration: 3000
-        //             })
-        //         })
-        //     }
-        // }, 1500)
-        // move
-
+        field.setClip(0, 0, 0.1, 0.1)
     }
+
     let phase2 = () => {
         let cardCase = CardCase()
         cardCase.id = config.user + '_case'

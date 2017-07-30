@@ -93,6 +93,11 @@ exports.start = (socket, disconnect, _serverTime) => {
         })
     }
 
+    socket.on(socketDir + 'game_start', (body) => {
+        // console.log(body)
+        emitAllClient(socketDir + 'game_start', body)
+    })
+
     let objectStartTime = {}
     let objectLastTime = {}
     let timeout = 15000

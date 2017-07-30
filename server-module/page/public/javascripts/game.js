@@ -21542,22 +21542,17 @@ const cardList = {
     '目撃者': 'lib/image/card/目撃者.png',
     '裏': 'lib/image/card/裏.png'
 }
-// module.exports = () => {
-//     let card = {}
-//     for (let name in cardList) {
-//         let icon = new Image(304, 430)
-//         icon.src = cardList[name]
-//         card[name] = Card(icon)
-//         card[name].name = name
-//         card[name].id = name
-//         card[name].type = 'card'
-//     }
-//     return card
-// }
+
+let imageList = {}
+for (let name in cardList) {
+    let image = new Image(304, 430)
+    image.src = cardList[name]
+    imageList[name] = image
+}
+
 
 module.exports = (cardName) => {
-    let icon = new Image(304, 430)
-    icon.src = cardList[cardName]
+    let icon = imageList[cardName]
     let card = Card(icon)
     card.name = cardName
     card.id = cardName
@@ -21582,6 +21577,8 @@ module.exports = (icon) => {
         scale: 1.0,
         isSync: false,
         events: [],
+        noDraw: false,
+        noMove: false,
         // over: false,
         isMove: false,
         isOtherMove: false,
@@ -21616,6 +21613,9 @@ module.exports = (icon) => {
             callRelease(obj.name)
         },
         draw: (ctx, range = {}) => {
+            if(obj.noDraw){
+                return
+            }
             if (obj.isChild) {
                 obj.x = obj.parentObject.x + obj.childPosition.x * obj.canvasW
                 obj.y = obj.parentObject.y + obj.childPosition.y * obj.canvasH
@@ -21683,7 +21683,10 @@ module.exports = () => {
 function ObjectCase() {
     this.objects = []
     this.id = 'id'
-    this.limit = null
+    this.idList = []
+    this.user = ''
+    this.types = []
+    this.events = []
     // this.info = {}
     this.interval = 0
     this.area = {
@@ -21692,8 +21695,40 @@ function ObjectCase() {
         w: 100,
         h: 100
     }
+
+    this.callObjectRender = () => {}
 }
 
+ObjectCase.prototype.share = function() {
+    let objects = []
+    this.objects.forEach((obj) => {
+        let outObj = obj.object.output()
+        objects.push({
+            info: Object.Assign({}, obj.info),
+            object: outObj,
+            posX: obj.posX,
+            posY: obj.posY
+        })
+    })
+    let out = {
+        id: obj.id,
+        user: this.user,
+        type: [].concat(this.types),
+        events: [].concat(this.events),
+        objects: objetcs,
+        interal: this.interval,
+        area: Object.Assign({}, this.info),
+    }
+    this.events = []
+    return out
+}
+
+
+ObjectCase.prototype.inCard = function(id) {
+    console.log(this.idList)
+    console.log(id)
+    return (this.idList.indexOf(id) >= 0)
+}
 
 ObjectCase.prototype.push = function(object, posX = 0) {
     this.objects.push({
@@ -21707,6 +21742,8 @@ ObjectCase.prototype.push = function(object, posX = 0) {
 
 ObjectCase.prototype.pop = function(num) {
     let obj = this.objects[num].object
+    obj.x = this.objects[num].posX
+    obj.y = this.objects[num].posY
     this.objects.splice(num, 1)
     this.sort()
     return obj
@@ -21720,9 +21757,18 @@ ObjectCase.prototype.sort = function() {
     })
     let interval = this.area.w / this.objects.length
     this.interval = interval
+
+    this.idList = []
+    let me = this
     this.objects.forEach((obj, i) => {
         obj.posX = interval / 2 + interval * i
+        me.idList.push(obj.object.id)
     })
+}
+
+ObjectCase.prototype.inArea = function(x, y) {
+    let a = this.area
+    return (a.x <= x && x <= a.x + a.w && a.y <= y && y <= a.y + a.h)
 }
 
 ObjectCase.prototype.isOver = function(x, y) {
@@ -21739,8 +21785,24 @@ ObjectCase.prototype.isOver = function(x, y) {
     return -1
 }
 
-ObjectCase.prototype.render = function() {
 
+
+// override
+ObjectCase.prototype.render = function(ctx) {
+    // console.log('render')
+    // let range = {
+    //     minX: this.area.x,
+    //     minY: this.area.y,
+    //     maxX: this.area.x + this.area.w,
+    //     maxY: this.area.y + this.area.h,
+    // }
+    // this.objects.forEach((object) => {
+    //     let x = Math.round(object.posX)
+    //     let y = Math.round(object.posY)
+    //     let obj = object.object
+    //     let objectInfo = object.info
+    //     this.callObjectRender(ctx, x, y, obj, object)
+    // })
 }
 
 },{"./../card/cardList.js":149,"./../player/log.js":165,"./position.js":153,"./sound/soundManager.js":154}],152:[function(require,module,exports){
@@ -21757,6 +21819,7 @@ module.exports = (canvas, context) => {
 function Field(canvas, context) {
     this.canvas = canvas
     this.context = context
+    this.user = ''
     this.clientID = ''
     this.center = {
         x: canvas.width / 2,
@@ -21826,6 +21889,10 @@ Field.prototype.setObject = function(obj) {
         // this.objects[id].scale = (this.canvas.width / 5) / this.objects[id].w
         this.objects[id].scale = (this.canvas.width / 15) / this.objects[id].w
     }
+    // if (this.objects[id].types.indexOf('card') >= 0 && this.objects[id].types.indexOf('reverse') >= 0) {
+    //     let reverseCard = Card('裏')
+    //     this.objects[id].icon = reverseCard.icon
+    // }
 }
 
 Field.prototype.removeObject = function(id) {
@@ -21865,26 +21932,88 @@ Field.prototype.updateObjects = function(objects) {
         objects = []
         objects.push(temp)
     }
+    let field = this
     objects.forEach((obj) => {
         let id = obj.id
-        if (this.objects[id]) {
-            let encodePosition = this.clip.encodeToLocal(obj.gx, obj.gy)
+
+        if (field.objects[id]) {
+            let encodePosition = field.clip.encodeToLocal(obj.gx, obj.gy)
             obj.x = encodePosition.x
             obj.y = encodePosition.y
-            this.objects[id].update(obj)
-        } else {
+            field.objects[id].update(obj)
 
-            // card
-            if (obj.types.indexOf('card') >= 0) {
-                let card = Card(obj.name)
-                card.id = obj.id
-                this.setObject(card)
-                this.updateObjects(obj)
+            if (obj.events.indexOf('in_case') >= 0) {
+                // 自分のケースに入っている場合
+                if (field.objectCase[field.user] && field.objectCase[field.user].inCard(obj.id)) {
+                    field.objects[id].noDraw = false
+                    field.objects[id].noMove = true
+                } else {
+                    field.objects[id].noDraw = true
+                    field.objects[id].noMove = true
+                }
             }
+            if (obj.events.indexOf('out_case') >= 0) {
+                console.log('out_case')
+                console.log(obj)
+                console.log(field.objects[id])
+                field.objects[id].noDraw = false
+                field.objects[id].noMove = false
+            }
+            // // CardCase
+            // if (field.objectCase[field.user]) {
+            //     let objCase = field.objectCase[field.user]
+            //     let obj = field.objects[id]
+            //     // 入れる
+            //     if (obj.types.indexOf('in_case') == -1 && objCase.inArea(obj.x, obj.y)) {
+            //         // share
+            //         let out = obj.output()
+            //         out.types.push('in_case')
+            //         out.types.push('username_' + field.user)
+            //         out.events.push('in_case')
+            //         this.sendObjectInfoToServer(out)
+            //     }
+            //     // 入ったイベント
+            //     if (obj.events.indexOf('in_case') >= 0) {
+            //         if (obj.types.indexOf('username_' + field.user) >= 0) {
+            //             field.objects[id].noDraw = true
+            //             field.objects[id].noMove = true
+            //             field.inObjectCase(objCase, field.objects[id])
+            //         } else {
+            //             field.objects[id].noDraw = true
+            //             field.objects[id].noMove = true
+            //         }
+            //     }
+            // }
         }
+
+        let types = obj.types
+        let events = obj.events
+        if (types.indexOf('card') >= 0 && events.indexOf('reverse') >= 0) {
+            let reverseCard = Card('裏')
+            field.objects[id].icon = reverseCard.icon
+        } else if (types.indexOf('card') >= 0 && events.indexOf('open') >= 0) {
+            let card = Card(obj.name)
+            field.objects[id].icon = card.icon
+        }
+
     })
-    this.render()
+    field.render()
 }
+
+/**
+ * ObjectCase
+ */
+
+Field.prototype.setObjectCase = function(objectCase) {
+    this.objectCase[objectCase.id] = objectCase
+}
+
+Field.prototype.inObjectCase = function(objectCase, obj) {
+    this.objectCase[objectCase.id] = objectCase
+    objectCase.push(obj)
+    // this.removeObject(obj.id)
+}
+
 
 
 /**
@@ -21919,7 +22048,7 @@ Field.prototype.updateSounds = function(objects) {
         if (field.sounds[id]) {
             if (obj.events.indexOf('sound_stop') >= 0) {
                 field.sounds[id].stop()
-                console.log('stop', id)
+                console.log('sound_stop', id)
                 delete field.sounds[id]
             } else {
                 let p = this.clip.getPositionInfo(obj.gx, obj.gy)
@@ -21930,7 +22059,7 @@ Field.prototype.updateSounds = function(objects) {
         } else {
             if (obj.events.indexOf('sound_start') >= 0) {
                 // sound
-                console.log('start', id)
+                console.log('sound_start', id)
 
                 this.startSound(obj.id, 'カード', obj.startTime, {
                     loop: true
@@ -21940,13 +22069,6 @@ Field.prototype.updateSounds = function(objects) {
     })
 }
 
-/**
- * ObjectCase
- */
-
-Field.prototype.setObjectCase = function(objectCase) {
-    this.objectCase[objectCase.id] = objectCase
-}
 
 /**
  *
@@ -21970,6 +22092,7 @@ Field.prototype.autoMove = function(obj, toX, toY, moveInfo = {}) {
         if (t == 0) {
             out.events.push('sound_start')
         }
+
         this.sendObjectInfoToServer(out, {
             path: true
         })
@@ -21979,9 +22102,11 @@ Field.prototype.autoMove = function(obj, toX, toY, moveInfo = {}) {
             let out = obj.output()
             out.x = tx
             out.y = ty
-            out.timestamp = now + duration
+            out.timestamp = now + duration + delay
             out.events.push('auto_move')
             out.events.push('sound_stop')
+            out.events.push('open')
+            out.events.push('card_case')
 
             this.sendObjectInfoToServer(out, {
                 path: true
@@ -21994,8 +22119,13 @@ Field.prototype.autoMove = function(obj, toX, toY, moveInfo = {}) {
 
 Field.prototype.render = function() {
     // Draw points onto the canvas element.
-    var ctx = this.canvas.getContext('2d')
+    let ctx = this.canvas.getContext('2d')
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+
+    // font
+    let font = ctx.font.split(' ')
+    ctx.font = "15px '" + font[1] + "'"
+    ctx.textAlign = 'center'
 
     // background color
     // ctx.beginPath()
@@ -22049,7 +22179,7 @@ Field.prototype.mousePressed = function(x, y) {
     let isObjMove = false
     for (let id in this.objects) {
         let obj = this.objects[id]
-        if (!obj.isOtherMove && obj.isOver(x, y)) {
+        if (!obj.noMove && !obj.isOtherMove && obj.isOver(x, y)) {
             isObjMove = true
             obj.isSync = true
             obj.isMove = true
@@ -22061,15 +22191,17 @@ Field.prototype.mousePressed = function(x, y) {
         }
     }
     if (!isObjMove) {
+
+        // out_case
         for (let id in this.objectCase) {
             let objCase = this.objectCase[id]
             let n = objCase.isOver(x, y)
             if (n >= 0) {
                 let obj = objCase.pop(n)
+                obj.y = objCase.area.y - 30
                 let out = obj.output()
-                out.events.push('pop_case')
+                out.events.push('out_case')
                 this.sendObjectInfoToServer(out)
-                console.log(obj)
             }
         }
 
@@ -22093,25 +22225,28 @@ Field.prototype.mouseReleased = function(x, y) {
      */
 
     let isObjMove = false
+    let field = this
     for (let id in this.objects) {
         let obj = this.objects[id]
-        if (!obj.isOtherMove && obj.isMove) {
+        if (!obj.noMove && !obj.isOtherMove && obj.isMove) {
             isObjMove = true
             obj.isMove = false
             obj.over = false
             obj.isSync = false
             let out = obj.output()
             out.events.push('sound_stop')
-            this.sendObjectInfoToServer(out)
 
-            for (let id in this.objectCase) {
-                let objCase = this.objectCase[id]
+            // in_case
+            if (field.user in this.objectCase) {
+                let objCase = this.objectCase[field.user]
                 let n = objCase.isOver(x, y)
                 if (n >= 0) {
-                    objCase.push(obj)
+                    objCase.push(obj, x)
+                    obj.noMove = true
+                    out.events.push('in_case')
                 }
             }
-
+            this.sendObjectInfoToServer(out)
         }
     }
 
@@ -22133,9 +22268,9 @@ Field.prototype.mouseMoved = function(x, y) {
      * Object (Card)
      */
     for (let id in this.objects) {
-        if (this.objects[id].isMove) {
-            let obj = this.objects[id]
-            let out = this.objects[id].output()
+        let obj = this.objects[id]
+        if (!obj.noMove && obj.isMove) {
+            let out = obj.output()
             obj.over = true
             out.x = x
             out.y = y
@@ -22433,7 +22568,7 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
                 value: value,
                 time: soundTargetTime
             }
-            console.log(value.toFixed(4))
+            // console.log(value.toFixed(4))
             gainNode.gain.linearRampToValueAtTime(value, st / 1000 + soundTargetTime / 1000)
 
             if (!isStart && value > 0) {
@@ -23070,19 +23205,31 @@ let log = require('./../player/log.js')
 //     '裏': 'lib/image/card/裏.png'
 // }
 
-exports.start = (canvas, context, socket, clientTime, config) => {
-
-    /**
-     * init
-     */
-
-    let clientID = uuid.v4()
+let clientID = null
+exports.register = (canvas, context, socket, clientTime, config) => {
+    clientID = uuid.v4()
 
     socket.emit(socketDir + 'register', {
         type: socketType,
         id: clientID,
         user: config.user
     })
+}
+
+exports.start = (canvas, context, socket, clientTime, config) => {
+
+    /**
+     * init
+     */
+
+    if (!clientID) {
+        clientID = uuid.v4()
+        socket.emit(socketDir + 'register', {
+            type: socketType,
+            id: clientID,
+            user: config.user
+        })
+    }
 
     let field = CardField(canvas, context)
     field.setClientID(clientID)
@@ -23141,6 +23288,15 @@ exports.start = (canvas, context, socket, clientTime, config) => {
      */
 
     socket.on(socketDir + 'sendObjectInfo', (objects) => {
+        updateObjects(objects)
+    })
+
+    let updateObjects = (objects) => {
+        if (!Array.isArray(objects)) {
+            let temp = objects
+            objects = []
+            objects.push(temp)
+        }
         objects.forEach((obj) => {
             // remove myObject
             // if (field.objects[obj.id] && obj.clientID == clientID) {
@@ -23151,6 +23307,7 @@ exports.start = (canvas, context, socket, clientTime, config) => {
             if (!field.isObject(obj.id)) {
                 let card = Card(obj.name)
                 card.id = obj.id
+                card.types = obj.types
                 field.setObject(card)
             }
 
@@ -23170,7 +23327,7 @@ exports.start = (canvas, context, socket, clientTime, config) => {
                 })
             }
         })
-    })
+    }
 
 
     /**
@@ -23236,7 +23393,8 @@ exports.start = (canvas, context, socket, clientTime, config) => {
         socketType: socketType,
         clientID: clientID,
         canvas: canvas,
-        field: field
+        field: field,
+        updateObjects: updateObjects
     }
 }
 
@@ -23276,20 +23434,22 @@ exports.start = (element, context, socket, clientTime, config) => {
     let canvas = Canvas(element, 1.0, 0.9)
     let main = Main.start(canvas, context, socket, clientTime, config)
     let field = main.field
+    field.setClip(0, 0, 1.0, 1.0)
 
     let toolCanvas = Canvas(element, 1.0, 0.1)
     let tool = ToolField(toolCanvas)
     tool.render()
 
     let playRoom = PlayRoom.start(canvas, field, socket, clientTime, config, (list) => {
+        gameStart(list)
         phase1(list)
     })
 
+    let gameStart = (userList) => {
+        socket.emit(socketDir + 'game_start', userList)
+    }
 
-
-    // field.setLocalPosition(0, 0, canvas.width, canvas.height)
-    // field.rotate(Math.PI)
-    //
+    // カードを配る
     let phase1 = (list) => {
         let cards = cardDistribution.distribution(Object.keys(list).length)
         let n = 0
@@ -23308,34 +23468,34 @@ exports.start = (element, context, socket, clientTime, config) => {
                 card.x = canvas.width / 2
                 card.y = canvas.height / 2
                 card.events.push('initial')
-                setTimeout(() => {
-                    field.sendObjectInfoToServer(card.output())
-                }, userNum * 1000 + i * userMaxNum * 1000)
-                setTimeout(() => {
-                    let obj = field.getObject(card.id)
-                    field.autoMove(obj, x, y, {
-                        duration: 1000,
-                        delay: 1000
-                    })
-                }, userNum * 1000 + i * userMaxNum * 1000 + 1500)
+                card.events.push('reverse')
+                // setTimeout(() => {
+                field.sendObjectInfoToServer(card.output())
+
+                // 無理やりローカルでセット
+                let out = card.output()
+                out.x = card.x
+                out.y = card.y
+                let globalPos = field.clip.encodeToGloval(out.x, out.y)
+                out.gx = globalPos.x
+                out.gy = globalPos.y
+                out.clientID = field.clientID
+                out.events.push('initial')
+                out.events.push('reverse')
+                out.time = Date.now() - 100000
+                out.startTime = Date.now() - 100000
+                main.updateObjects(out)
+                let obj = field.getObject(card.id)
+                field.autoMove(obj, x, y, {
+                    duration: 1000,
+                    delay: userNum * 1000 + i * userMaxNum * 1000 + 1500
+                })
             })
             userNum++
         }
-        // setTimeout(() => {
-        //     for (let user in list) {
-        //         let x = list[user].x
-        //         let y = list[user].y
-        //         list[user].cards.forEach((card) => {
-        //             let obj = field.getObject(card.id)
-        //             field.autoMove(obj, x, y, {
-        //                 duration: 3000
-        //             })
-        //         })
-        //     }
-        // }, 1500)
-        // move
-
+        field.setClip(0, 0, 0.1, 0.1)
     }
+
     let phase2 = () => {
         let cardCase = CardCase()
         cardCase.id = config.user + '_case'
@@ -23468,10 +23628,6 @@ exports.start = (element, context, socket, clientTime, config) => {
             })
         })
     })
-
-
-
-
 }
 
 },{"./../../demo-common/html/button-notification.js":168,"./../../demo-common/html/homeButton.js":169,"./../../demo-common/html/select-list.js":170,"./../html/html-text.js":158,"./../html/switchButton.js":159,"node-uuid":180}],163:[function(require,module,exports){
@@ -23680,12 +23836,36 @@ exports.start = (element, context, socket, clientTime, config) => {
 
     let canvas = Canvas(element)
 
-    let start = false
-    // let button = document.createElement('button')
-    // button.setAttribute('class', 'btn btn-info')
-    // button.innerHTML = 'start'
-    // element.appendChild(button)
+    let isStart = false
 
+    // 描画
+    let startDraw = () => {
+        let ctx = canvas.getContext('2d')
+        let font = ctx.font.split(' ')
+        ctx.font = "15px '" + font[1] + "'"
+        ctx.textAlign = 'center'
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.save()
+        ctx.beginPath()
+        ctx.fillStyle = 'rgba(0,0,0,0.9)'
+        ctx.fillText('Start :  Please Touch !', canvas.width / 2, canvas.height / 2)
+        ctx.restore()
+    }
+    let waitDraw = () => {
+        let ctx = canvas.getContext('2d')
+        let font = ctx.font.split(' ')
+        ctx.font = "15px '" + font[1] + "'"
+        ctx.textAlign = 'center'
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        ctx.save()
+        ctx.beginPath()
+        ctx.fillStyle = 'rgba(0,0,0,0.9)'
+        ctx.fillText('Please wait until the game starts', canvas.width / 2, canvas.height / 2)
+        ctx.restore()
+    }
+
+    // 開始時
+    startDraw()
 
     let loadSound = (url, callback = () => {}) => {
         let request = new XMLHttpRequest()
@@ -23703,36 +23883,71 @@ exports.start = (element, context, socket, clientTime, config) => {
 
     canvas.addEventListener('mousedown', function(e) {
         // context.createBufferSource().start(0)
-        if (!start) {
+        if (!isStart) {
             let url = 'lib/sound/notification-common.mp3'
             loadSound(url, (buffer) => {
                 let source = context.createBufferSource()
                 source.buffer = buffer
                 source.connect(context.destination)
                 source.start(0)
-
-                let main = Main.start(canvas, context, socket, clientTime, config)
-                let field = main.field
-
-                if (config.user == 'up') {
-                    field.setClip(0, -0.5, 0.3, 0.3)
-                    field.rotate(Math.PI)
-                }
-                if (config.user == 'down') {
-                    field.setClip(0, 0.5, 0.3, 0.3)
-                }
-                if (config.user == 'left') {
-                    field.setClip(-0.5, 0, 0.3, 0.3)
-                    field.rotate(Math.PI/2)
-                }
-                if (config.user == 'right') {
-                    field.setClip(0.5, 0, 0.3, 0.3)
-                    field.rotate(-Math.PI/2)
-                }
-                field.setLocalPosition(0, 0, canvas.width, canvas.height)
             })
+            waitDraw()
+            Main.register(canvas, context, socket, clientTime, config)
+            isStart = true
         }
     })
+
+    socket.on(socketDir + 'game_start', (body) => {
+        console.log(body)
+        // user{}
+        // gx, gy
+        start()
+    })
+
+    let start = () => {
+        let main = Main.start(canvas, context, socket, clientTime, config)
+        let field = main.field
+        field.user = config.user
+
+        if (config.user == 'up') {
+            field.setClip(0, -0.5, 0.3, 0.3)
+            field.rotate(Math.PI)
+        }
+        if (config.user == 'down') {
+            field.setClip(0, 0.5, 0.3, 0.3)
+        }
+        if (config.user == 'left') {
+            field.setClip(-0.5, 0, 0.3, 0.3)
+            field.rotate(Math.PI / 2)
+        }
+        if (config.user == 'right') {
+            field.setClip(0.5, 0, 0.3, 0.3)
+            field.rotate(-Math.PI / 2)
+        }
+        field.setLocalPosition(0, 0, canvas.width, canvas.height)
+
+        let cardCase = CardCase()
+        cardCase.id = config.user
+        cardCase.area.x = 0
+        cardCase.area.y = canvas.height - 200
+        cardCase.area.h = 150
+        cardCase.area.w = canvas.width
+        cardCase.render = (ctx) => {
+            cardCase.objects.forEach((object) => {
+                let obj = object.object
+                let posX = object.posX
+                let posY = object.posY
+                let temp = obj.icon
+                obj.x = posX
+                obj.y = posY
+                obj.icon = Card(obj.name).icon
+                obj.scale = 0.3
+                obj.draw(ctx)
+            })
+        }
+        field.setObjectCase(cardCase)
+
+    }
 
 }
 
@@ -24196,11 +24411,11 @@ exports.getDiff = (callback = () => {}) => {
 // 家の時計 5分進んでいる
 // 10時集合と言われたら10時5分に集合すればいい
 exports.correctionServerTime = (time) => {
-    return time + dateDiff
+    return Math.round(time + dateDiff)
 }
 
 exports.correctionToServerTime = (time) => {
-    return time - dateDiff
+    return Math.round(time - dateDiff)
 }
 
 exports.dateDiff = () => {
@@ -24325,8 +24540,8 @@ let emit = () => {
 
 },{}],174:[function(require,module,exports){
 // const io = require('socket.io-client')
-let url = 'http://192.168.144.110:8001'
-// let url = 'http://192.168.100.16:8001'
+// let url = 'http://192.168.144.110:8001'
+let url = 'http://192.168.100.16:8001'
 // let url = 'http://133.26.45.88:8001'
 // let url = 'http://localhost:8001'
 //

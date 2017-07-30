@@ -25,19 +25,31 @@ let log = require('./../player/log.js')
 //     '裏': 'lib/image/card/裏.png'
 // }
 
-exports.start = (canvas, context, socket, clientTime, config) => {
-
-    /**
-     * init
-     */
-
-    let clientID = uuid.v4()
+let clientID = null
+exports.register = (canvas, context, socket, clientTime, config) => {
+    clientID = uuid.v4()
 
     socket.emit(socketDir + 'register', {
         type: socketType,
         id: clientID,
         user: config.user
     })
+}
+
+exports.start = (canvas, context, socket, clientTime, config) => {
+
+    /**
+     * init
+     */
+
+    if (!clientID) {
+        clientID = uuid.v4()
+        socket.emit(socketDir + 'register', {
+            type: socketType,
+            id: clientID,
+            user: config.user
+        })
+    }
 
     let field = CardField(canvas, context)
     field.setClientID(clientID)
@@ -96,6 +108,15 @@ exports.start = (canvas, context, socket, clientTime, config) => {
      */
 
     socket.on(socketDir + 'sendObjectInfo', (objects) => {
+        updateObjects(objects)
+    })
+
+    let updateObjects = (objects) => {
+        if (!Array.isArray(objects)) {
+            let temp = objects
+            objects = []
+            objects.push(temp)
+        }
         objects.forEach((obj) => {
             // remove myObject
             // if (field.objects[obj.id] && obj.clientID == clientID) {
@@ -106,6 +127,7 @@ exports.start = (canvas, context, socket, clientTime, config) => {
             if (!field.isObject(obj.id)) {
                 let card = Card(obj.name)
                 card.id = obj.id
+                card.types = obj.types
                 field.setObject(card)
             }
 
@@ -125,7 +147,7 @@ exports.start = (canvas, context, socket, clientTime, config) => {
                 })
             }
         })
-    })
+    }
 
 
     /**
@@ -191,6 +213,7 @@ exports.start = (canvas, context, socket, clientTime, config) => {
         socketType: socketType,
         clientID: clientID,
         canvas: canvas,
-        field: field
+        field: field,
+        updateObjects: updateObjects
     }
 }
