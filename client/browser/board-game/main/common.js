@@ -3,6 +3,7 @@ const uuid = require('node-uuid')
 const Canvas = require('./../canvas/canvas.js')
 const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
+const CardCase = require('./../card/objectCase.js')
 
 const loginWindow = require('./loginWindow.js')
 const Job = require('./../Job/cron.js')
@@ -163,7 +164,16 @@ exports.start = (canvas, context, socket, clientTime, config) => {
         console.log(upObj)
         let id = upObj.id
         if(!field.objectCase[id]){
-
+            let cardCase = CardCase()
+            cardCase.id = id
+            cardCase.update(upObj)
+            field.setObjectCase(cardCase)
+            field.render()
+        }else{
+            field.objectCase[id].update(upObj)
+            console.log(id, 'update')
+            console.log(field.objectCase[id])
+            field.render()
         }
     })
 

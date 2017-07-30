@@ -11,16 +11,22 @@ function Field(canvas) {
     this.w = canvas.width
     this.h = canvas.height
 
+    this.displayScale = window.devicePixelRatio
+    this.fontSize = this.displayScale * 10
+
     this.tool = []
     this.selectToolNum = 0
     this.selectToolMode = 'pointMove'
+    this.toolHeadX = 30
     connect.set('toolMode', 'pointMove')
 
     let tw = this.h
     let th = this.h
-    let margin = th*0.1
-    let moveTool = Tool(30, 0, tw, th - margin * 2)
-    let plusTool = Tool(30 + tw * 1.1, 0, tw, th - margin * 2)
+    let margin = th * 0.1
+    let moveTool = Tool(this.toolHeadX, 0, tw, th - margin * 2)
+    this.toolHeadX += tw * 1.1
+    let plusTool = Tool(this.toolHeadX, 0, tw, th - margin * 2)
+    this.toolHeadX += tw * 1.1
 
     moveTool.setID('pointMove')
     plusTool.setID('separate')
@@ -132,11 +138,51 @@ function Field(canvas) {
     })
 }
 
+Field.prototype.setUser = function(user) {
+    let tw = this.h
+    let th = this.h
+    let margin = th * 0.1
+    let userTool = Tool(this.toolHeadX, 0, tw, th - margin * 2)
+    this.toolHeadX += tw * 1.1
+    userTool.setID(user)
+    let my = this
+    userTool.callRender = (ctx, tool) => {
+        let toolMode = my.selectToolMode
+        ctx.save()
+        ctx.beginPath()
+        ctx.strokeStyle = 'rgba(0,0,100,0.5)'
+        ctx.fillStyle = 'rgba(0,0,100,0.15)'
+        ctx.rect(tool.x, tool.y, tool.w, tool.h)
+        ctx.stroke()
+        if (tool.id == toolMode) {
+            ctx.fill()
+        }
+
+        let cx = tool.x + tool.w / 2
+        let cy = tool.y + tool.h / 2
+        ctx.translate(cx, cy)
+        // ctx.textAlign = "center"
+        // ctx.textBaseline = "middle"
+        ctx.fillStyle = 'rgba(0,0,0,1.0)'
+        ctx.fillText(user, 0, 0, tool.w / 2, tool.h)
+        ctx.restore()
+    }
+    this.tool.push(userTool)
+
+}
+
 Field.prototype.render = function() {
     // Draw points onto the canvas element.
     let h = this.h
     let ctx = this.canvas.getContext('2d')
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+
+    // font
+    let font = ctx.font.split(' ')
+    let fontSize = this.fontSize
+    ctx.font = fontSize + "px '" + font[1] + "'"
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
 
     // background color
     // ctx.beginPath()
@@ -161,6 +207,8 @@ Field.prototype.render = function() {
 
 
 Field.prototype.mousePressed = function(x, y) {
+    x = x * this.displayScale
+    y = y * this.displayScale
     let my = this
     this.tool.forEach((t, i) => {
         let onID = t.onOver(x, y)
@@ -176,11 +224,15 @@ Field.prototype.mousePressed = function(x, y) {
 
 
 Field.prototype.mouseReleased = function(x, y) {
+    x = x * this.displayScale
+    y = y * this.displayScale
     this.render()
 
 }
 
 Field.prototype.mouseMoved = function(x, y) {
+    x = x * this.displayScale
+    y = y * this.displayScale
     this.render()
 }
 

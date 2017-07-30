@@ -9,22 +9,25 @@ module.exports = () => {
 }
 
 function ObjectCase() {
-    this.objects = []
+
     this.id = 'id'
     this.idList = []
-    // this.user = ''
+    this.objects = []
     this.types = []
     this.events = []
-    // this.info = {}
-    this.interval = 0
     this.gx = 0
     this.gy = 0
+
+
+    this.interval = 0
     this.area = {
         x: 0,
         y: 0,
         w: 100,
         h: 100
     }
+    this.noDraw = false
+    this.noOperation = false
 
     this.callObjectRender = () => {}
 }
@@ -44,7 +47,7 @@ ObjectCase.prototype.share = function() {
     let out = {
         id: objCase.id,
         idList: [].concat(objCase.idList),
-        type: [].concat(objCase.types),
+        types: [].concat(objCase.types),
         events: [].concat(objCase.events),
         objects: objects,
         gx: objCase.gx, // field.center
@@ -55,7 +58,7 @@ ObjectCase.prototype.share = function() {
     return out
 }
 
-ObjectCase.prototype.update = function(upObj, x, y) {
+ObjectCase.prototype.update = function(upObj) {
     let objCase = this
 
     // 初期化
@@ -73,7 +76,7 @@ ObjectCase.prototype.update = function(upObj, x, y) {
 
     // 更新
     upObj.objects.forEach((object) => {
-        let obj = objects.object
+        let obj = object.object
         if (obj.types.indexOf('card') >= 0) {
             let card = Card(obj.name)
             card.id = obj.id

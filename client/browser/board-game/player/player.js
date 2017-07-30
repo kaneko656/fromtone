@@ -4,6 +4,7 @@ const Canvas = require('./../card/canvas.js')
 const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
 const CardCase = require('./../card/objectCase.js')
+const connect = require('./../../connect.js')
 
 const Job = require('./../Job/cron.js')
 
@@ -56,7 +57,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     element.style.height = document.documentElement.clientHeight
 
 
-    let canvas = Canvas(element, 1.0 * 1.1, 0.9 * 1.1)
+    let canvas = Canvas(element, 1.0, 0.9)
 
     let isStart = false
 
@@ -130,35 +131,28 @@ exports.start = (element, context, socket, clientTime, config) => {
 
     socket.on(socketDir + 'game_start', (body) => {
         console.log(body)
+        if (config.user in body) {
+            let b = body[config.user]
+            start(body, b.gx, b.gy)
+        }
         // user{}
         // gx, gy
-        start()
+
     })
 
-    let start = () => {
+    let start = (list, gx, gy) => {
         let main = Main.start(canvas, context, socket, clientTime, config)
         let field = main.field
         field.user = config.user
 
-        let toolCanvas = Canvas(element, 1.0 * 1.1, 0.1 * 1.1)
+        let toolCanvas = Canvas(element, 1.0, 0.1)
         let tool = ToolField(toolCanvas)
         tool.render()
 
-        if (config.user == 'up') {
-            field.setClip(0, -0.5, 0.3, 0.3)
-            field.rotate(Math.PI)
-        }
-        if (config.user == 'down') {
-            field.setClip(0, 0.5, 0.3, 0.3)
-        }
-        if (config.user == 'left') {
-            field.setClip(-0.5, 0, 0.3, 0.3)
-            field.rotate(Math.PI / 2)
-        }
-        if (config.user == 'right') {
-            field.setClip(0.5, 0, 0.3, 0.3)
-            field.rotate(-Math.PI / 2)
-        }
+        field.setClip(gx, gy, 0.3, 0.3)
+        let angle = Math.atan2(0 - gy, 0 - gx) + Math.PI / 2
+        field.rotate(angle)
+
         field.setLocalPosition(0, 0, canvas.width, canvas.height)
 
         let cardCase = CardCase()
@@ -185,6 +179,67 @@ exports.start = (element, context, socket, clientTime, config) => {
             })
         }
         field.setObjectCase(cardCase)
+
+        delete list[config.user]
+
+        tool.setUser('Field')
+        for (let user in list) {
+            tool.setUser(user)
+        }
+        tool.render()
+
+        connect.on('toolMode', (id) => {
+            if (id == 'pointMove') {
+                field.setClip(gx, gy, 0.3, 0.3, angle, true)
+                console.log(gx, gy, 0.3, 0.3)
+            }
+            if (id == 'separate') {
+
+            }
+            if (id == 'Field') {
+                let otherGx = 0
+                let otherGy = 0
+
+                let dist = Math.sqrt((otherGx - gx) * (otherGx - gx) + (otherGy - gy) * (otherGy - gy))
+                let cx = gx + (otherGx - gx) / 2
+                let cy = gy + (otherGy - gy) / 2
+                let angleToOther = Math.atan2(otherGy - gy, otherGx - gx) + Math.PI / 2
+                field.setClip(cx, cy, dist * 1.2, dist * 1.2, angleToOther, true)
+                for (let id in field.objectCase) {
+                    if (id != config.user) {
+                        field.objectCase[id].noDraw = true
+                        field.objectCase[id].noOperation = true
+                    }
+                }
+            } else if (id in list) {
+                let user = id
+                let otherUser = user
+                let otherGx = list[user].gx
+                let otherGy = list[user].gy
+
+                let dist = Math.sqrt((otherGx - gx) * (otherGx - gx) + (otherGy - gy) * (otherGy - gy))
+                let cx = gx + (otherGx - gx) / 2
+                let cy = gy + (otherGy - gy) / 2
+                let angleToOther = Math.atan2(otherGy - gy, otherGx - gx) + Math.PI / 2
+                field.setClip(cx, cy, dist * 1.2, dist * 1.2, angleToOther, true)
+
+                if (field.objectCase[user]) {
+                    field.objectCase[user].area.w = field.w
+                    field.objectCase[user].sort()
+                    field.objectCase[user].noDraw = false
+                    field.objectCase[user].noOperation = false
+                }
+                for (let id in field.objectCase) {
+                    if (id != user && id != config.user) {
+                        field.objectCase[id].noDraw = true
+                        field.objectCase[id].noOperation = true
+                    }
+                }
+                console.log(cx, cy, dist * 1.2, dist * 1.2)
+            }
+            field.render()
+
+        })
 
     }
 

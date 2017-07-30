@@ -21694,22 +21694,25 @@ module.exports = () => {
 }
 
 function ObjectCase() {
-    this.objects = []
+
     this.id = 'id'
     this.idList = []
-    // this.user = ''
+    this.objects = []
     this.types = []
     this.events = []
-    // this.info = {}
-    this.interval = 0
     this.gx = 0
     this.gy = 0
+
+
+    this.interval = 0
     this.area = {
         x: 0,
         y: 0,
         w: 100,
         h: 100
     }
+    this.noDraw = false
+    this.noOperation = false
 
     this.callObjectRender = () => {}
 }
@@ -21729,7 +21732,7 @@ ObjectCase.prototype.share = function() {
     let out = {
         id: objCase.id,
         idList: [].concat(objCase.idList),
-        type: [].concat(objCase.types),
+        types: [].concat(objCase.types),
         events: [].concat(objCase.events),
         objects: objects,
         gx: objCase.gx, // field.center
@@ -21740,7 +21743,7 @@ ObjectCase.prototype.share = function() {
     return out
 }
 
-ObjectCase.prototype.update = function(upObj, x, y) {
+ObjectCase.prototype.update = function(upObj) {
     let objCase = this
 
     // 初期化
@@ -21758,7 +21761,7 @@ ObjectCase.prototype.update = function(upObj, x, y) {
 
     // 更新
     upObj.objects.forEach((object) => {
-        let obj = objects.object
+        let obj = object.object
         if (obj.types.indexOf('card') >= 0) {
             let card = Card(obj.name)
             card.id = obj.id
@@ -21858,6 +21861,7 @@ const SoundManager = require('./sound/soundManager.js')
 const Card = require('./../card/cardList.js')
 
 let log = require('./../player/log.js')
+let Job = require('./../Job/cron.js')
 
 module.exports = (canvas, context) => {
     return new Field(canvas, context)
@@ -21886,6 +21890,7 @@ function Field(canvas, context) {
     this.objects = {}
     this.localObjects = {}
     this.objectCase = {}
+    this.stopAnimation = false
 
     this.syncPlay = SoundManager.init(context)
 
@@ -21906,9 +21911,94 @@ Field.prototype.setClientID = function(clientID) {
  * LocalPosition
  */
 
-Field.prototype.setClip = function(cx, cy, halfW, halfH) {
-    this.clip = this.globalPosition.clip(cx, cy, halfW, halfH)
-    this.clip.setLocalPosition(0, 0, this.w, this.h)
+Field.prototype.setClip = function(cx, cy, halfW, halfH, radian = 0, isAnimation = false) {
+
+    let field = this
+
+    function getPosition(cx, cy, halfW, halfH, radian) {
+        let posObjects = {}
+        let posLocalObjects = {}
+        for (let id in field.objects) {
+            let obj = field.objects[id]
+            let p = field.clip.encodeToGloval(obj.x, obj.y)
+            p.startX = obj.x
+            p.startY = obj.y
+            posObjects[id] = p
+        }
+        for (let id in field.localObjects) {
+            let obj = field.localObjects[id]
+            let p = field.clip.encodeToGloval(obj.x, obj.y)
+            p.startX = obj.x
+            p.startY = obj.y
+            posLocalObjects[id] = p
+        }
+
+        field.clip = field.globalPosition.clip(cx, cy, halfW, halfH)
+        field.clip.rotate = radian
+        field.clip.setLocalPosition(0, 0, field.w, field.h)
+        return {
+            posObjects: posObjects,
+            posLocalObjects: posLocalObjects
+        }
+    }
+
+
+
+    function animation(pos, t, duration, interval, isRender) {
+        let rate = t / duration
+        rate = rate > 1 ? 1 : rate
+        let anime = (1 - (1 - rate) * (1 - rate))
+        if (pos) {
+            let posObjects = pos.posObjects
+            let posLocalObjects = pos.posLocalObjects
+            for (let id in field.objects) {
+                let obj = field.objects[id]
+                if (posObjects[id]) {
+                    let p = posObjects[id]
+                    let moveP = field.clip.encodeToLocal(p.x, p.y)
+                    obj.x = p.startX + (moveP.x - p.startX) * anime
+                    obj.y = p.startY + (moveP.y - p.startY) * anime
+                }
+            }
+            for (let id in field.localObjects) {
+                let obj = field.localObjects[id]
+                if (posLocalObjects[id]) {
+                    let p = posLocalObjects[id]
+                    let moveP = field.clip.encodeToLocal(p.x, p.y)
+                    obj.x = p.startX + (moveP.x - p.startX) * anime
+                    obj.y = p.startY + (moveP.y - p.startY) * anime
+                }
+            }
+        }
+        if (rate < 1) {
+            let date = new Date(Date.now() + interval)
+            Job(date, () => {
+                if (t == 0) {
+                    field.stopAnimation = false
+                    pos = getPosition(cx, cy, halfW, halfH, radian)
+                }
+                if (field.stopAnimation) {
+                    animation(pos, duration, duration, interval, false)
+                    return
+                }
+                animation(pos, t + interval, duration, interval, true)
+            })
+        }
+        if (isRender) {
+            field.render()
+        }
+    }
+    if (isAnimation) {
+        field.stopAnimation = true
+        animation(null, 0, 1000, 30, true)
+    } else {
+        field.clip = field.globalPosition.clip(cx, cy, halfW, halfH)
+        field.clip.rotate = radian
+        field.clip.setLocalPosition(0, 0, field.w, field.h)
+    }
+
+    // this.render()
+
 }
 
 Field.prototype.rotate = function(radian) {
@@ -21996,7 +22086,7 @@ Field.prototype.updateObjects = function(objects) {
                 // 自分のケースに入っている場合
                 console.log('in_case')
                 if (field.objectCase[field.user] && field.objectCase[field.user].inCard(obj.id)) {
-                    field.objects[id].noDraw = false
+                    field.objects[id].noDraw = true
                     field.objects[id].noMove = true
                 } else {
                     field.objects[id].noDraw = true
@@ -22055,6 +22145,34 @@ Field.prototype.updateObjects = function(objects) {
 
 Field.prototype.setObjectCase = function(objectCase) {
     this.objectCase[objectCase.id] = objectCase
+    console.log('setObjectCase', objectCase)
+    if (objectCase.id != this.user) {
+        objectCase.noDraw = true
+        objectCase.noOperation = true
+        objectCase.render = (ctx) => {
+            let a = objectCase.area
+            ctx.beginPath()
+            ctx.rect(a.x, a.y, a.w, a.h)
+            ctx.stroke()
+            objectCase.objects.forEach((object) => {
+                let obj = object.object
+                let posX = object.posX
+                let posY = object.posY
+                let temp = obj.icon
+                obj.x = posX
+                obj.y = posY
+                obj.icon = Card('裏').icon
+                obj.scale = 0.3
+                obj.draw(ctx)
+            })
+        }
+    }
+}
+
+Field.prototype.getObjectCase = function(id) {
+    if (this.objectCase[id]) {
+        return this.objectCase[id]
+    }
 }
 
 Field.prototype.inObjectCase = function(objectCase, obj) {
@@ -22131,8 +22249,10 @@ Field.prototype.autoMove = function(obj, toX, toY, moveInfo = {}) {
     let y = obj.y
     let now = Date.now()
     for (let t = 0; t < duration; t += diffTime) {
-        let tx = x + (toX - x) / duration * t
-        let ty = y + (toY - y) / duration * t
+        let rate = t / duration
+        let anime = (1 - (1 - rate) * (1 - rate))
+        let tx = x + (toX - x) * anime
+        let ty = y + (toY - y) * anime
         let out = obj.output()
         out.x = tx
         out.y = ty
@@ -22176,6 +22296,7 @@ Field.prototype.render = function() {
     let fontSize = this.fontSize
     ctx.font = fontSize + "px '" + font[1] + "'"
     ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
 
     // background color
     // ctx.beginPath()
@@ -22194,7 +22315,9 @@ Field.prototype.render = function() {
 
 
     for (let id in this.objectCase) {
-        this.objectCase[id].render(ctx)
+        if (!this.objectCase[id].noDraw) {
+            this.objectCase[id].render(ctx)
+        }
     }
 
     let reverse = []
@@ -22223,6 +22346,7 @@ Field.prototype.flexibleDraw = function() {}
 Field.prototype.mousePressed = function(x, y) {
     x = x * this.displayScale
     y = y * this.displayScale
+    let field = this
     /**
      * Object (Card)
      */
@@ -22247,14 +22371,21 @@ Field.prototype.mousePressed = function(x, y) {
         // ポジションずれる？
         for (let id in this.objectCase) {
             let objCase = this.objectCase[id]
+            if (objCase.noOperation) {
+                continue
+            }
             let n = objCase.isOver(x, y)
-            if (n >= 0) {
+            if (n >= 0 && n != 0.9) {
                 let obj = objCase.pop(n)
-                obj.y = objCase.area.y - 30
+                if (id == field.user) {
+                    obj.y = objCase.area.y - 5
+                } else {
+                    obj.y = objCase.area.y + objCase.area.h + 5
+                }
                 let out = obj.output()
                 out.events.push('out_case')
                 this.sendObjectInfoToServer(out)
-                field.sendObjectCaseInfoToServer(field.id)
+                this.sendObjectCaseInfoToServer(id)
             }
         }
 
@@ -22274,12 +22405,12 @@ Field.prototype.mousePressed = function(x, y) {
 Field.prototype.mouseReleased = function(x, y) {
     x = x * this.displayScale
     y = y * this.displayScale
+    let field = this
     /**
      * Object (Card)
      */
 
     let isObjMove = false
-    let field = this
     for (let id in this.objects) {
         let obj = this.objects[id]
         if (!obj.noMove && !obj.isOtherMove && obj.isMove) {
@@ -22293,6 +22424,9 @@ Field.prototype.mouseReleased = function(x, y) {
             // in_case
             if (field.user in this.objectCase) {
                 let objCase = this.objectCase[field.user]
+                if (objCase.noOperation) {
+                    continue
+                }
                 let n = objCase.isOver(x, y)
                 if (n >= 0) {
                     objCase.push(obj, x)
@@ -22320,6 +22454,7 @@ Field.prototype.mouseReleased = function(x, y) {
 Field.prototype.mouseMoved = function(x, y) {
     x = x * this.displayScale
     y = y * this.displayScale
+    let field = this
 
     /**
      * Object (Card)
@@ -22379,7 +22514,7 @@ Field.prototype.sendObjectCaseInfo = function(callback = () => {}) {
 
 Field.prototype.sendObjectCaseInfoToServer = function(id, option = {}) {
     // caseはclipの中心
-    if(this.objectCase[id]){
+    if (this.objectCase[id]) {
         objCase = this.objectCase[id]
         let sendObj = objCase.share()
         sendObj.clientID = this.clientID
@@ -22395,7 +22530,7 @@ Field.prototype.line = (ctx, x1, y1, x2, y2) => {
     ctx.stroke()
 }
 
-},{"./../card/cardList.js":149,"./../player/log.js":165,"./position.js":153,"./sound/soundManager.js":154}],153:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../card/cardList.js":149,"./../player/log.js":165,"./position.js":153,"./sound/soundManager.js":154}],153:[function(require,module,exports){
 module.exports = () => {
     return new GlobalPosition()
 }
@@ -22965,16 +23100,22 @@ function Field(canvas) {
     this.w = canvas.width
     this.h = canvas.height
 
+    this.displayScale = window.devicePixelRatio
+    this.fontSize = this.displayScale * 10
+
     this.tool = []
     this.selectToolNum = 0
     this.selectToolMode = 'pointMove'
+    this.toolHeadX = 30
     connect.set('toolMode', 'pointMove')
 
     let tw = this.h
     let th = this.h
-    let margin = th*0.1
-    let moveTool = Tool(30, 0, tw, th - margin * 2)
-    let plusTool = Tool(30 + tw * 1.1, 0, tw, th - margin * 2)
+    let margin = th * 0.1
+    let moveTool = Tool(this.toolHeadX, 0, tw, th - margin * 2)
+    this.toolHeadX += tw * 1.1
+    let plusTool = Tool(this.toolHeadX, 0, tw, th - margin * 2)
+    this.toolHeadX += tw * 1.1
 
     moveTool.setID('pointMove')
     plusTool.setID('separate')
@@ -23086,11 +23227,51 @@ function Field(canvas) {
     })
 }
 
+Field.prototype.setUser = function(user) {
+    let tw = this.h
+    let th = this.h
+    let margin = th * 0.1
+    let userTool = Tool(this.toolHeadX, 0, tw, th - margin * 2)
+    this.toolHeadX += tw * 1.1
+    userTool.setID(user)
+    let my = this
+    userTool.callRender = (ctx, tool) => {
+        let toolMode = my.selectToolMode
+        ctx.save()
+        ctx.beginPath()
+        ctx.strokeStyle = 'rgba(0,0,100,0.5)'
+        ctx.fillStyle = 'rgba(0,0,100,0.15)'
+        ctx.rect(tool.x, tool.y, tool.w, tool.h)
+        ctx.stroke()
+        if (tool.id == toolMode) {
+            ctx.fill()
+        }
+
+        let cx = tool.x + tool.w / 2
+        let cy = tool.y + tool.h / 2
+        ctx.translate(cx, cy)
+        // ctx.textAlign = "center"
+        // ctx.textBaseline = "middle"
+        ctx.fillStyle = 'rgba(0,0,0,1.0)'
+        ctx.fillText(user, 0, 0, tool.w / 2, tool.h)
+        ctx.restore()
+    }
+    this.tool.push(userTool)
+
+}
+
 Field.prototype.render = function() {
     // Draw points onto the canvas element.
     let h = this.h
     let ctx = this.canvas.getContext('2d')
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+
+    // font
+    let font = ctx.font.split(' ')
+    let fontSize = this.fontSize
+    ctx.font = fontSize + "px '" + font[1] + "'"
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
 
     // background color
     // ctx.beginPath()
@@ -23115,6 +23296,8 @@ Field.prototype.render = function() {
 
 
 Field.prototype.mousePressed = function(x, y) {
+    x = x * this.displayScale
+    y = y * this.displayScale
     let my = this
     this.tool.forEach((t, i) => {
         let onID = t.onOver(x, y)
@@ -23130,11 +23313,15 @@ Field.prototype.mousePressed = function(x, y) {
 
 
 Field.prototype.mouseReleased = function(x, y) {
+    x = x * this.displayScale
+    y = y * this.displayScale
     this.render()
 
 }
 
 Field.prototype.mouseMoved = function(x, y) {
+    x = x * this.displayScale
+    y = y * this.displayScale
     this.render()
 }
 
@@ -23254,6 +23441,7 @@ const uuid = require('node-uuid')
 const Canvas = require('./../canvas/canvas.js')
 const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
+const CardCase = require('./../card/objectCase.js')
 
 const loginWindow = require('./loginWindow.js')
 const Job = require('./../Job/cron.js')
@@ -23414,7 +23602,16 @@ exports.start = (canvas, context, socket, clientTime, config) => {
         console.log(upObj)
         let id = upObj.id
         if(!field.objectCase[id]){
-
+            let cardCase = CardCase()
+            cardCase.id = id
+            cardCase.update(upObj)
+            field.setObjectCase(cardCase)
+            field.render()
+        }else{
+            field.objectCase[id].update(upObj)
+            console.log(id, 'update')
+            console.log(field.objectCase[id])
+            field.render()
         }
     })
 
@@ -23487,7 +23684,7 @@ exports.start = (canvas, context, socket, clientTime, config) => {
     }
 }
 
-},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":149,"./../card/objectField.js":152,"./../player/log.js":165,"./loginWindow.js":162,"node-uuid":180}],161:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../player/log.js":165,"./loginWindow.js":162,"node-uuid":180}],161:[function(require,module,exports){
 const uuid = require('node-uuid')
 
 const Canvas = require('./../card/canvas.js')
@@ -23788,11 +23985,10 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
 
         // Player or MainField
         obj.flexibleDraw = (ctx, obj) => {
-            let fontSize = field.fontSize / field.displayScale
             ctx.beginPath()
             ctx.strokeStyle = 'rgba(0,0,0,0.8)'
             ctx.fillStyle = 'rgba(0,0,0, 0.8)'
-            ctx.fillText(user, 0, -obj.h / 2 - fontSize / 2)
+            ctx.fillText(user, 0, -obj.h / 2)
 
             // player
             if (obj.w == obj.h) {
@@ -23806,7 +24002,7 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
                 ctx.rect(-obj.w / 2, -obj.h / 2, obj.w, obj.h)
                 ctx.fill()
                 ctx.fillStyle = 'rgba(0,0,0,0.8)'
-                ctx.fillText('Main Field', 0, fontSize / 2)
+                ctx.fillText('Main Field', 0, 0)
             }
         }
 
@@ -23849,18 +24045,17 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
         ctx.restore()
 
         // 開始ボタン
-        let fontSize = field.fontSize / field.displayScale
         ctx.beginPath()
         // ctx.rect(0, 0, field.w, field.h)
         if (Object.keys(list).length >= 3) {
             ctx.fillStyle = 'rgba(0,0,0,1.0)'
-            ctx.fillText('GAME START', field.w / 2, field.h - 55 + fontSize / 2)
+            ctx.fillText('GAME START', field.w / 2, field.h - 55)
             ctx.strokeStyle = 'rgba(11,90,150,1.0)'
             ctx.fillStyle = 'rgba(11,90,150,0.5)'
             ctx.rect(field.w / 8 * 3, field.h - 80, field.w / 8 * 2, 50)
         } else {
             ctx.fillStyle = 'rgba(0,0,0, 0.8)'
-            ctx.fillText('3 or more players', field.w / 2, field.h - 55 + fontSize / 2)
+            ctx.fillText('3 or more players', field.w / 2, field.h - 55)
             ctx.strokeStyle = 'rgba(11,90,150,0.3)'
             ctx.fillStyle = 'rgba(11,90,150,0.1)'
             ctx.rect(field.w / 8 * 3, field.h - 80, field.w / 8 * 2, 50)
@@ -23925,6 +24120,7 @@ const Canvas = require('./../card/canvas.js')
 const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
 const CardCase = require('./../card/objectCase.js')
+const connect = require('./../../connect.js')
 
 const Job = require('./../Job/cron.js')
 
@@ -23977,7 +24173,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     element.style.height = document.documentElement.clientHeight
 
 
-    let canvas = Canvas(element, 1.0 * 1.1, 0.9 * 1.1)
+    let canvas = Canvas(element, 1.0, 0.9)
 
     let isStart = false
 
@@ -24051,35 +24247,28 @@ exports.start = (element, context, socket, clientTime, config) => {
 
     socket.on(socketDir + 'game_start', (body) => {
         console.log(body)
+        if (config.user in body) {
+            let b = body[config.user]
+            start(body, b.gx, b.gy)
+        }
         // user{}
         // gx, gy
-        start()
+
     })
 
-    let start = () => {
+    let start = (list, gx, gy) => {
         let main = Main.start(canvas, context, socket, clientTime, config)
         let field = main.field
         field.user = config.user
 
-        let toolCanvas = Canvas(element, 1.0 * 1.1, 0.1 * 1.1)
+        let toolCanvas = Canvas(element, 1.0, 0.1)
         let tool = ToolField(toolCanvas)
         tool.render()
 
-        if (config.user == 'up') {
-            field.setClip(0, -0.5, 0.3, 0.3)
-            field.rotate(Math.PI)
-        }
-        if (config.user == 'down') {
-            field.setClip(0, 0.5, 0.3, 0.3)
-        }
-        if (config.user == 'left') {
-            field.setClip(-0.5, 0, 0.3, 0.3)
-            field.rotate(Math.PI / 2)
-        }
-        if (config.user == 'right') {
-            field.setClip(0.5, 0, 0.3, 0.3)
-            field.rotate(-Math.PI / 2)
-        }
+        field.setClip(gx, gy, 0.3, 0.3)
+        let angle = Math.atan2(0 - gy, 0 - gx) + Math.PI / 2
+        field.rotate(angle)
+
         field.setLocalPosition(0, 0, canvas.width, canvas.height)
 
         let cardCase = CardCase()
@@ -24107,11 +24296,72 @@ exports.start = (element, context, socket, clientTime, config) => {
         }
         field.setObjectCase(cardCase)
 
+        delete list[config.user]
+
+        tool.setUser('Field')
+        for (let user in list) {
+            tool.setUser(user)
+        }
+        tool.render()
+
+        connect.on('toolMode', (id) => {
+            if (id == 'pointMove') {
+                field.setClip(gx, gy, 0.3, 0.3, angle, true)
+                console.log(gx, gy, 0.3, 0.3)
+            }
+            if (id == 'separate') {
+
+            }
+            if (id == 'Field') {
+                let otherGx = 0
+                let otherGy = 0
+
+                let dist = Math.sqrt((otherGx - gx) * (otherGx - gx) + (otherGy - gy) * (otherGy - gy))
+                let cx = gx + (otherGx - gx) / 2
+                let cy = gy + (otherGy - gy) / 2
+                let angleToOther = Math.atan2(otherGy - gy, otherGx - gx) + Math.PI / 2
+                field.setClip(cx, cy, dist * 1.2, dist * 1.2, angleToOther, true)
+                for (let id in field.objectCase) {
+                    if (id != config.user) {
+                        field.objectCase[id].noDraw = true
+                        field.objectCase[id].noOperation = true
+                    }
+                }
+            } else if (id in list) {
+                let user = id
+                let otherUser = user
+                let otherGx = list[user].gx
+                let otherGy = list[user].gy
+
+                let dist = Math.sqrt((otherGx - gx) * (otherGx - gx) + (otherGy - gy) * (otherGy - gy))
+                let cx = gx + (otherGx - gx) / 2
+                let cy = gy + (otherGy - gy) / 2
+                let angleToOther = Math.atan2(otherGy - gy, otherGx - gx) + Math.PI / 2
+                field.setClip(cx, cy, dist * 1.2, dist * 1.2, angleToOther, true)
+
+                if (field.objectCase[user]) {
+                    field.objectCase[user].area.w = field.w
+                    field.objectCase[user].sort()
+                    field.objectCase[user].noDraw = false
+                    field.objectCase[user].noOperation = false
+                }
+                for (let id in field.objectCase) {
+                    if (id != user && id != config.user) {
+                        field.objectCase[id].noDraw = true
+                        field.objectCase[id].noOperation = true
+                    }
+                }
+                console.log(cx, cy, dist * 1.2, dist * 1.2)
+            }
+            field.render()
+
+        })
+
     }
 
 }
 
-},{"./../Job/cron.js":145,"./../card/canvas.js":147,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../card/tool/toolField.js":157,"./../main/common.js":160,"./log.js":165,"node-uuid":180}],167:[function(require,module,exports){
+},{"./../../connect.js":167,"./../Job/cron.js":145,"./../card/canvas.js":147,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../card/tool/toolField.js":157,"./../main/common.js":160,"./log.js":165,"node-uuid":180}],167:[function(require,module,exports){
 let value = {}
 let call = {}
 exports.set = (name, v) => {

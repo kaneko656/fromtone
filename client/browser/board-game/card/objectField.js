@@ -3,6 +3,7 @@ const SoundManager = require('./sound/soundManager.js')
 const Card = require('./../card/cardList.js')
 
 let log = require('./../player/log.js')
+let Job = require('./../Job/cron.js')
 
 module.exports = (canvas, context) => {
     return new Field(canvas, context)
@@ -31,6 +32,7 @@ function Field(canvas, context) {
     this.objects = {}
     this.localObjects = {}
     this.objectCase = {}
+    this.stopAnimation = false
 
     this.syncPlay = SoundManager.init(context)
 
@@ -51,9 +53,94 @@ Field.prototype.setClientID = function(clientID) {
  * LocalPosition
  */
 
-Field.prototype.setClip = function(cx, cy, halfW, halfH) {
-    this.clip = this.globalPosition.clip(cx, cy, halfW, halfH)
-    this.clip.setLocalPosition(0, 0, this.w, this.h)
+Field.prototype.setClip = function(cx, cy, halfW, halfH, radian = 0, isAnimation = false) {
+
+    let field = this
+
+    function getPosition(cx, cy, halfW, halfH, radian) {
+        let posObjects = {}
+        let posLocalObjects = {}
+        for (let id in field.objects) {
+            let obj = field.objects[id]
+            let p = field.clip.encodeToGloval(obj.x, obj.y)
+            p.startX = obj.x
+            p.startY = obj.y
+            posObjects[id] = p
+        }
+        for (let id in field.localObjects) {
+            let obj = field.localObjects[id]
+            let p = field.clip.encodeToGloval(obj.x, obj.y)
+            p.startX = obj.x
+            p.startY = obj.y
+            posLocalObjects[id] = p
+        }
+
+        field.clip = field.globalPosition.clip(cx, cy, halfW, halfH)
+        field.clip.rotate = radian
+        field.clip.setLocalPosition(0, 0, field.w, field.h)
+        return {
+            posObjects: posObjects,
+            posLocalObjects: posLocalObjects
+        }
+    }
+
+
+
+    function animation(pos, t, duration, interval, isRender) {
+        let rate = t / duration
+        rate = rate > 1 ? 1 : rate
+        let anime = (1 - (1 - rate) * (1 - rate))
+        if (pos) {
+            let posObjects = pos.posObjects
+            let posLocalObjects = pos.posLocalObjects
+            for (let id in field.objects) {
+                let obj = field.objects[id]
+                if (posObjects[id]) {
+                    let p = posObjects[id]
+                    let moveP = field.clip.encodeToLocal(p.x, p.y)
+                    obj.x = p.startX + (moveP.x - p.startX) * anime
+                    obj.y = p.startY + (moveP.y - p.startY) * anime
+                }
+            }
+            for (let id in field.localObjects) {
+                let obj = field.localObjects[id]
+                if (posLocalObjects[id]) {
+                    let p = posLocalObjects[id]
+                    let moveP = field.clip.encodeToLocal(p.x, p.y)
+                    obj.x = p.startX + (moveP.x - p.startX) * anime
+                    obj.y = p.startY + (moveP.y - p.startY) * anime
+                }
+            }
+        }
+        if (rate < 1) {
+            let date = new Date(Date.now() + interval)
+            Job(date, () => {
+                if (t == 0) {
+                    field.stopAnimation = false
+                    pos = getPosition(cx, cy, halfW, halfH, radian)
+                }
+                if (field.stopAnimation) {
+                    animation(pos, duration, duration, interval, false)
+                    return
+                }
+                animation(pos, t + interval, duration, interval, true)
+            })
+        }
+        if (isRender) {
+            field.render()
+        }
+    }
+    if (isAnimation) {
+        field.stopAnimation = true
+        animation(null, 0, 1000, 30, true)
+    } else {
+        field.clip = field.globalPosition.clip(cx, cy, halfW, halfH)
+        field.clip.rotate = radian
+        field.clip.setLocalPosition(0, 0, field.w, field.h)
+    }
+
+    // this.render()
+
 }
 
 Field.prototype.rotate = function(radian) {
@@ -141,7 +228,7 @@ Field.prototype.updateObjects = function(objects) {
                 // 自分のケースに入っている場合
                 console.log('in_case')
                 if (field.objectCase[field.user] && field.objectCase[field.user].inCard(obj.id)) {
-                    field.objects[id].noDraw = false
+                    field.objects[id].noDraw = true
                     field.objects[id].noMove = true
                 } else {
                     field.objects[id].noDraw = true
@@ -200,6 +287,34 @@ Field.prototype.updateObjects = function(objects) {
 
 Field.prototype.setObjectCase = function(objectCase) {
     this.objectCase[objectCase.id] = objectCase
+    console.log('setObjectCase', objectCase)
+    if (objectCase.id != this.user) {
+        objectCase.noDraw = true
+        objectCase.noOperation = true
+        objectCase.render = (ctx) => {
+            let a = objectCase.area
+            ctx.beginPath()
+            ctx.rect(a.x, a.y, a.w, a.h)
+            ctx.stroke()
+            objectCase.objects.forEach((object) => {
+                let obj = object.object
+                let posX = object.posX
+                let posY = object.posY
+                let temp = obj.icon
+                obj.x = posX
+                obj.y = posY
+                obj.icon = Card('裏').icon
+                obj.scale = 0.3
+                obj.draw(ctx)
+            })
+        }
+    }
+}
+
+Field.prototype.getObjectCase = function(id) {
+    if (this.objectCase[id]) {
+        return this.objectCase[id]
+    }
 }
 
 Field.prototype.inObjectCase = function(objectCase, obj) {
@@ -276,8 +391,10 @@ Field.prototype.autoMove = function(obj, toX, toY, moveInfo = {}) {
     let y = obj.y
     let now = Date.now()
     for (let t = 0; t < duration; t += diffTime) {
-        let tx = x + (toX - x) / duration * t
-        let ty = y + (toY - y) / duration * t
+        let rate = t / duration
+        let anime = (1 - (1 - rate) * (1 - rate))
+        let tx = x + (toX - x) * anime
+        let ty = y + (toY - y) * anime
         let out = obj.output()
         out.x = tx
         out.y = ty
@@ -321,6 +438,7 @@ Field.prototype.render = function() {
     let fontSize = this.fontSize
     ctx.font = fontSize + "px '" + font[1] + "'"
     ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
 
     // background color
     // ctx.beginPath()
@@ -339,7 +457,9 @@ Field.prototype.render = function() {
 
 
     for (let id in this.objectCase) {
-        this.objectCase[id].render(ctx)
+        if (!this.objectCase[id].noDraw) {
+            this.objectCase[id].render(ctx)
+        }
     }
 
     let reverse = []
@@ -368,6 +488,7 @@ Field.prototype.flexibleDraw = function() {}
 Field.prototype.mousePressed = function(x, y) {
     x = x * this.displayScale
     y = y * this.displayScale
+    let field = this
     /**
      * Object (Card)
      */
@@ -392,14 +513,21 @@ Field.prototype.mousePressed = function(x, y) {
         // ポジションずれる？
         for (let id in this.objectCase) {
             let objCase = this.objectCase[id]
+            if (objCase.noOperation) {
+                continue
+            }
             let n = objCase.isOver(x, y)
-            if (n >= 0) {
+            if (n >= 0 && n != 0.9) {
                 let obj = objCase.pop(n)
-                obj.y = objCase.area.y - 30
+                if (id == field.user) {
+                    obj.y = objCase.area.y - 5
+                } else {
+                    obj.y = objCase.area.y + objCase.area.h + 5
+                }
                 let out = obj.output()
                 out.events.push('out_case')
                 this.sendObjectInfoToServer(out)
-                field.sendObjectCaseInfoToServer(field.id)
+                this.sendObjectCaseInfoToServer(id)
             }
         }
 
@@ -419,12 +547,12 @@ Field.prototype.mousePressed = function(x, y) {
 Field.prototype.mouseReleased = function(x, y) {
     x = x * this.displayScale
     y = y * this.displayScale
+    let field = this
     /**
      * Object (Card)
      */
 
     let isObjMove = false
-    let field = this
     for (let id in this.objects) {
         let obj = this.objects[id]
         if (!obj.noMove && !obj.isOtherMove && obj.isMove) {
@@ -438,6 +566,9 @@ Field.prototype.mouseReleased = function(x, y) {
             // in_case
             if (field.user in this.objectCase) {
                 let objCase = this.objectCase[field.user]
+                if (objCase.noOperation) {
+                    continue
+                }
                 let n = objCase.isOver(x, y)
                 if (n >= 0) {
                     objCase.push(obj, x)
@@ -465,6 +596,7 @@ Field.prototype.mouseReleased = function(x, y) {
 Field.prototype.mouseMoved = function(x, y) {
     x = x * this.displayScale
     y = y * this.displayScale
+    let field = this
 
     /**
      * Object (Card)
@@ -524,7 +656,7 @@ Field.prototype.sendObjectCaseInfo = function(callback = () => {}) {
 
 Field.prototype.sendObjectCaseInfoToServer = function(id, option = {}) {
     // caseはclipの中心
-    if(this.objectCase[id]){
+    if (this.objectCase[id]) {
         objCase = this.objectCase[id]
         let sendObj = objCase.share()
         sendObj.clientID = this.clientID
