@@ -12,6 +12,7 @@ let soundList = {
     '和風メロディ': 'lib/sound/wafuringtone.mp3',
     'ウィンドチャイム': 'lib/sound/windchime.mp3',
     'カード': 'lib/sound/wind1.mp3',
+    'pizz_melody': 'lib/sound/pizz2_melody.mp3',
     // 'music': 'lib/sound/clock3.mp3',
     // 'voice': 'lib/sound/voice.mp3',
     // '太鼓': 'lib/sound/taiko.mp3',
@@ -33,10 +34,18 @@ for (let name in soundList) {
     soundNameList.push(name)
 }
 
+let speakerPosition = {}
+let mySpeakerID = ''
+
 exports.init = (context) => {
     syncPlay = SyncPlay(context)
     syncPlay.loadBuffer(soundList, () => {})
     return syncPlay
+}
+
+exports.setSpeakerPosition = (_speakerPosition, id) => {
+    speakerPosition = _speakerPosition
+    mySpeakerID = id
 }
 
 
@@ -114,12 +123,14 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             // time
             let value = 0
             if (!lastGainValue) {
-                value = p.dist < p.maxDist ? 1.0 - p.dist / p.maxDist : 0
-                value = value * 0.1 + value * 0.9 * volumeRate
+                value = DBAP(mySpeakerID, p.gx, p.gy)
+                console.log(value)
+                value = value * 1.0 + value * 0.0 * volumeRate
             } else {
-                value = p.dist < p.maxDist ? 1.0 - p.dist / p.maxDist : 0
+                value = DBAP(mySpeakerID, p.gx, p.gy)
+                console.log(value)
                 value = value / 2 + lastGainValue.value / 2
-                value = value * 0.3 + value * 0.7 * volumeRate
+                value = value * 1.0 + value * 0.0 * volumeRate
             }
             // console.log(Math.abs(lastDoppler.velocity), volumeRate, value)
 
@@ -144,6 +155,33 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             setTimeout(() => {
                 syncSound.stop()
             }, 200)
+        }
+
+        let DBAP = (id, soundGx, soundGy, rolloff = 6.02*10) => {
+            // console.log(speakerPosition, soundGx, soundGy)
+            if (!speakerPosition) {
+                return 0
+            }
+            // スピーカの半径　無限大発散を防ぐ
+            let speakerRadius = 0.00001
+            let power = 0
+            let powerSum = 0
+            for (let name in speakerPosition) {
+                let gx = speakerPosition[name].gx
+                let gy = speakerPosition[name].gy
+                let dist = Math.sqrt((soundGx - gx) * (soundGx - gx) + (soundGy - gy) * (soundGy - gy) + speakerRadius * speakerRadius)
+                let rDist = Math.pow(dist, -rolloff / 20 * Math.log10(2))
+                // エネルギーなので２乗
+                powerSum += rDist * rDist
+                if (name == id) {
+                    power = rDist
+                }
+            }
+            if (powerSum != 0) {
+                power = power / Math.sqrt(powerSum)
+                return power
+            }
+            return 0
         }
 
         // syncPlay.play(gainNode, syncSound)

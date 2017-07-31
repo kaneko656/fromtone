@@ -169,7 +169,7 @@ Field.prototype.setObject = function(obj) {
     }
     if (this.objects[id].types.indexOf('card') >= 0) {
         // this.objects[id].scale = (this.canvas.width / 5) / this.objects[id].w
-        this.objects[id].scale = (this.canvas.width / 15) / this.objects[id].w
+        this.objects[id].scale = (this.canvas.width / 6) / this.objects[id].w
     }
     // if (this.objects[id].types.indexOf('card') >= 0 && this.objects[id].types.indexOf('reverse') >= 0) {
     //     let reverseCard = Card('裏')
@@ -240,31 +240,6 @@ Field.prototype.updateObjects = function(objects) {
                 field.objects[id].noDraw = false
                 field.objects[id].noMove = false
             }
-            // // CardCase
-            // if (field.objectCase[field.user]) {
-            //     let objCase = field.objectCase[field.user]
-            //     let obj = field.objects[id]
-            //     // 入れる
-            //     if (obj.types.indexOf('in_case') == -1 && objCase.inArea(obj.x, obj.y)) {
-            //         // share
-            //         let out = obj.output()
-            //         out.types.push('in_case')
-            //         out.types.push('username_' + field.user)
-            //         out.events.push('in_case')
-            //         this.sendObjectInfoToServer(out)
-            //     }
-            //     // 入ったイベント
-            //     if (obj.events.indexOf('in_case') >= 0) {
-            //         if (obj.types.indexOf('username_' + field.user) >= 0) {
-            //             field.objects[id].noDraw = true
-            //             field.objects[id].noMove = true
-            //             field.inObjectCase(objCase, field.objects[id])
-            //         } else {
-            //             field.objects[id].noDraw = true
-            //             field.objects[id].noMove = true
-            //         }
-            //     }
-            // }
         }
 
         let types = obj.types
@@ -370,7 +345,7 @@ Field.prototype.updateSounds = function(objects) {
                 // sound
                 console.log('sound_start', id)
 
-                this.startSound(obj.id, 'カード', obj.startTime, {
+                this.startSound(obj.id, 'pizz_melody', obj.startTime, {
                     loop: true
                 })
             }
@@ -548,6 +523,7 @@ Field.prototype.mouseReleased = function(x, y) {
     x = x * this.displayScale
     y = y * this.displayScale
     let field = this
+
     /**
      * Object (Card)
      */

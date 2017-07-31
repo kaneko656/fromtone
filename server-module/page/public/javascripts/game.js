@@ -22027,7 +22027,7 @@ Field.prototype.setObject = function(obj) {
     }
     if (this.objects[id].types.indexOf('card') >= 0) {
         // this.objects[id].scale = (this.canvas.width / 5) / this.objects[id].w
-        this.objects[id].scale = (this.canvas.width / 15) / this.objects[id].w
+        this.objects[id].scale = (this.canvas.width / 6) / this.objects[id].w
     }
     // if (this.objects[id].types.indexOf('card') >= 0 && this.objects[id].types.indexOf('reverse') >= 0) {
     //     let reverseCard = Card('裏')
@@ -22098,31 +22098,6 @@ Field.prototype.updateObjects = function(objects) {
                 field.objects[id].noDraw = false
                 field.objects[id].noMove = false
             }
-            // // CardCase
-            // if (field.objectCase[field.user]) {
-            //     let objCase = field.objectCase[field.user]
-            //     let obj = field.objects[id]
-            //     // 入れる
-            //     if (obj.types.indexOf('in_case') == -1 && objCase.inArea(obj.x, obj.y)) {
-            //         // share
-            //         let out = obj.output()
-            //         out.types.push('in_case')
-            //         out.types.push('username_' + field.user)
-            //         out.events.push('in_case')
-            //         this.sendObjectInfoToServer(out)
-            //     }
-            //     // 入ったイベント
-            //     if (obj.events.indexOf('in_case') >= 0) {
-            //         if (obj.types.indexOf('username_' + field.user) >= 0) {
-            //             field.objects[id].noDraw = true
-            //             field.objects[id].noMove = true
-            //             field.inObjectCase(objCase, field.objects[id])
-            //         } else {
-            //             field.objects[id].noDraw = true
-            //             field.objects[id].noMove = true
-            //         }
-            //     }
-            // }
         }
 
         let types = obj.types
@@ -22228,7 +22203,7 @@ Field.prototype.updateSounds = function(objects) {
                 // sound
                 console.log('sound_start', id)
 
-                this.startSound(obj.id, 'カード', obj.startTime, {
+                this.startSound(obj.id, 'pizz_melody', obj.startTime, {
                     loop: true
                 })
             }
@@ -22406,6 +22381,7 @@ Field.prototype.mouseReleased = function(x, y) {
     x = x * this.displayScale
     y = y * this.displayScale
     let field = this
+
     /**
      * Object (Card)
      */
@@ -22659,6 +22635,7 @@ let soundList = {
     '和風メロディ': 'lib/sound/wafuringtone.mp3',
     'ウィンドチャイム': 'lib/sound/windchime.mp3',
     'カード': 'lib/sound/wind1.mp3',
+    'pizz_melody': 'lib/sound/pizz2_melody.mp3',
     // 'music': 'lib/sound/clock3.mp3',
     // 'voice': 'lib/sound/voice.mp3',
     // '太鼓': 'lib/sound/taiko.mp3',
@@ -22680,10 +22657,18 @@ for (let name in soundList) {
     soundNameList.push(name)
 }
 
+let speakerPosition = {}
+let mySpeakerID = ''
+
 exports.init = (context) => {
     syncPlay = SyncPlay(context)
     syncPlay.loadBuffer(soundList, () => {})
     return syncPlay
+}
+
+exports.setSpeakerPosition = (_speakerPosition, id) => {
+    speakerPosition = _speakerPosition
+    mySpeakerID = id
 }
 
 
@@ -22761,12 +22746,14 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             // time
             let value = 0
             if (!lastGainValue) {
-                value = p.dist < p.maxDist ? 1.0 - p.dist / p.maxDist : 0
-                value = value * 0.1 + value * 0.9 * volumeRate
+                value = DBAP(mySpeakerID, p.gx, p.gy)
+                console.log(value)
+                value = value * 1.0 + value * 0.0 * volumeRate
             } else {
-                value = p.dist < p.maxDist ? 1.0 - p.dist / p.maxDist : 0
+                value = DBAP(mySpeakerID, p.gx, p.gy)
+                console.log(value)
                 value = value / 2 + lastGainValue.value / 2
-                value = value * 0.3 + value * 0.7 * volumeRate
+                value = value * 1.0 + value * 0.0 * volumeRate
             }
             // console.log(Math.abs(lastDoppler.velocity), volumeRate, value)
 
@@ -22791,6 +22778,33 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             setTimeout(() => {
                 syncSound.stop()
             }, 200)
+        }
+
+        let DBAP = (id, soundGx, soundGy, rolloff = 6.02*10) => {
+            // console.log(speakerPosition, soundGx, soundGy)
+            if (!speakerPosition) {
+                return 0
+            }
+            // スピーカの半径　無限大発散を防ぐ
+            let speakerRadius = 0.00001
+            let power = 0
+            let powerSum = 0
+            for (let name in speakerPosition) {
+                let gx = speakerPosition[name].gx
+                let gy = speakerPosition[name].gy
+                let dist = Math.sqrt((soundGx - gx) * (soundGx - gx) + (soundGy - gy) * (soundGy - gy) + speakerRadius * speakerRadius)
+                let rDist = Math.pow(dist, -rolloff / 20 * Math.log10(2))
+                // エネルギーなので２乗
+                powerSum += rDist * rDist
+                if (name == id) {
+                    power = rDist
+                }
+            }
+            if (powerSum != 0) {
+                power = power / Math.sqrt(powerSum)
+                return power
+            }
+            return 0
         }
 
         // syncPlay.play(gainNode, syncSound)
@@ -23704,6 +23718,7 @@ const PlayRoom = require('./playRoom.js')
 let ToolField = require('./../card/tool/toolField.js')
 
 const cardDistribution = require('./../card/cardDistribution.js')
+const SoundManager = require('./../card/sound/soundManager.js')
 
 exports.start = (element, context, socket, clientTime, config) => {
     // element.style.margin = '30px'
@@ -23713,12 +23728,6 @@ exports.start = (element, context, socket, clientTime, config) => {
     element.style.width = window.innerWidth + 'px'
     element.style.height = window.innerHeight + 'px'
     element.style.overflow = 'hidden'
-    // element.style.width = '100%'
-    // element.style.height = '100%'
-    // console.log(element)
-    // element.style.overflow = 'hidden'
-    // console.log(width, height, document.body.clientHeight)
-
 
     let canvas = Canvas(element, 1.0, 0.9)
     let main = Main.start(canvas, context, socket, clientTime, config)
@@ -23732,6 +23741,12 @@ exports.start = (element, context, socket, clientTime, config) => {
     let playRoom = PlayRoom.start(canvas, field, socket, clientTime, config, (list) => {
         gameStart(list)
         phase1(list)
+        let pos = Object.assign(list)
+        pos['Field'] = {
+            gx: 0,
+            gy: 0
+        }
+        SoundManager.setSpeakerPosition(pos, 'Field')
     })
 
     let gameStart = (userList) => {
@@ -23821,7 +23836,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     }
 }
 
-},{"./../Job/cron.js":145,"./../card/canvas.js":147,"./../card/cardDistribution.js":148,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../card/tool/toolField.js":157,"./common.js":160,"./playRoom.js":163,"node-uuid":180}],162:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../card/canvas.js":147,"./../card/cardDistribution.js":148,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../card/sound/soundManager.js":154,"./../card/tool/toolField.js":157,"./common.js":160,"./playRoom.js":163,"node-uuid":180}],162:[function(require,module,exports){
 const uuid = require('node-uuid')
 let HtmlText = require('./../html/html-text.js')
 let SelectList = require('./../../demo-common/html/select-list.js')
@@ -24121,6 +24136,7 @@ const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
 const CardCase = require('./../card/objectCase.js')
 const connect = require('./../../connect.js')
+const SoundManager = require('./../card/sound/soundManager.js')
 
 const Job = require('./../Job/cron.js')
 
@@ -24225,16 +24241,19 @@ exports.start = (element, context, socket, clientTime, config) => {
     canvas.addEventListener('mousedown', firstClick)
     canvas.addEventListener('touchstart', firstClick)
 
-    function firstClick() {
+    let source = context.createBufferSource()
+    let url = 'lib/sound/notification-common.mp3'
+    loadSound(url, (buffer) => {
+        source.buffer = buffer
+        let gainNode = context.createGain()
+        gainNode.connect(context.destination)
+        gainNode.gain.value = 0.5
+        source.connect(context.destination)
+    })
 
+    function firstClick() {
         if (!isStart) {
-            let url = 'lib/sound/notification-common.mp3'
-            loadSound(url, (buffer) => {
-                let source = context.createBufferSource()
-                source.buffer = buffer
-                source.connect(context.destination)
-                source.start(0)
-            })
+            source.start(0)
             waitDraw()
             Main.register(canvas, context, socket, clientTime, config)
             isStart = true
@@ -24249,7 +24268,14 @@ exports.start = (element, context, socket, clientTime, config) => {
         console.log(body)
         if (config.user in body) {
             let b = body[config.user]
+            let pos = Object.assign({}, body)
             start(body, b.gx, b.gy)
+            console.log(pos)
+            pos['Field'] = {
+                gx: 0,
+                gy: 0
+            }
+            SoundManager.setSpeakerPosition(pos, config.user)
         }
         // user{}
         // gx, gy
@@ -24361,7 +24387,7 @@ exports.start = (element, context, socket, clientTime, config) => {
 
 }
 
-},{"./../../connect.js":167,"./../Job/cron.js":145,"./../card/canvas.js":147,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../card/tool/toolField.js":157,"./../main/common.js":160,"./log.js":165,"node-uuid":180}],167:[function(require,module,exports){
+},{"./../../connect.js":167,"./../Job/cron.js":145,"./../card/canvas.js":147,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../card/sound/soundManager.js":154,"./../card/tool/toolField.js":157,"./../main/common.js":160,"./log.js":165,"node-uuid":180}],167:[function(require,module,exports){
 let value = {}
 let call = {}
 exports.set = (name, v) => {

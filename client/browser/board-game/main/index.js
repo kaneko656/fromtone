@@ -17,6 +17,7 @@ const PlayRoom = require('./playRoom.js')
 let ToolField = require('./../card/tool/toolField.js')
 
 const cardDistribution = require('./../card/cardDistribution.js')
+const SoundManager = require('./../card/sound/soundManager.js')
 
 exports.start = (element, context, socket, clientTime, config) => {
     // element.style.margin = '30px'
@@ -26,12 +27,6 @@ exports.start = (element, context, socket, clientTime, config) => {
     element.style.width = window.innerWidth + 'px'
     element.style.height = window.innerHeight + 'px'
     element.style.overflow = 'hidden'
-    // element.style.width = '100%'
-    // element.style.height = '100%'
-    // console.log(element)
-    // element.style.overflow = 'hidden'
-    // console.log(width, height, document.body.clientHeight)
-
 
     let canvas = Canvas(element, 1.0, 0.9)
     let main = Main.start(canvas, context, socket, clientTime, config)
@@ -45,6 +40,12 @@ exports.start = (element, context, socket, clientTime, config) => {
     let playRoom = PlayRoom.start(canvas, field, socket, clientTime, config, (list) => {
         gameStart(list)
         phase1(list)
+        let pos = Object.assign(list)
+        pos['Field'] = {
+            gx: 0,
+            gy: 0
+        }
+        SoundManager.setSpeakerPosition(pos, 'Field')
     })
 
     let gameStart = (userList) => {

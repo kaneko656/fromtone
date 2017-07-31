@@ -5,6 +5,7 @@ const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
 const CardCase = require('./../card/objectCase.js')
 const connect = require('./../../connect.js')
+const SoundManager = require('./../card/sound/soundManager.js')
 
 const Job = require('./../Job/cron.js')
 
@@ -109,16 +110,19 @@ exports.start = (element, context, socket, clientTime, config) => {
     canvas.addEventListener('mousedown', firstClick)
     canvas.addEventListener('touchstart', firstClick)
 
-    function firstClick() {
+    let source = context.createBufferSource()
+    let url = 'lib/sound/notification-common.mp3'
+    loadSound(url, (buffer) => {
+        source.buffer = buffer
+        let gainNode = context.createGain()
+        gainNode.connect(context.destination)
+        gainNode.gain.value = 0.5
+        source.connect(context.destination)
+    })
 
+    function firstClick() {
         if (!isStart) {
-            let url = 'lib/sound/notification-common.mp3'
-            loadSound(url, (buffer) => {
-                let source = context.createBufferSource()
-                source.buffer = buffer
-                source.connect(context.destination)
-                source.start(0)
-            })
+            source.start(0)
             waitDraw()
             Main.register(canvas, context, socket, clientTime, config)
             isStart = true
@@ -133,7 +137,14 @@ exports.start = (element, context, socket, clientTime, config) => {
         console.log(body)
         if (config.user in body) {
             let b = body[config.user]
+            let pos = Object.assign({}, body)
             start(body, b.gx, b.gy)
+            console.log(pos)
+            pos['Field'] = {
+                gx: 0,
+                gy: 0
+            }
+            SoundManager.setSpeakerPosition(pos, config.user)
         }
         // user{}
         // gx, gy
