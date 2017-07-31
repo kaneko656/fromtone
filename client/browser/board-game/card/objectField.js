@@ -35,6 +35,7 @@ function Field(canvas, context) {
     this.localObjects = {}
     this.objectCase = {}
     this.positionDistObject = null
+    this.positionDistTone = 'pizz'
     this.stopAnimation = false
 
     this.syncPlay = SoundManager.init(context)
@@ -387,40 +388,34 @@ Field.prototype.updateSounds = function(objects) {
             }
         }
         if (obj.events.indexOf('sound_position') >= 0) {
-            if (obj.events.indexOf('sound_inC') >= 0) {
-                // console.log(obj.events)
-                let name = '_C'
-                if (n == 1) {
-                    name = '_D'
+            let tone = ''
+            obj.events.forEach((e) => {
+                if (e.indexOf('sound_position_') == 0) {
+                    tone = e.replace('sound_position_', '')
                 }
-                if (n == 2) {
-                    name = '_E'
-                }
-                if (field.sounds[obj.id + name]) {
-                    field.sounds[obj.id + name].stop()
-                    delete field.sounds[obj.id + name]
-                }
-                console.log('start', obj)
-                n = n + 1 >= 3 ? 0 : n + 1
-                // not use obj.startTime  use obj.time
-                this.startSound(obj.id + name, 'pizz3' + name, obj.time + 100, {
-                    loop: false,
-                    velocityVolumeRate: 0,
-                    limitEffectTimes: 2,
-                    noDoppler: true,
-                    start: true
-                })
-                field.sounds[obj.id + name].positionEffect({
-                    gx: obj.gx,
-                    gy: obj.gy
-                })
-                // setTimeout(() => {
-                //   delete field.sounds[obj.id + '_inC']
-                //     // field.sounds[obj.id + '_inC'].stop()
-                // }, 2000)
-
-
+            })
+            console.log(tone)
+            if (field.sounds[tone]) {
+                field.sounds[tone].stop()
+                delete field.sounds[tone]
             }
+            // not use obj.startTime  use obj.time
+            this.startSound(tone, tone, obj.time + 100, {
+                loop: false,
+                velocityVolumeRate: 0,
+                limitEffectTimes: 2,
+                noDoppler: true,
+                start: true
+            })
+            field.sounds[tone].positionEffect({
+                gx: obj.gx,
+                gy: obj.gy
+            })
+            // setTimeout(() => {
+            //   delete field.sounds[obj.id + '_inC']
+            //     // field.sounds[obj.id + '_inC'].stop()
+            // }, 2000)
+
         }
     })
 }
@@ -434,6 +429,10 @@ Field.prototype.setPositionDistObject = function(pos) {
 
 Field.prototype.setPositionDistFromTo = function(from, to) {
     this.positionDistObject.setFromTo(from, to)
+}
+
+Field.prototype.setPositionDistTone = function(tone) {
+    this.positionDistTone = tone
 }
 
 
@@ -713,13 +712,16 @@ Field.prototype.mouseMoved = function(x, y) {
                 if (res) {
                     out.events.push('sound_start')
                     out.events.push('sound_position')
-                    out.events.push('sound_inC')
+                    out.events.push('sound_position_' + field.positionDistTone + '_' + res.n)
                 }
+                // else if (res && res.near == 'to') {
+                //     out.events.push('sound_start')
+                //     out.events.push('sound_position')
+                //     out.events.push('sound_position_guita_' + res.n)
+                // }
             }
             out.events.push('move')
             this.sendObjectInfoToServer(out)
-
-
         }
     }
 

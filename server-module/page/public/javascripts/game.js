@@ -21916,6 +21916,7 @@ function Field(canvas, context) {
     this.localObjects = {}
     this.objectCase = {}
     this.positionDistObject = null
+    this.positionDistTone = 'pizz'
     this.stopAnimation = false
 
     this.syncPlay = SoundManager.init(context)
@@ -22268,40 +22269,34 @@ Field.prototype.updateSounds = function(objects) {
             }
         }
         if (obj.events.indexOf('sound_position') >= 0) {
-            if (obj.events.indexOf('sound_inC') >= 0) {
-                // console.log(obj.events)
-                let name = '_C'
-                if (n == 1) {
-                    name = '_D'
+            let tone = ''
+            obj.events.forEach((e) => {
+                if (e.indexOf('sound_position_') == 0) {
+                    tone = e.replace('sound_position_', '')
                 }
-                if (n == 2) {
-                    name = '_E'
-                }
-                if (field.sounds[obj.id + name]) {
-                    field.sounds[obj.id + name].stop()
-                    delete field.sounds[obj.id + name]
-                }
-                console.log('start', obj)
-                n = n + 1 >= 3 ? 0 : n + 1
-                // not use obj.startTime  use obj.time
-                this.startSound(obj.id + name, 'pizz3' + name, obj.time + 100, {
-                    loop: false,
-                    velocityVolumeRate: 0,
-                    limitEffectTimes: 2,
-                    noDoppler: true,
-                    start: true
-                })
-                field.sounds[obj.id + name].positionEffect({
-                    gx: obj.gx,
-                    gy: obj.gy
-                })
-                // setTimeout(() => {
-                //   delete field.sounds[obj.id + '_inC']
-                //     // field.sounds[obj.id + '_inC'].stop()
-                // }, 2000)
-
-
+            })
+            console.log(tone)
+            if (field.sounds[tone]) {
+                field.sounds[tone].stop()
+                delete field.sounds[tone]
             }
+            // not use obj.startTime  use obj.time
+            this.startSound(tone, tone, obj.time + 100, {
+                loop: false,
+                velocityVolumeRate: 0,
+                limitEffectTimes: 2,
+                noDoppler: true,
+                start: true
+            })
+            field.sounds[tone].positionEffect({
+                gx: obj.gx,
+                gy: obj.gy
+            })
+            // setTimeout(() => {
+            //   delete field.sounds[obj.id + '_inC']
+            //     // field.sounds[obj.id + '_inC'].stop()
+            // }, 2000)
+
         }
     })
 }
@@ -22315,6 +22310,10 @@ Field.prototype.setPositionDistObject = function(pos) {
 
 Field.prototype.setPositionDistFromTo = function(from, to) {
     this.positionDistObject.setFromTo(from, to)
+}
+
+Field.prototype.setPositionDistTone = function(tone) {
+    this.positionDistTone = tone
 }
 
 
@@ -22594,13 +22593,16 @@ Field.prototype.mouseMoved = function(x, y) {
                 if (res) {
                     out.events.push('sound_start')
                     out.events.push('sound_position')
-                    out.events.push('sound_inC')
+                    out.events.push('sound_position_' + field.positionDistTone + '_' + res.n)
                 }
+                // else if (res && res.near == 'to') {
+                //     out.events.push('sound_start')
+                //     out.events.push('sound_position')
+                //     out.events.push('sound_position_guita_' + res.n)
+                // }
             }
             out.events.push('move')
             this.sendObjectInfoToServer(out)
-
-
         }
     }
 
@@ -22797,7 +22799,10 @@ module.exports = (_positions = {}) => {
             let data = obj.data
             let from = obj.from
             let to = obj.to
+            console.log(from, to)
+            console.log(data)
             if (data[from] && data[from].to[to]) {
+                console.log('update')
                 let result = data[from].to[to].update(gx, gy)
                 if (result) {
                     callPositionChanged(result)
@@ -22818,26 +22823,37 @@ module.exports = (_positions = {}) => {
             let data = {}
             for (from in positions) {
                 let p1 = positions[from]
+                data[from] = {
+                    gx: p1.gx,
+                    gy: p1.gy,
+                    to: {}
+                }
                 for (to in positions) {
                     if (from == to) {
                         continue
                     }
                     let p2 = positions[to]
                     let dist = Math.sqrt((p1.gx - p2.gx) * (p1.gx - p2.gx) + (p1.gy - p2.gy) * (p1.gy - p2.gy))
-                    data[from] = {
-                        gx: p1.gx,
-                        gy: p1.gy,
-                        to: {}
-                    }
                     let toObj = {
                         dist: dist,
                         gx: p2.gx,
                         gy: p2.gy,
+                        from: data[from],
                         fromDistNum: -1,
                         toDistNum: -1,
                         update: (gx, gy) => {
+                            let dist = toObj.dist
+                            let p1 = {
+                                gx: toObj.from.gx,
+                                gy: toObj.from.gy
+                            }
+                            let p2 = {
+                                gx: toObj.gx,
+                                gy: toObj.gy
+                            }
                             let d1 = Math.sqrt((p1.gx - gx) * (p1.gx - gx) + (p1.gy - gy) * (p1.gy - gy))
                             let d2 = Math.sqrt((gx - p2.gx) * (gx - p2.gx) + (gy - p2.gy) * (gy - p2.gy))
+                            console.log(d1, d2, dist)
                             if (d1 < dist / 2) {
                                 // 0 ~ sepNum - 1
                                 let n1 = Math.floor((d1 / (toObj.dist / 2)) * obj.sepNum)
@@ -22863,6 +22879,7 @@ module.exports = (_positions = {}) => {
                             return null
                         }
                     }
+                    console.log(from, to)
                     data[from].to[to] = toObj
                 }
             }
@@ -22889,9 +22906,46 @@ let soundList = {
     // 'wind': 'lib/sound/windchime.mp3',
     'wind': 'lib/sound/wind1.mp3',
     'pizz_melody': 'lib/sound/pizz2_melody.mp3',
-    'pizz3_C': 'lib/sound/pizz3_C.mp3',
-    'pizz3_D': 'lib/sound/pizz3_D.mp3',
-    'pizz3_E': 'lib/sound/pizz3_E.mp3',
+    'pizz_7': 'lib/sound/tone/pizz_C.mp3',
+    'pizz_6': 'lib/sound/tone/pizz_D.mp3',
+    'pizz_5': 'lib/sound/tone/pizz_E.mp3',
+    'pizz_4': 'lib/sound/tone/pizz_F.mp3',
+    'pizz_3': 'lib/sound/tone/pizz_G.mp3',
+    'pizz_2': 'lib/sound/tone/pizz_A.mp3',
+    'pizz_1': 'lib/sound/tone/pizz_B.mp3',
+    'pizz_0': 'lib/sound/tone/pizz_hC.mp3',
+    'marimba_7': 'lib/sound/tone/marimba_C.mp3',
+    'marimba_6': 'lib/sound/tone/marimba_D.mp3',
+    'marimba_5': 'lib/sound/tone/marimba_E.mp3',
+    'marimba_4': 'lib/sound/tone/marimba_F.mp3',
+    'marimba_3': 'lib/sound/tone/marimba_G.mp3',
+    'marimba_2': 'lib/sound/tone/marimba_A.mp3',
+    'marimba_1': 'lib/sound/tone/marimba_B.mp3',
+    'marimba_0': 'lib/sound/tone/marimba_hC.mp3',
+    'piano_7': 'lib/sound/tone/piano_C.mp3',
+    'piano_6': 'lib/sound/tone/piano_D.mp3',
+    'piano_5': 'lib/sound/tone/piano_E.mp3',
+    'piano_4': 'lib/sound/tone/piano_F.mp3',
+    'piano_3': 'lib/sound/tone/piano_G.mp3',
+    'piano_2': 'lib/sound/tone/piano_A.mp3',
+    'piano_1': 'lib/sound/tone/piano_B.mp3',
+    'piano_0': 'lib/sound/tone/piano_hC.mp3',
+    'guita_7': 'lib/sound/tone/guita_C.mp3',
+    'guita_6': 'lib/sound/tone/guita_D.mp3',
+    'guita_5': 'lib/sound/tone/guita_E.mp3',
+    'guita_4': 'lib/sound/tone/guita_F.mp3',
+    'guita_3': 'lib/sound/tone/guita_G.mp3',
+    'guita_2': 'lib/sound/tone/guita_A.mp3',
+    'guita_1': 'lib/sound/tone/guita_B.mp3',
+    'guita_0': 'lib/sound/tone/guita_hC.mp3',
+    'xylophone_7': 'lib/sound/tone/xylophone_C.mp3',
+    'xylophone_6': 'lib/sound/tone/xylophone_D.mp3',
+    'xylophone_5': 'lib/sound/tone/xylophone_E.mp3',
+    'xylophone_4': 'lib/sound/tone/xylophone_F.mp3',
+    'xylophone_3': 'lib/sound/tone/xylophone_G.mp3',
+    'xylophone_2': 'lib/sound/tone/xylophone_A.mp3',
+    'xylophone_1': 'lib/sound/tone/xylophone_B.mp3',
+    'xylophone_0': 'lib/sound/tone/xylophone_hC.mp3'
     // 'music': 'lib/sound/clock3.mp3',
     // 'voice': 'lib/sound/voice.mp3',
     // '太鼓': 'lib/sound/taiko.mp3',
@@ -24660,6 +24714,31 @@ exports.start = (element, context, socket, clientTime, config) => {
         let main = Main.start(canvas, context, socket, clientTime, config)
         let field = main.field
         field.user = config.user
+
+        let n = 0
+        for(let name in list){
+            if(name == config.user){
+                break;
+            }
+            n++
+        }
+        if(n==0){
+            field.setPositionDistTone('pizz')
+        }
+        if(n==1){
+            field.setPositionDistTone('piano')
+        }
+        if(n==2){
+            field.setPositionDistTone('xylophone')
+        }
+        if(n==3){
+            field.setPositionDistTone('guita')
+        }
+        if(n==4){
+            field.setPositionDistTone('marimba')
+        }
+
+
         let pos = Object.assign({}, list)
         pos['Field'] = {
             gx: 0,
@@ -24748,7 +24827,7 @@ exports.start = (element, context, socket, clientTime, config) => {
                 let cy = gy + (otherGy - gy) / 2
                 let angleToOther = Math.atan2(otherGy - gy, otherGx - gx) + Math.PI / 2
                 field.setClip(cx, cy, dist * 0.6, dist * 0.6, angleToOther, true)
-                field.setPositionDistFromTo(config.user, id)
+                field.setPositionDistFromTo(config.user, user)
 
                 if (field.objectCase[user]) {
                     field.objectCase[user].area.w = field.w

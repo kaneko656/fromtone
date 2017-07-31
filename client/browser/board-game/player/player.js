@@ -158,6 +158,31 @@ exports.start = (element, context, socket, clientTime, config) => {
         let main = Main.start(canvas, context, socket, clientTime, config)
         let field = main.field
         field.user = config.user
+
+        let n = 0
+        for(let name in list){
+            if(name == config.user){
+                break;
+            }
+            n++
+        }
+        if(n==0){
+            field.setPositionDistTone('pizz')
+        }
+        if(n==1){
+            field.setPositionDistTone('piano')
+        }
+        if(n==2){
+            field.setPositionDistTone('xylophone')
+        }
+        if(n==3){
+            field.setPositionDistTone('guita')
+        }
+        if(n==4){
+            field.setPositionDistTone('marimba')
+        }
+
+
         let pos = Object.assign({}, list)
         pos['Field'] = {
             gx: 0,
@@ -246,7 +271,7 @@ exports.start = (element, context, socket, clientTime, config) => {
                 let cy = gy + (otherGy - gy) / 2
                 let angleToOther = Math.atan2(otherGy - gy, otherGx - gx) + Math.PI / 2
                 field.setClip(cx, cy, dist * 0.6, dist * 0.6, angleToOther, true)
-                field.setPositionDistFromTo(config.user, id)
+                field.setPositionDistFromTo(config.user, user)
 
                 if (field.objectCase[user]) {
                     field.objectCase[user].area.w = field.w
