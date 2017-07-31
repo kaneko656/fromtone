@@ -1,29 +1,32 @@
 const SyncPlay = require('./sync-play.js')
 let syncPlay
 let log = require('./../../player/log.js')
-
+let Job = require('./../../Job/cron.js')
 let soundList = {
     '３音': 'lib/sound/notification-common.mp3',
     // 'Violin1': 'lib/sound/orchestra/beethoven/No5_Mov3_Violin1.mp3',
     // 'Violin2': 'lib/sound/orchestra/beethoven/No5_Mov3_Violin2.mp3',
     // 'Viola': 'lib/sound/orchestra/beethoven/No5_Mov3_Viola.mp3',
-    // 'Cello': 'lib/sound/orchestra/beethoven/No5_Mov3_Cello.mp3',
+    // 'wind': 'lib/sound/orchestra/beethoven/No5_Mov3_Cello.mp3',
     // 'DoubleBass': 'lib/sound/orchestra/beethoven/No5_Mov3_DoubleBass.mp3'
     '和風メロディ': 'lib/sound/wafuringtone.mp3',
-    'ウィンドチャイム': 'lib/sound/windchime.mp3',
-    'カード': 'lib/sound/wind1.mp3',
+    // 'wind': 'lib/sound/windchime.mp3',
+    'wind': 'lib/sound/wind1.mp3',
     'pizz_melody': 'lib/sound/pizz2_melody.mp3',
+    'pizz3_C': 'lib/sound/pizz3_C.mp3',
+    'pizz3_D': 'lib/sound/pizz3_D.mp3',
+    'pizz3_E': 'lib/sound/pizz3_E.mp3',
     // 'music': 'lib/sound/clock3.mp3',
     // 'voice': 'lib/sound/voice.mp3',
     // '太鼓': 'lib/sound/taiko.mp3',
-    // 'コーリング': 'lib/sound/emargency_calling.mp3',
+    // 'wind': 'lib/sound/emargency_calling.mp3'
     // 'アラーム': 'lib/sound/clockbell.mp3',
     // '掃除機': 'lib/sound/cleaner.mp3',
     // '電子レンジ': 'lib/sound/microwave.mp3',
     // '扇風機': 'lib/sound/fan.mp3',
     // '洗濯機': 'lib/sound/washing.mp3',
     // 'プリンタ': 'lib/sound/printer.mp3',
-    // 'ポッド注ぐ': 'lib/sound/pod.mp3',
+    // 'wind': 'lib/sound/pod.mp3',
     // '炒める': 'lib/sound/roasting.mp3',
     // '足音（走る）': 'lib/sound/dashing.mp3',
     // '足音（スリッパ）': 'lib/sound/walking.mp3',
@@ -36,10 +39,14 @@ for (let name in soundList) {
 
 let speakerPosition = {}
 let mySpeakerID = ''
+let finishInit = false
 
 exports.init = (context) => {
-    syncPlay = SyncPlay(context)
-    syncPlay.loadBuffer(soundList, () => {})
+    if (!finishInit) {
+        syncPlay = SyncPlay(context)
+        syncPlay.loadBuffer(soundList, () => {})
+        finishInit = true
+    }
     return syncPlay
 }
 
@@ -48,7 +55,9 @@ exports.setSpeakerPosition = (_speakerPosition, id) => {
     mySpeakerID = id
 }
 
-
+// option.loop
+// option.velocityVolumeRate
+// option.limitEffectTimes
 exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
     syncPlay.createSyncSound(bufferName, time, offset, (syncSound) => {
         if (option.loop) {
@@ -65,7 +74,31 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
         let lastDoppler = null
         let stoppingTime = Date.now()
         let isStart = false
+        let effectTime = 0
+        let getEffectTimes = () => {
+            return effectTime
+        }
+
+        // let setOption = (_option) => {
+
+        //     option = Object.assign({}, _option)
+        // }
+        let positionEffect = (p) => {
+            value = DBAP(mySpeakerID, p.gx, p.gy)
+            console.log('positionEffect', value)
+            gainNode.gain.value = value
+            if (!isStart && value > 0) {
+                let plus = Date.now() - stoppingTime
+                syncSound.offset += plus
+                syncPlay.play(gainNode, syncSound)
+                isStart = true
+            }
+        }
         let setEffect = (p) => {
+            effectTime++
+            if (option.limitEffectTimes && option.limitEffectTimes > effectTime) {
+                return
+            }
 
             let dist = Math.sqrt(p.gx * p.gx + p.gy * p.gy)
 
@@ -87,6 +120,7 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
                     rate: 1.0
                 }
             } else {
+                // 平滑化
                 diffDist = (dist - lastDoppler.dist) / 2 + diffDist / 2
                 diffTime = p.time - lastDoppler.time
                 if (diffTime == 0) {
@@ -104,7 +138,13 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
                 let rate = 340 / (340 - vs)
 
                 // console.log(diffDist.toFixed(5), diffTime.toFixed(1), 'rate', rate.toFixed(4), 'vs', vs.toFixed(4))
-                syncSound.source.playbackRate.linearRampToValueAtTime(rate, st / 1000 + soundTargetTime / 1000)
+
+                // 平滑化
+                rate = rate * 0.5 + lastDoppler.rate * 0.5
+                // console.log(rate)
+                if (!option.noDoppler) {
+                    syncSound.source.playbackRate.linearRampToValueAtTime(rate, st / 1000 + soundTargetTime / 1000)
+                }
                 lastDoppler = {
                     time: p.time,
                     dist: dist,
@@ -117,27 +157,67 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
 
             let vs = Math.abs(lastDoppler.velocity)
             vs = vs > 3 ? 3 : vs
-            let volumeRate = vs / 3
+            let targetVelocityVolume = (vs / 3) * (vs / 3)
             // dist
             // maxDist
             // time
             let value = 0
+            let velocityVolume = lastGainValue ? lastGainValue.velocityVolume : 0
+            let velocityVolumeRate = option.velocityVolumeRate || 0
+            let valueRate = 1 - velocityVolumeRate
             if (!lastGainValue) {
                 value = DBAP(mySpeakerID, p.gx, p.gy)
-                console.log(value)
-                value = value * 1.0 + value * 0.0 * volumeRate
+                // console.log(value)
+                value = value * (valueRate + velocityVolumeRate * velocityVolume)
             } else {
+                if (velocityVolume < targetVelocityVolume) {
+                    velocityVolume += 0.03
+                    velocityVolume = velocityVolume >= targetVelocityVolume ? targetVelocityVolume : velocityVolume
+                } else if (velocityVolume > targetVelocityVolume) {
+                    velocityVolume -= 0.03
+                    velocityVolume = velocityVolume <= targetVelocityVolume ? targetVelocityVolume : velocityVolume
+                }
+
                 value = DBAP(mySpeakerID, p.gx, p.gy)
-                console.log(value)
+                // console.log(value)
                 value = value / 2 + lastGainValue.value / 2
-                value = value * 1.0 + value * 0.0 * volumeRate
+                value = value * (valueRate + velocityVolumeRate * velocityVolume)
             }
             // console.log(Math.abs(lastDoppler.velocity), volumeRate, value)
 
             lastGainValue = {
+                time: p.time,
                 value: value,
-                time: soundTargetTime
+                soundTargetTime: soundTargetTime,
+                valueRate: valueRate,
+                velocityVolumeRate: velocityVolumeRate,
+                velocityVolume: velocityVolume,
+                targetVelocityVolume: targetVelocityVolume
             }
+
+            let velocityVolumeUpdate = (interval, lastTime) => {
+                let l = lastGainValue
+                l.targetVelocityVolume = 0
+                if (l.velocityVolume == l.targetVelocityVolume) {
+                    return
+                }
+                if (l.time != lastTime) {
+                    return
+                }
+                l.value = l.value * (l.valueRate + 0)
+                console.log('Job', l.value, st / 1000 + l.soundTargetTime / 1000)
+                gainNode.gain.linearRampToValueAtTime(l.value, st / 1000 + (l.soundTargetTime + interval) / 1000)
+                syncSound.source.playbackRate.linearRampToValueAtTime(1.0, st / 1000 + (l.soundTargetTime + interval) / 1000)
+            }
+            let lastTime = lastGainValue.time
+            Job(new Date(lastTime + 100), () => {
+                velocityVolumeUpdate(300, lastTime)
+            })
+            // setTimeout(() => {
+            //     gainNode.gain.linearRampToValueAtTime(0, st / 1000 + (soundTargetTime + 30) / 1000)
+            // }, 30)
+
+
             // console.log(value.toFixed(4))
             gainNode.gain.linearRampToValueAtTime(value, st / 1000 + soundTargetTime / 1000)
 
@@ -149,15 +229,22 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             }
         }
 
+        if (option.start) {
+            gainNode.gain.value = 1
+            syncPlay.play(gainNode, syncSound)
+            isStart = true
+        }
+
         let stop = () => {
             let ct = syncPlay.getCurrentTime()
             gainNode.gain.linearRampToValueAtTime(0, ct + 0.2)
             setTimeout(() => {
                 syncSound.stop()
+                gainNode.disconnect()
             }, 200)
         }
 
-        let DBAP = (id, soundGx, soundGy, rolloff = 6.02*10) => {
+        let DBAP = (id, soundGx, soundGy, rolloff = 6.02 * 10) => {
             // console.log(speakerPosition, soundGx, soundGy)
             if (!speakerPosition) {
                 return 0
@@ -191,6 +278,7 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             time: time,
             syncSound: syncSound,
             setEffect: setEffect,
+            positionEffect,
             stop: stop
         }
         call(returnObj)

@@ -1,6 +1,8 @@
 const GlobalPosition = require('./position.js')
 const SoundManager = require('./sound/soundManager.js')
 const Card = require('./../card/cardList.js')
+const PositionDistObject = require('./positionDistObject.js')
+let connect = require('./../../connect.js')
 
 let log = require('./../player/log.js')
 let Job = require('./../Job/cron.js')
@@ -32,6 +34,7 @@ function Field(canvas, context) {
     this.objects = {}
     this.localObjects = {}
     this.objectCase = {}
+    this.positionDistObject = null
     this.stopAnimation = false
 
     this.syncPlay = SoundManager.init(context)
@@ -223,6 +226,9 @@ Field.prototype.updateObjects = function(objects) {
             obj.x = encodePosition.x
             obj.y = encodePosition.y
             field.objects[id].update(obj)
+            if (field.objects[id].types.indexOf('card') >= 0) {
+                field.objects[id].scale = (field.canvas.width / 6) / field.objects[id].w
+            }
 
             if (obj.events.indexOf('in_case') >= 0) {
                 // 自分のケースに入っている場合
@@ -239,6 +245,17 @@ Field.prototype.updateObjects = function(objects) {
                 console.log('out_case')
                 field.objects[id].noDraw = false
                 field.objects[id].noMove = false
+            }
+            if (field.user == 'Field' && obj.events.indexOf('field_tool') >= 0) {
+                if (field.objectCase[field.user] && field.objectCase[field.user].isOver(obj.x, obj.y) >= 0) {
+                    // in_case
+                    let objCase = this.objectCase[field.user]
+                    objCase.push(field.objects[id], obj.x, obj.y)
+                    field.objects[id].noMove = true
+                    let out = field.objects[id].output()
+                    out.events.push('in_case')
+                    this.sendObjectInfoToServer(out)
+                }
             }
         }
 
@@ -263,6 +280,8 @@ Field.prototype.updateObjects = function(objects) {
 Field.prototype.setObjectCase = function(objectCase) {
     this.objectCase[objectCase.id] = objectCase
     console.log('setObjectCase', objectCase)
+
+    // 他の人の
     if (objectCase.id != this.user) {
         objectCase.noDraw = true
         objectCase.noOperation = true
@@ -279,11 +298,13 @@ Field.prototype.setObjectCase = function(objectCase) {
                 obj.x = posX
                 obj.y = posY
                 obj.icon = Card('裏').icon
-                obj.scale = 0.3
+                obj.scale = objectCase.area.h / obj.h * 0.9
                 obj.draw(ctx)
             })
         }
+
     }
+    this.sendObjectCaseInfoToServer(objectCase.id)
 }
 
 Field.prototype.getObjectCase = function(id) {
@@ -304,12 +325,15 @@ Field.prototype.inObjectCase = function(objectCase, obj) {
  * Sound
  */
 
+// option.loop
+// option.velocityVolumeRate
 Field.prototype.startSound = function(id, bufferName, startTime, option = {}) {
     // sound
     let now = Date.now()
     let field = this
-    log.text((now - startTime) + '   ' + (startTime < now))
+    // log.text((now - startTime) + '   ' + (startTime < now))
     if (startTime < now) {
+        console.log('delay', (now - startTime))
         SoundManager.play(bufferName, now, (now - startTime), option, (sound) => {
             field.sounds[id] = sound
         })
@@ -320,6 +344,7 @@ Field.prototype.startSound = function(id, bufferName, startTime, option = {}) {
     }
 }
 
+let n = 0
 Field.prototype.updateSounds = function(objects) {
     if (!Array.isArray(objects)) {
         let temp = objects
@@ -331,9 +356,13 @@ Field.prototype.updateSounds = function(objects) {
         let id = obj.id
         if (field.sounds[id]) {
             if (obj.events.indexOf('sound_stop') >= 0) {
-                field.sounds[id].stop()
-                console.log('sound_stop', id)
-                delete field.sounds[id]
+                console.log('stop...', obj.time, obj.time - Date.now())
+                let date = new Date(obj.time)
+                Job(date, () => {
+                    console.log('sound_stop', id)
+                    field.sounds[id].stop()
+                    delete field.sounds[id]
+                })
             } else {
                 let p = this.clip.getPositionInfo(obj.gx, obj.gy)
                 p.time = obj.time
@@ -341,16 +370,70 @@ Field.prototype.updateSounds = function(objects) {
                 field.sounds[id].setEffect(p)
             }
         } else {
+            // object由来のサウンド
             if (obj.events.indexOf('sound_start') >= 0) {
                 // sound
                 console.log('sound_start', id)
-
-                this.startSound(obj.id, 'pizz_melody', obj.startTime, {
-                    loop: true
+                this.startSound(obj.id, 'wind', obj.startTime, {
+                    loop: true,
+                    velocityVolumeRate: 0
                 })
+
+                // 曲
+                // this.startSound(obj.id, 'wind', obj.startTime, {
+                //     loop: true,
+                //     velocityVolumeRate: 0
+                // })
+            }
+        }
+        if (obj.events.indexOf('sound_position') >= 0) {
+            if (obj.events.indexOf('sound_inC') >= 0) {
+                // console.log(obj.events)
+                let name = '_C'
+                if (n == 1) {
+                    name = '_D'
+                }
+                if (n == 2) {
+                    name = '_E'
+                }
+                if (field.sounds[obj.id + name]) {
+                    field.sounds[obj.id + name].stop()
+                    delete field.sounds[obj.id + name]
+                }
+                console.log('start', obj)
+                n = n + 1 >= 3 ? 0 : n + 1
+                // not use obj.startTime  use obj.time
+                this.startSound(obj.id + name, 'pizz3' + name, obj.time + 100, {
+                    loop: false,
+                    velocityVolumeRate: 0,
+                    limitEffectTimes: 2,
+                    noDoppler: true,
+                    start: true
+                })
+                field.sounds[obj.id + name].positionEffect({
+                    gx: obj.gx,
+                    gy: obj.gy
+                })
+                // setTimeout(() => {
+                //   delete field.sounds[obj.id + '_inC']
+                //     // field.sounds[obj.id + '_inC'].stop()
+                // }, 2000)
+
+
             }
         }
     })
+}
+
+Field.prototype.setPositionDistObject = function(pos) {
+    this.positionDistObject = PositionDistObject(pos)
+    this.positionDistObject.positionChanged((res) => {
+        console.log(res)
+    })
+}
+
+Field.prototype.setPositionDistFromTo = function(from, to) {
+    this.positionDistObject.setFromTo(from, to)
 }
 
 
@@ -391,8 +474,8 @@ Field.prototype.autoMove = function(obj, toX, toY, moveInfo = {}) {
             out.timestamp = now + duration + delay
             out.events.push('auto_move')
             out.events.push('sound_stop')
-            out.events.push('open')
-            out.events.push('card_case')
+            // out.events.push('open')
+            // out.events.push('card_case')
 
             this.sendObjectInfoToServer(out, {
                 path: true
@@ -478,6 +561,11 @@ Field.prototype.mousePressed = function(x, y) {
             obj.click()
             let out = obj.output()
             out.events.push('sound_start')
+
+            //
+
+
+
             this.sendObjectInfoToServer(out)
             break
         }
@@ -491,17 +579,41 @@ Field.prototype.mousePressed = function(x, y) {
             if (objCase.noOperation) {
                 continue
             }
+            if (field.user == 'Field') {
+                let n = objCase.isNear(x, y)
+                if (n >= 0) {
+                    let obj = objCase.pop(n)
+                    let out = obj.output()
+                    out.events.push('out_case')
+                    out.events.push('open')
+                    this.sendObjectInfoToServer(out)
+                }
+                continue
+            }
             let n = objCase.isOver(x, y)
             if (n >= 0 && n != 0.9) {
+                // Field
                 let obj = objCase.pop(n)
+                let y = 0
                 if (id == field.user) {
-                    obj.y = objCase.area.y - 5
+                    y = objCase.area.y - 15
                 } else {
-                    obj.y = objCase.area.y + objCase.area.h + 5
+                    y = objCase.area.y + objCase.area.h + 15
                 }
                 let out = obj.output()
-                out.events.push('out_case')
-                this.sendObjectInfoToServer(out)
+                obj.events.push('out_case')
+                let toolMode = connect.get('toolMode')
+                if (toolMode == 'Field') {
+                    obj.events.push('open')
+                } else {
+                    obj.events.push('reverse')
+                }
+                this.autoMove(obj, objCase.area.x + objCase.area.w / 2, y, {
+                    duration: 500,
+                    delay: 0
+                })
+
+                // this.sendObjectInfoToServer(out)
                 this.sendObjectCaseInfoToServer(id)
             }
         }
@@ -538,6 +650,9 @@ Field.prototype.mouseReleased = function(x, y) {
             obj.isSync = false
             let out = obj.output()
             out.events.push('sound_stop')
+            if (connect.get('toolMode') == 'Field') {
+                out.events.push('field_tool')
+            }
 
             // in_case
             if (field.user in this.objectCase) {
@@ -547,13 +662,20 @@ Field.prototype.mouseReleased = function(x, y) {
                 }
                 let n = objCase.isOver(x, y)
                 if (n >= 0) {
-                    objCase.push(obj, x)
+                    if (field.user == 'Field') {
+                        objCase.push(obj, x, y)
+                    } else {
+                        objCase.push(obj, x)
+                    }
+
                     obj.noMove = true
                     out.events.push('in_case')
                     field.sendObjectCaseInfoToServer(field.user)
                 }
             }
             this.sendObjectInfoToServer(out)
+
+
         }
     }
 
@@ -584,8 +706,20 @@ Field.prototype.mouseMoved = function(x, y) {
             obj.over = true
             out.x = x
             out.y = y
+
+            if (this.positionDistObject) {
+                let p = this.clip.encodeToGloval(x, y)
+                let res = this.positionDistObject.updatePosition(p.x, p.y)
+                if (res) {
+                    out.events.push('sound_start')
+                    out.events.push('sound_position')
+                    out.events.push('sound_inC')
+                }
+            }
             out.events.push('move')
             this.sendObjectInfoToServer(out)
+
+
         }
     }
 
@@ -632,6 +766,9 @@ Field.prototype.sendObjectCaseInfo = function(callback = () => {}) {
 
 Field.prototype.sendObjectCaseInfoToServer = function(id, option = {}) {
     // caseはclipの中心
+    if (this.user == 'Field') {
+        return
+    }
     if (this.objectCase[id]) {
         objCase = this.objectCase[id]
         let sendObj = objCase.share()

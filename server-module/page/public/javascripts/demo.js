@@ -21362,9 +21362,19 @@ const CronJob = require('cron').CronJob
 
 // onTick  Dateクラス
 module.exports = (onTick, callback, start = true) => {
+    console.log(onTick)
+    if (typeof onTick != 'strings') {
+        console.log(Date.now() + 1, onTick.getTime(), 'callback')
+        if (Date.now() + 1 >= onTick.getTime()) {
+
+            callback()
+            return
+        }
+    }
     let job = new CronJob({
         cronTime: onTick,
         onTick: () => {
+            console.log('onTick ')
             callback()
         },
         start: true,
@@ -30431,8 +30441,8 @@ let emit = () => {
 
 },{}],256:[function(require,module,exports){
 // const io = require('socket.io-client')
-// let url = 'http://192.168.144.110:8001'
-let url = 'http://192.168.100.16:8001'
+let url = 'http://192.168.144.110:8001'
+// let url = 'http://192.168.100.16:8001'
 // let url = 'http://133.26.45.88:8001'
 // let url = 'http://localhost:8001'
 //

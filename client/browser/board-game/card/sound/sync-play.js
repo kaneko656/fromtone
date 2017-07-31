@@ -86,6 +86,7 @@ SyncPlay.prototype.createSyncSound = function(sourceName, startDate, offset, cal
         stop: () => {
             if (syncSound.isPlaying) {
                 syncSound.source.stop()
+                syncSound.source.disconnect()
                 syncSound.fireStop()
             }
         },

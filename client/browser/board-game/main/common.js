@@ -126,11 +126,9 @@ exports.start = (canvas, context, socket, clientTime, config) => {
 
             // card set
             if (!field.isObject(obj.id)) {
-                console.log(obj)
                 let card = Card(obj.name)
                 card.id = obj.id
                 card.types = obj.types
-                console.log(card)
                 field.setObject(card)
             }
 
@@ -142,37 +140,30 @@ exports.start = (canvas, context, socket, clientTime, config) => {
             let date = new Date(obj.time)
             if (date <= Date.now()) {
                 field.updateObjects(obj)
-                field.updateSounds(obj)
             } else {
                 Job(date, () => {
                     field.updateObjects(obj)
-                    field.updateSounds(obj)
                 })
             }
+            field.updateSounds(obj)
         })
     }
 
     field.sendObjectCaseInfo((sendObj, option) => {
-      console.log('sendCase')
-      console.log(sendObj)
-      socket.emit(socketDir + 'sendObjectCaseInfo', sendObj)
+        socket.emit(socketDir + 'sendObjectCaseInfo', sendObj)
     })
 
     socket.on(socketDir + 'sendObjectCaseInfo', (upObj) => {
         // updateObjects(objects)
-        console.log('catchCase')
-        console.log(upObj)
         let id = upObj.id
-        if(!field.objectCase[id]){
+        if (!field.objectCase[id]) {
             let cardCase = CardCase()
             cardCase.id = id
             cardCase.update(upObj)
             field.setObjectCase(cardCase)
             field.render()
-        }else{
+        } else {
             field.objectCase[id].update(upObj)
-            console.log(id, 'update')
-            console.log(field.objectCase[id])
             field.render()
         }
     })

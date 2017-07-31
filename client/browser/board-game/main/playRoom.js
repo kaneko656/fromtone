@@ -147,7 +147,7 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
 
 
     field.flexibleReleased = (x, y, field) => {
-        if (field.w / 4 <= x && x <= field.w / 4 + field.w / 2 && field.h - 80 <= y && y <= field.h - 80 + 50) {
+        if (!isFinish && field.w / 4 <= x && x <= field.w / 4 + field.w / 2 && field.h - 80 <= y && y <= field.h - 80 + 50) {
             console.log('startup')
             // デバックモード
             if (Object.keys(list).length >= 1) {

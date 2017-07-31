@@ -30,6 +30,9 @@ exports.start = (element, context, socket, clientTime, config) => {
     element.style.overflow = 'hidden'
     // log.set(element)
 
+    // loadをする
+    SoundManager.init(context)
+
     function enterFullscreen() {
         let x = element
         if (x.webkitRequestFullScreen) {
@@ -155,12 +158,19 @@ exports.start = (element, context, socket, clientTime, config) => {
         let main = Main.start(canvas, context, socket, clientTime, config)
         let field = main.field
         field.user = config.user
+        let pos = Object.assign({}, list)
+        pos['Field'] = {
+            gx: 0,
+            gy: 0
+        }
+        field.setPositionDistObject(pos)
+        field.setPositionDistFromTo(config.user, 'Field')
 
         let toolCanvas = Canvas(element, 1.0, 0.1)
         let tool = ToolField(toolCanvas)
         tool.render()
 
-        field.setClip(gx, gy, 0.3, 0.3)
+        field.setClip(gx, gy, 0.1, 0.1)
         let angle = Math.atan2(0 - gy, 0 - gx) + Math.PI / 2
         field.rotate(angle)
 
@@ -169,9 +179,10 @@ exports.start = (element, context, socket, clientTime, config) => {
         let cardCase = CardCase()
         cardCase.id = config.user
         cardCase.area.x = 0
-        cardCase.area.y = canvas.height - 150
-        cardCase.area.h = 150
         cardCase.area.w = canvas.width
+        cardCase.area.h = canvas.height * 0.2
+        cardCase.area.y = canvas.height - cardCase.area.h
+
         cardCase.render = (ctx) => {
             let a = cardCase.area
             ctx.beginPath()
@@ -185,7 +196,7 @@ exports.start = (element, context, socket, clientTime, config) => {
                 obj.x = posX
                 obj.y = posY
                 obj.icon = Card(obj.name).icon
-                obj.scale = 0.3
+                obj.scale = cardCase.area.h / obj.h * 0.9
                 obj.draw(ctx)
             })
         }
@@ -202,6 +213,7 @@ exports.start = (element, context, socket, clientTime, config) => {
         connect.on('toolMode', (id) => {
             if (id == 'pointMove') {
                 field.setClip(gx, gy, 0.3, 0.3, angle, true)
+                field.setPositionDistFromTo(config.user, 'Field')
                 console.log(gx, gy, 0.3, 0.3)
             }
             if (id == 'separate') {
@@ -215,7 +227,8 @@ exports.start = (element, context, socket, clientTime, config) => {
                 let cx = gx + (otherGx - gx) / 2
                 let cy = gy + (otherGy - gy) / 2
                 let angleToOther = Math.atan2(otherGy - gy, otherGx - gx) + Math.PI / 2
-                field.setClip(cx, cy, dist * 1.2, dist * 1.2, angleToOther, true)
+                field.setClip(cx, cy, dist * 0.6, dist * 0.6, angleToOther, true)
+                field.setPositionDistFromTo(config.user, 'Field')
                 for (let id in field.objectCase) {
                     if (id != config.user) {
                         field.objectCase[id].noDraw = true
@@ -232,10 +245,12 @@ exports.start = (element, context, socket, clientTime, config) => {
                 let cx = gx + (otherGx - gx) / 2
                 let cy = gy + (otherGy - gy) / 2
                 let angleToOther = Math.atan2(otherGy - gy, otherGx - gx) + Math.PI / 2
-                field.setClip(cx, cy, dist * 1.2, dist * 1.2, angleToOther, true)
+                field.setClip(cx, cy, dist * 0.6, dist * 0.6, angleToOther, true)
+                field.setPositionDistFromTo(config.user, id)
 
                 if (field.objectCase[user]) {
                     field.objectCase[user].area.w = field.w
+                    field.objectCase[user].area.h = canvas.height * 0.15
                     field.objectCase[user].sort()
                     field.objectCase[user].noDraw = false
                     field.objectCase[user].noOperation = false
@@ -246,7 +261,7 @@ exports.start = (element, context, socket, clientTime, config) => {
                         field.objectCase[id].noOperation = true
                     }
                 }
-                console.log(cx, cy, dist * 1.2, dist * 1.2)
+                console.log(cx, cy, dist * 0.6, dist * 0.6)
             }
             field.render()
 

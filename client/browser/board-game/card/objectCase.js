@@ -90,17 +90,15 @@ ObjectCase.prototype.update = function(upObj) {
 
 
 ObjectCase.prototype.inCard = function(id) {
-    console.log(this.idList)
-    console.log(id)
     return (this.idList.indexOf(id) >= 0)
 }
 
-ObjectCase.prototype.push = function(object, posX = 0) {
+ObjectCase.prototype.push = function(object, posX = 0, posY) {
     this.objects.push({
         info: {},
         object: object,
         posX: posX,
-        posY: this.area.y + this.area.h / 2
+        posY: posY || this.area.y + this.area.h / 2
     })
     this.sort()
 }
@@ -127,6 +125,7 @@ ObjectCase.prototype.sort = function() {
     let me = this
     this.objects.forEach((obj, i) => {
         obj.posX = interval / 2 + interval * i
+        obj.posY = me.area.y + me.area.h / 2
         me.idList.push(obj.object.id)
     })
 }
@@ -146,6 +145,24 @@ ObjectCase.prototype.isOver = function(x, y) {
         return num
     } else if (over) {
         return 0.9
+    }
+    return -1
+}
+
+ObjectCase.prototype.isNear = function(x, y) {
+    let a = this.area
+    let over = (a.x <= x && x <= a.x + a.w && a.y <= y && y <= a.y + a.h)
+    if (over && this.objects.length >= 1) {
+        let minDist = 100000000
+        let n = -1
+        this.objects.forEach((obj, i) => {
+            let d = (obj.posX - x) * (obj.posX - x) + (obj.posY - y) * (obj.posY - y)
+            if(d < minDist){
+                minDist = d
+                n = i
+            }
+        })
+        return n
     }
     return -1
 }

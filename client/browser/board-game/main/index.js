@@ -31,6 +31,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     let canvas = Canvas(element, 1.0, 0.9)
     let main = Main.start(canvas, context, socket, clientTime, config)
     let field = main.field
+    field.user = 'Field'
     field.setClip(0, 0, 1.0, 1.0)
 
     let toolCanvas = Canvas(element, 1.0, 0.1)
@@ -50,6 +51,39 @@ exports.start = (element, context, socket, clientTime, config) => {
 
     let gameStart = (userList) => {
         socket.emit(socketDir + 'game_start', userList)
+        // ユーザ毎にFieldCardCaseを作成
+        let cardCase = CardCase()
+        cardCase.id = 'Field'
+        cardCase.area.x = 0
+        cardCase.area.w = canvas.width
+        cardCase.area.h = canvas.height
+        cardCase.area.y = 0
+        // field.objectCase[user].noDraw = false
+        // field.objectCase[user].noOperation = false
+
+        cardCase.render = (ctx) => {
+            let a = cardCase.area
+            ctx.beginPath()
+            ctx.rect(a.x, a.y, a.w, a.h)
+            ctx.stroke()
+            cardCase.objects.forEach((object) => {
+                let obj = object.object
+                let posX = object.posX
+                let posY = object.posY
+                let temp = obj.icon
+                obj.x = posX
+                obj.y = posY
+                obj.noDraw = false
+                obj.icon = Card(obj.name).icon
+                obj.scale = canvas.width/obj.h * 0.1
+                obj.draw(ctx)
+            })
+        }
+        cardCase.sort = () => {}
+        field.setObjectCase(cardCase)
+        cardCase.noDraw = false
+        cardCase.noOperation = false
+
     }
 
     // カードを配る
@@ -67,6 +101,7 @@ exports.start = (element, context, socket, clientTime, config) => {
         for (let user in list) {
             let x = list[user].x
             let y = list[user].y
+            let ang = Math.atan2(y - field.h / 2, x - field.w / 2)
             list[user].cards.forEach((card, i) => {
                 card.x = canvas.width / 2
                 card.y = canvas.height / 2
@@ -88,15 +123,18 @@ exports.start = (element, context, socket, clientTime, config) => {
                 out.time = Date.now() - 100000
                 out.startTime = Date.now() - 100000
                 main.updateObjects(out)
+
                 let obj = field.getObject(card.id)
-                field.autoMove(obj, x, y, {
+                let toX = x + Math.sin(ang) * 5 * (i - 1)
+                let toY = y + Math.cos(ang) * 5 * (i - 1)
+                field.autoMove(obj, toX, toY, {
                     duration: 1000,
                     delay: userNum * 1000 + i * userMaxNum * 1000 + 1500
                 })
             })
             userNum++
         }
-        // field.setClip(0, 0, 0.1, 0.1)
+        field.setClip(0, 0, 0.1, 0.1)
     }
 
     let phase2 = () => {
