@@ -31,7 +31,7 @@ function init() {
     console.log(demo_type)
 
     // common
-      connect.set('socket_status', {
+    connect.set('socket_status', {
         connect: false,
         url: ''
     })
@@ -58,11 +58,15 @@ function init() {
         text += 'correctionTime: ' + (dif.correctionTime).toFixed(1) + 'ms ==? ' + (dif.temp_delay).toFixed(1) + 'ms  (temporary delay)'
         dif.text = text
         connect.set('ntp_status', dif)
-        if (Date.now() - lastStartTime > restartTime) {
-            lastStartTime = Date.now()
-            ntp.restart()
-        }
     })
+
+    let setRestart = () => {
+        setTimeout(() => {
+            ntp.restart()
+            setRestart()
+        }, restartTime)
+    }
+    setRestart()
 
     if (demo_type == 'board-game') {
         let user = demo_argument.getAttribute('data-user')
@@ -79,6 +83,20 @@ function init() {
     }
 
     if (demo_type == 'board-game-player') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        let game = require('./board-game/player/index.js')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            game.start(document.getElementById('wrap'), context, socket, ntp, config)
+        })
+    }
+
+    if (demo_type == 'demo') {
         let user = demo_argument.getAttribute('data-user')
         let config = {
             user: user

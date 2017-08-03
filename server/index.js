@@ -17,6 +17,7 @@ const demo_doppler_notification = require('./socket-demo-doppler-notification.js
 const demo_orchestra = require('./socket-demo-orchestra.js')
 const board_game = require('./board-game.js')
 const board_game_player = require('./board-game-player.js')
+const demo = require('./demo.js')
 
 let socket_io = app.socket()
 
@@ -51,6 +52,7 @@ socket_io.connect((obj) => {
 
     board_game.start(socket, disconnect, serverTime)
     board_game_player.start(socket, disconnect, serverTime)
+    demo.start(socket, disconnect, serverTime)
 
     socket.on('test', (body) => {
         console.log('test', body)

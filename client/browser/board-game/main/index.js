@@ -28,15 +28,38 @@ exports.start = (element, context, socket, clientTime, config) => {
     element.style.height = window.innerHeight + 'px'
     element.style.overflow = 'hidden'
 
-    let canvas = Canvas(element, 1.0, 0.9)
+    let canvas = Canvas(element, 1.0, 1.0)
     let main = Main.start(canvas, context, socket, clientTime, config)
     let field = main.field
     field.user = 'Field'
     field.setClip(0, 0, 1.0, 1.0)
 
-    let toolCanvas = Canvas(element, 1.0, 0.1)
-    let tool = ToolField(toolCanvas)
-    tool.render()
+    // let toolCanvas = Canvas(element, 1.0, 0.1)
+    // let tool = ToolField(toolCanvas)
+    // tool.render()
+
+    function enterFullscreen() {
+        let x = element
+        if (x.webkitRequestFullScreen) {
+            x.webkitRequestFullScreen()
+        } else if (x.mozRequestFullScreen) {
+            x.mozRequestFullScreen()
+        } else if (x.requestFullScreen) {
+            x.requestFullScreen()
+        }
+    }
+
+
+    //フルスクリーンを解除
+    function exitFullscreen() {
+        if (document.webkitCancelFullScreen) {
+            document.webkitCancelFullScreen()
+        } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen()
+        } else if (document.exitFullscreen) {
+            document.exitFullscreen()
+        }
+    }
 
     let playRoom = PlayRoom.start(canvas, field, socket, clientTime, config, (list) => {
         gameStart(list)
@@ -75,7 +98,7 @@ exports.start = (element, context, socket, clientTime, config) => {
                 obj.y = posY
                 obj.noDraw = false
                 obj.icon = Card(obj.name).icon
-                obj.scale = canvas.width/obj.h * 0.1
+                obj.scale = canvas.width / obj.h * 0.2
                 obj.draw(ctx)
             })
         }
@@ -134,7 +157,10 @@ exports.start = (element, context, socket, clientTime, config) => {
             })
             userNum++
         }
-        field.setClip(0, 0, 0.1, 0.1)
+
+        //*********//
+        field.setClip(0, 0, 0.2, 0.2)
+        //*********//
     }
 
     let phase2 = () => {

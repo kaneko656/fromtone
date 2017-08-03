@@ -25,10 +25,18 @@ function init() {
         alert('Web Audio API is not supported in this browser')
     }
 
+
+
     // demo type
     let demo_argument = document.getElementById('demo-argument')
     let demo_type = demo_argument.getAttribute('data-type')
     console.log(demo_type)
+
+    // if (demo_type == 'demo-chat') {
+    //     let page = require('./demo-chat-test/simple/index.js')
+    //     page.start(context, socket)
+    //     return
+    // }
 
     if (demo_type == 'home') {
         let user = demo_argument.getAttribute('data-user')
@@ -240,6 +248,7 @@ function init() {
             })
         })
     }
+
 
     if (demo_type == 'demo-chat') {
         let user = demo_argument.getAttribute('data-user')

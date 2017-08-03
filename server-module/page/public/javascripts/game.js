@@ -22256,10 +22256,13 @@ Field.prototype.updateSounds = function(objects) {
             if (obj.events.indexOf('sound_start') >= 0) {
                 // sound
                 console.log('sound_start', id)
+
+                //**********//
                 this.startSound(obj.id, 'wind', obj.startTime, {
                     loop: true,
-                    velocityVolumeRate: 0
+                    velocityVolumeRate: 0.7
                 })
+                //**********//
 
                 // 曲
                 // this.startSound(obj.id, 'wind', obj.startTime, {
@@ -22268,6 +22271,7 @@ Field.prototype.updateSounds = function(objects) {
                 // })
             }
         }
+        //**********//
         if (obj.events.indexOf('sound_position') >= 0) {
             let tone = ''
             obj.events.forEach((e) => {
@@ -22292,12 +22296,8 @@ Field.prototype.updateSounds = function(objects) {
                 gx: obj.gx,
                 gy: obj.gy
             })
-            // setTimeout(() => {
-            //   delete field.sounds[obj.id + '_inC']
-            //     // field.sounds[obj.id + '_inC'].stop()
-            // }, 2000)
-
         }
+        //**********//
     })
 }
 
@@ -22788,7 +22788,7 @@ module.exports = (_positions = {}) => {
     let callMove = () => {}
     let callPositionChanged = () => {}
     let positions = Object.assign({}, _positions)
-    let sepNum = 8
+    let sepNum = 3
     let obj = {
         positions: positions,
         data: {},
@@ -22904,48 +22904,91 @@ let soundList = {
     // 'DoubleBass': 'lib/sound/orchestra/beethoven/No5_Mov3_DoubleBass.mp3'
     '和風メロディ': 'lib/sound/wafuringtone.mp3',
     // 'wind': 'lib/sound/windchime.mp3',
-    'wind': 'lib/sound/wind1.mp3',
+    'wind': 'lib/sound/wind8.mp3',
     'pizz_melody': 'lib/sound/pizz2_melody.mp3',
-    'pizz_7': 'lib/sound/tone/pizz_C.mp3',
-    'pizz_6': 'lib/sound/tone/pizz_D.mp3',
-    'pizz_5': 'lib/sound/tone/pizz_E.mp3',
-    'pizz_4': 'lib/sound/tone/pizz_F.mp3',
-    'pizz_3': 'lib/sound/tone/pizz_G.mp3',
-    'pizz_2': 'lib/sound/tone/pizz_A.mp3',
-    'pizz_1': 'lib/sound/tone/pizz_B.mp3',
-    'pizz_0': 'lib/sound/tone/pizz_hC.mp3',
-    'marimba_7': 'lib/sound/tone/marimba_C.mp3',
-    'marimba_6': 'lib/sound/tone/marimba_D.mp3',
-    'marimba_5': 'lib/sound/tone/marimba_E.mp3',
-    'marimba_4': 'lib/sound/tone/marimba_F.mp3',
-    'marimba_3': 'lib/sound/tone/marimba_G.mp3',
-    'marimba_2': 'lib/sound/tone/marimba_A.mp3',
-    'marimba_1': 'lib/sound/tone/marimba_B.mp3',
-    'marimba_0': 'lib/sound/tone/marimba_hC.mp3',
-    'piano_7': 'lib/sound/tone/piano_C.mp3',
-    'piano_6': 'lib/sound/tone/piano_D.mp3',
-    'piano_5': 'lib/sound/tone/piano_E.mp3',
-    'piano_4': 'lib/sound/tone/piano_F.mp3',
-    'piano_3': 'lib/sound/tone/piano_G.mp3',
-    'piano_2': 'lib/sound/tone/piano_A.mp3',
-    'piano_1': 'lib/sound/tone/piano_B.mp3',
-    'piano_0': 'lib/sound/tone/piano_hC.mp3',
-    'guita_7': 'lib/sound/tone/guita_C.mp3',
-    'guita_6': 'lib/sound/tone/guita_D.mp3',
-    'guita_5': 'lib/sound/tone/guita_E.mp3',
-    'guita_4': 'lib/sound/tone/guita_F.mp3',
-    'guita_3': 'lib/sound/tone/guita_G.mp3',
-    'guita_2': 'lib/sound/tone/guita_A.mp3',
-    'guita_1': 'lib/sound/tone/guita_B.mp3',
-    'guita_0': 'lib/sound/tone/guita_hC.mp3',
-    'xylophone_7': 'lib/sound/tone/xylophone_C.mp3',
-    'xylophone_6': 'lib/sound/tone/xylophone_D.mp3',
-    'xylophone_5': 'lib/sound/tone/xylophone_E.mp3',
-    'xylophone_4': 'lib/sound/tone/xylophone_F.mp3',
-    'xylophone_3': 'lib/sound/tone/xylophone_G.mp3',
-    'xylophone_2': 'lib/sound/tone/xylophone_A.mp3',
-    'xylophone_1': 'lib/sound/tone/xylophone_B.mp3',
-    'xylophone_0': 'lib/sound/tone/xylophone_hC.mp3'
+    // 'pizz_7': 'lib/sound/tone/pizz_C.mp3',
+    // 'pizz_6': 'lib/sound/tone/pizz_D.mp3',
+    // 'pizz_5': 'lib/sound/tone/pizz_E.mp3',
+    // 'pizz_4': 'lib/sound/tone/pizz_F.mp3',
+    // 'pizz_3': 'lib/sound/tone/pizz_G.mp3',
+    // 'pizz_2': 'lib/sound/tone/pizz_A.mp3',
+    // 'pizz_1': 'lib/sound/tone/pizz_B.mp3',
+    // 'pizz_0': 'lib/sound/tone/pizz_hC.mp3',
+    // 'marimba_7': 'lib/sound/tone/marimba_C.mp3',
+    // 'marimba_6': 'lib/sound/tone/marimba_D.mp3',
+    // 'marimba_5': 'lib/sound/tone/marimba_E.mp3',
+    // 'marimba_4': 'lib/sound/tone/marimba_F.mp3',
+    // 'marimba_3': 'lib/sound/tone/marimba_G.mp3',
+    // 'marimba_2': 'lib/sound/tone/marimba_A.mp3',
+    // 'marimba_1': 'lib/sound/tone/marimba_B.mp3',
+    // 'marimba_0': 'lib/sound/tone/marimba_hC.mp3',
+    // 'piano_7': 'lib/sound/tone/piano_C.mp3',
+    // 'piano_6': 'lib/sound/tone/piano_D.mp3',
+    // 'piano_5': 'lib/sound/tone/piano_E.mp3',
+    // 'piano_4': 'lib/sound/tone/piano_F.mp3',
+    // 'piano_3': 'lib/sound/tone/piano_G.mp3',
+    // 'piano_2': 'lib/sound/tone/piano_A.mp3',
+    // 'piano_1': 'lib/sound/tone/piano_B.mp3',
+    // 'piano_0': 'lib/sound/tone/piano_hC.mp3',
+    // 'guita_7': 'lib/sound/tone/guita_C.mp3',
+    // 'guita_6': 'lib/sound/tone/guita_D.mp3',
+    // 'guita_5': 'lib/sound/tone/guita_E.mp3',
+    // 'guita_4': 'lib/sound/tone/guita_F.mp3',
+    // 'guita_3': 'lib/sound/tone/guita_G.mp3',
+    // 'guita_2': 'lib/sound/tone/guita_A.mp3',
+    // 'guita_1': 'lib/sound/tone/guita_B.mp3',
+    // 'guita_0': 'lib/sound/tone/guita_hC.mp3',
+    // 'xylophone_7': 'lib/sound/tone/xylophone_C.mp3',
+    // 'xylophone_6': 'lib/sound/tone/xylophone_D.mp3',
+    // 'xylophone_5': 'lib/sound/tone/xylophone_E.mp3',
+    // 'xylophone_4': 'lib/sound/tone/xylophone_F.mp3',
+    // 'xylophone_3': 'lib/sound/tone/xylophone_G.mp3',
+    // 'xylophone_2': 'lib/sound/tone/xylophone_A.mp3',
+    // 'xylophone_1': 'lib/sound/tone/xylophone_B.mp3',
+    // 'xylophone_0': 'lib/sound/tone/xylophone_hC.mp3'
+
+
+
+    // 'pizz_7': 'lib/sound/tone/pizz_C.mp3',
+    // 'pizz_6': 'lib/sound/tone/pizz_D.mp3',
+    // 'pizz_5': 'lib/sound/tone/pizz_E.mp3',
+    // 'pizz_4': 'lib/sound/tone/pizz_F.mp3',
+    // 'pizz_3': 'lib/sound/tone/pizz_C.mp3',
+    // 'pizz_2': 'lib/sound/tone/pizz_E.mp3',
+    // 'pizz_1': 'lib/sound/tone/pizz_G.mp3',
+    // 'pizz_0': 'lib/sound/tone/pizz_hC.mp3',
+    // 'marimba_7': 'lib/sound/tone/marimba_C.mp3',
+    // 'marimba_6': 'lib/sound/tone/marimba_D.mp3',
+    // 'marimba_5': 'lib/sound/tone/marimba_E.mp3',
+    // 'marimba_4': 'lib/sound/tone/marimba_F.mp3',
+    // 'marimba_3': 'lib/sound/tone/marimba_C.mp3',
+    // 'marimba_2': 'lib/sound/tone/marimba_E.mp3',
+    // 'marimba_1': 'lib/sound/tone/marimba_G.mp3',
+    // 'marimba_0': 'lib/sound/tone/marimba_hC.mp3',
+    // 'piano_7': 'lib/sound/tone/piano_C.mp3',
+    // 'piano_6': 'lib/sound/tone/piano_D.mp3',
+    // 'piano_5': 'lib/sound/tone/piano_E.mp3',
+    // 'piano_4': 'lib/sound/tone/piano_F.mp3',
+    // 'piano_3': 'lib/sound/tone/piano_C.mp3',
+    // 'piano_2': 'lib/sound/tone/piano_E.mp3',
+    // 'piano_1': 'lib/sound/tone/piano_G.mp3',
+    // 'piano_0': 'lib/sound/tone/piano_hC.mp3',
+    // 'guita_7': 'lib/sound/tone/guita_C.mp3',
+    // 'guita_6': 'lib/sound/tone/guita_D.mp3',
+    // 'guita_5': 'lib/sound/tone/guita_E.mp3',
+    // 'guita_4': 'lib/sound/tone/guita_F.mp3',
+    // 'guita_3': 'lib/sound/tone/guita_C.mp3',
+    // 'guita_2': 'lib/sound/tone/guita_E.mp3',
+    // 'guita_1': 'lib/sound/tone/guita_G.mp3',
+    // 'guita_0': 'lib/sound/tone/guita_hC.mp3',
+    // 'xylophone_7': 'lib/sound/tone/xylophone_C.mp3',
+    // 'xylophone_6': 'lib/sound/tone/xylophone_D.mp3',
+    // 'xylophone_5': 'lib/sound/tone/xylophone_E.mp3',
+    // 'xylophone_4': 'lib/sound/tone/xylophone_F.mp3',
+    // 'xylophone_3': 'lib/sound/tone/xylophone_C.mp3',
+    // 'xylophone_2': 'lib/sound/tone/xylophone_E.mp3',
+    // 'xylophone_1': 'lib/sound/tone/xylophone_G.mp3',
+    // 'xylophone_0': 'lib/sound/tone/xylophone_hC.mp3'
     // 'music': 'lib/sound/clock3.mp3',
     // 'voice': 'lib/sound/voice.mp3',
     // '太鼓': 'lib/sound/taiko.mp3',
@@ -24116,15 +24159,38 @@ exports.start = (element, context, socket, clientTime, config) => {
     element.style.height = window.innerHeight + 'px'
     element.style.overflow = 'hidden'
 
-    let canvas = Canvas(element, 1.0, 0.9)
+    let canvas = Canvas(element, 1.0, 1.0)
     let main = Main.start(canvas, context, socket, clientTime, config)
     let field = main.field
     field.user = 'Field'
     field.setClip(0, 0, 1.0, 1.0)
 
-    let toolCanvas = Canvas(element, 1.0, 0.1)
-    let tool = ToolField(toolCanvas)
-    tool.render()
+    // let toolCanvas = Canvas(element, 1.0, 0.1)
+    // let tool = ToolField(toolCanvas)
+    // tool.render()
+
+    function enterFullscreen() {
+        let x = element
+        if (x.webkitRequestFullScreen) {
+            x.webkitRequestFullScreen()
+        } else if (x.mozRequestFullScreen) {
+            x.mozRequestFullScreen()
+        } else if (x.requestFullScreen) {
+            x.requestFullScreen()
+        }
+    }
+
+
+    //フルスクリーンを解除
+    function exitFullscreen() {
+        if (document.webkitCancelFullScreen) {
+            document.webkitCancelFullScreen()
+        } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen()
+        } else if (document.exitFullscreen) {
+            document.exitFullscreen()
+        }
+    }
 
     let playRoom = PlayRoom.start(canvas, field, socket, clientTime, config, (list) => {
         gameStart(list)
@@ -24163,7 +24229,7 @@ exports.start = (element, context, socket, clientTime, config) => {
                 obj.y = posY
                 obj.noDraw = false
                 obj.icon = Card(obj.name).icon
-                obj.scale = canvas.width/obj.h * 0.1
+                obj.scale = canvas.width / obj.h * 0.2
                 obj.draw(ctx)
             })
         }
@@ -24222,7 +24288,10 @@ exports.start = (element, context, socket, clientTime, config) => {
             })
             userNum++
         }
-        field.setClip(0, 0, 0.1, 0.1)
+
+        //*********//
+        field.setClip(0, 0, 0.2, 0.2)
+        //*********//
     }
 
     let phase2 = () => {
@@ -24428,7 +24497,8 @@ exports.start = (canvas, field, socket, clientTime, config, callback = () => {})
             ctx.beginPath()
             ctx.strokeStyle = 'rgba(0,0,0,0.8)'
             ctx.fillStyle = 'rgba(0,0,0, 0.8)'
-            ctx.fillText(user, 0, -obj.h / 2)
+
+            ctx.fillText(user, 0, -obj.h / 2 - field.fontSize / 2)
 
             // player
             if (obj.w == obj.h) {
@@ -25225,7 +25295,7 @@ function init() {
     console.log(demo_type)
 
     // common
-      connect.set('socket_status', {
+    connect.set('socket_status', {
         connect: false,
         url: ''
     })
@@ -25252,11 +25322,15 @@ function init() {
         text += 'correctionTime: ' + (dif.correctionTime).toFixed(1) + 'ms ==? ' + (dif.temp_delay).toFixed(1) + 'ms  (temporary delay)'
         dif.text = text
         connect.set('ntp_status', dif)
-        if (Date.now() - lastStartTime > restartTime) {
-            lastStartTime = Date.now()
-            ntp.restart()
-        }
     })
+
+    let setRestart = () => {
+        setTimeout(() => {
+            ntp.restart()
+            setRestart()
+        }, restartTime)
+    }
+    setRestart()
 
     if (demo_type == 'board-game') {
         let user = demo_argument.getAttribute('data-user')
@@ -25273,6 +25347,20 @@ function init() {
     }
 
     if (demo_type == 'board-game-player') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        let game = require('./board-game/player/index.js')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            game.start(document.getElementById('wrap'), context, socket, ntp, config)
+        })
+    }
+
+    if (demo_type == 'demo') {
         let user = demo_argument.getAttribute('data-user')
         let config = {
             user: user
@@ -25445,6 +25533,7 @@ let url = 'http://192.168.144.110:8001'
 // let url = 'http://192.168.100.16:8001'
 // let url = 'http://133.26.45.88:8001'
 // let url = 'http://localhost:8001'
+// let url = 'http://133.26.42.131:8001'
 //
 // demo5  demoでも一緒
 // let url = 'http://192.168.10.14:8001'

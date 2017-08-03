@@ -112,6 +112,13 @@ let getClientList = () => {
 exports.start = (socket, disconnect, _serverTime) => {
     serverTime = _serverTime
 
+    socket.on(socketDir + 'voicetext', (body) => {
+        Voice.create(body, (buffer) => {
+            console.log(buffer)
+            socket.emit(socketDir + 'voicetext', buffer)
+        })
+    })
+
     let id = ''
     socket.on(socketDir + 'register', (body) => {
         console.log(body)
