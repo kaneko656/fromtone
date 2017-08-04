@@ -147,7 +147,7 @@ SyncPlay.prototype.createSyncSound = function(sourceName, startDate, offset, cal
         sourceProcess()
     }
 
-    // return syncSound
+    return syncSound
 }
 
 SyncPlay.prototype.preConnect = function(destination, syncSound) {

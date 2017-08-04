@@ -3,7 +3,7 @@ module.exports = (_positions = {}) => {
     let callMove = () => {}
     let callPositionChanged = () => {}
     let positions = Object.assign({}, _positions)
-    let sepNum = 3
+    let sepNum = 8
     let obj = {
         positions: positions,
         data: {},
@@ -87,7 +87,7 @@ module.exports = (_positions = {}) => {
                                     return {
                                         near: 'to',
                                         id: to,
-                                        n: n2
+                                        n: (obj.sepNum - 1 - n2) + obj.sepNum
                                     }
                                 }
                             }

@@ -110,56 +110,79 @@ exports.start = (element, context, socket, clientTime, config) => {
     }
 
     // カードを配る
-    let phase1 = (list) => {
+    let phase1 = (_list) => {
+        let list = Object.assign({}, _list)
         let cards = cardDistribution.distribution(Object.keys(list).length)
         let n = 0
         for (let user in list) {
             list[user].cards = cards[n]
             n++
-            console.log(list[user])
+            // console.log(list[user])
         }
 
         let userNum = 0
         let userMaxNum = Object.keys(list).length
-        for (let user in list) {
-            let x = list[user].x
-            let y = list[user].y
-            let ang = Math.atan2(y - field.h / 2, x - field.w / 2)
-            list[user].cards.forEach((card, i) => {
-                card.x = canvas.width / 2
-                card.y = canvas.height / 2
-                card.events.push('initial')
-                card.events.push('reverse')
-                // setTimeout(() => {
-                field.sendObjectInfoToServer(card.output())
+        let distribution = () => {
+            console.log(list)
+            field.setClip(0, 0, 1.0, 1.0)
+            for (let user in list) {
+                if (user == 'Field') {
+                    continue
+                }
+                let x = list[user].x
+                let y = list[user].y
+                let ang = Math.atan2(y - field.h / 2, x - field.w / 2)
 
-                // 無理やりローカルでセット
-                let out = card.output()
-                out.x = card.x
-                out.y = card.y
-                let globalPos = field.clip.encodeToGloval(out.x, out.y)
-                out.gx = globalPos.x
-                out.gy = globalPos.y
-                out.clientID = field.clientID
-                out.events.push('initial')
-                out.events.push('reverse')
-                out.time = Date.now() - 100000
-                out.startTime = Date.now() - 100000
-                main.updateObjects(out)
+                list[user].cards.forEach((card, i) => {
+                    card.x = canvas.width / 2
+                    card.y = canvas.height / 2
+                    card.events.push('initial')
+                    card.events.push('reverse')
+                    // setTimeout(() => {
+                    field.sendObjectInfoToServer(card.output())
 
-                let obj = field.getObject(card.id)
-                let toX = x + Math.sin(ang) * 5 * (i - 1)
-                let toY = y + Math.cos(ang) * 5 * (i - 1)
-                field.autoMove(obj, toX, toY, {
-                    duration: 1000,
-                    delay: userNum * 1000 + i * userMaxNum * 1000 + 1500
+                    // 無理やりローカルでセット
+                    let out = card.output()
+                    out.x = card.x
+                    out.y = card.y
+                    let globalPos = field.clip.encodeToGloval(out.x, out.y)
+                    out.gx = globalPos.x
+                    out.gy = globalPos.y
+                    out.clientID = field.clientID
+                    out.events.push('initial')
+                    out.events.push('reverse')
+                    out.time = Date.now() - 100000
+                    out.startTime = Date.now() - 100000
+                    main.updateObjects(out)
+
+                    let obj = field.getObject(card.id)
+                    let toX = x + Math.sin(ang) * 5 * (i - 1)
+                    let toY = y + Math.cos(ang) * 5 * (i - 1)
+                    field.autoMove(obj, toX, toY, {
+                        duration: 1000,
+                        delay: userNum * 1000 + i * userMaxNum * 1000 + 1500
+                    })
                 })
-            })
-            userNum++
+                userNum++
+            }
+            userNum = 0
+            field.setClip(0, 0, 0.3, 0.3)
         }
+        distribution()
+
+
+
+        document.addEventListener('keydown', function(event) {
+            // lastDownTarget = event.target
+            if (event.key == 's') {
+                distribution()
+            }
+            // alert('mousedown')
+        }, false)
+
 
         //*********//
-        field.setClip(0, 0, 0.2, 0.2)
+        field.setClip(0, 0, 0.3, 0.3)
         //*********//
     }
 

@@ -160,27 +160,13 @@ exports.start = (element, context, socket, clientTime, config) => {
         field.user = config.user
 
         let n = 0
-        for(let name in list){
-            if(name == config.user){
+        for (let name in list) {
+            if (name == config.user) {
                 break;
             }
             n++
         }
-        if(n==0){
-            field.setPositionDistTone('pizz')
-        }
-        if(n==1){
-            field.setPositionDistTone('piano')
-        }
-        if(n==2){
-            field.setPositionDistTone('xylophone')
-        }
-        if(n==3){
-            field.setPositionDistTone('guita')
-        }
-        if(n==4){
-            field.setPositionDistTone('marimba')
-        }
+        field.setPositionDistTone('_')
 
 
         let pos = Object.assign({}, list)
@@ -240,9 +226,24 @@ exports.start = (element, context, socket, clientTime, config) => {
                 field.setClip(gx, gy, 0.3, 0.3, angle, true)
                 field.setPositionDistFromTo(config.user, 'Field')
                 console.log(gx, gy, 0.3, 0.3)
+                field.setPositionDistTone('_')
             }
             if (id == 'separate') {
-
+                if (n == 0) {
+                    field.setPositionDistTone('pizz')
+                }
+                if (n == 1) {
+                    field.setPositionDistTone('piano')
+                }
+                if (n == 2) {
+                    field.setPositionDistTone('xylophone')
+                }
+                if (n == 3) {
+                    field.setPositionDistTone('guita')
+                }
+                if (n == 4) {
+                    field.setPositionDistTone('marimba')
+                }
             }
             if (id == 'Field') {
                 let otherGx = 0

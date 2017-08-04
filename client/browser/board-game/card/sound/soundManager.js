@@ -12,47 +12,50 @@ let soundList = {
     '和風メロディ': 'lib/sound/wafuringtone.mp3',
     // 'wind': 'lib/sound/windchime.mp3',
     'wind': 'lib/sound/wind8.mp3',
+    // 'wind': 'lib/sound/天人の音楽.mp3',
+    // 'wind': 'lib/sound/風のとおり道.mp3',
+    // 'wind': 'lib/sound/竜の少年.mp3',
     'pizz_melody': 'lib/sound/pizz2_melody.mp3',
-    // 'pizz_7': 'lib/sound/tone/pizz_C.mp3',
-    // 'pizz_6': 'lib/sound/tone/pizz_D.mp3',
-    // 'pizz_5': 'lib/sound/tone/pizz_E.mp3',
-    // 'pizz_4': 'lib/sound/tone/pizz_F.mp3',
-    // 'pizz_3': 'lib/sound/tone/pizz_G.mp3',
-    // 'pizz_2': 'lib/sound/tone/pizz_A.mp3',
-    // 'pizz_1': 'lib/sound/tone/pizz_B.mp3',
-    // 'pizz_0': 'lib/sound/tone/pizz_hC.mp3',
-    // 'marimba_7': 'lib/sound/tone/marimba_C.mp3',
-    // 'marimba_6': 'lib/sound/tone/marimba_D.mp3',
-    // 'marimba_5': 'lib/sound/tone/marimba_E.mp3',
-    // 'marimba_4': 'lib/sound/tone/marimba_F.mp3',
-    // 'marimba_3': 'lib/sound/tone/marimba_G.mp3',
-    // 'marimba_2': 'lib/sound/tone/marimba_A.mp3',
-    // 'marimba_1': 'lib/sound/tone/marimba_B.mp3',
-    // 'marimba_0': 'lib/sound/tone/marimba_hC.mp3',
-    // 'piano_7': 'lib/sound/tone/piano_C.mp3',
-    // 'piano_6': 'lib/sound/tone/piano_D.mp3',
-    // 'piano_5': 'lib/sound/tone/piano_E.mp3',
-    // 'piano_4': 'lib/sound/tone/piano_F.mp3',
-    // 'piano_3': 'lib/sound/tone/piano_G.mp3',
-    // 'piano_2': 'lib/sound/tone/piano_A.mp3',
-    // 'piano_1': 'lib/sound/tone/piano_B.mp3',
-    // 'piano_0': 'lib/sound/tone/piano_hC.mp3',
-    // 'guita_7': 'lib/sound/tone/guita_C.mp3',
-    // 'guita_6': 'lib/sound/tone/guita_D.mp3',
-    // 'guita_5': 'lib/sound/tone/guita_E.mp3',
-    // 'guita_4': 'lib/sound/tone/guita_F.mp3',
-    // 'guita_3': 'lib/sound/tone/guita_G.mp3',
-    // 'guita_2': 'lib/sound/tone/guita_A.mp3',
-    // 'guita_1': 'lib/sound/tone/guita_B.mp3',
-    // 'guita_0': 'lib/sound/tone/guita_hC.mp3',
-    // 'xylophone_7': 'lib/sound/tone/xylophone_C.mp3',
-    // 'xylophone_6': 'lib/sound/tone/xylophone_D.mp3',
-    // 'xylophone_5': 'lib/sound/tone/xylophone_E.mp3',
-    // 'xylophone_4': 'lib/sound/tone/xylophone_F.mp3',
-    // 'xylophone_3': 'lib/sound/tone/xylophone_G.mp3',
-    // 'xylophone_2': 'lib/sound/tone/xylophone_A.mp3',
-    // 'xylophone_1': 'lib/sound/tone/xylophone_B.mp3',
-    // 'xylophone_0': 'lib/sound/tone/xylophone_hC.mp3'
+    'pizz_7': 'lib/sound/tone/pizz_C.mp3',
+    'pizz_6': 'lib/sound/tone/pizz_D.mp3',
+    'pizz_5': 'lib/sound/tone/pizz_E.mp3',
+    'pizz_4': 'lib/sound/tone/pizz_F.mp3',
+    'pizz_3': 'lib/sound/tone/pizz_G.mp3',
+    'pizz_2': 'lib/sound/tone/pizz_A.mp3',
+    'pizz_1': 'lib/sound/tone/pizz_B.mp3',
+    'pizz_0': 'lib/sound/tone/pizz_hC.mp3',
+    'marimba_7': 'lib/sound/tone/marimba_C.mp3',
+    'marimba_6': 'lib/sound/tone/marimba_D.mp3',
+    'marimba_5': 'lib/sound/tone/marimba_E.mp3',
+    'marimba_4': 'lib/sound/tone/marimba_F.mp3',
+    'marimba_3': 'lib/sound/tone/marimba_G.mp3',
+    'marimba_2': 'lib/sound/tone/marimba_A.mp3',
+    'marimba_1': 'lib/sound/tone/marimba_B.mp3',
+    'marimba_0': 'lib/sound/tone/marimba_hC.mp3',
+    'piano_7': 'lib/sound/tone/piano_C.mp3',
+    'piano_6': 'lib/sound/tone/piano_D.mp3',
+    'piano_5': 'lib/sound/tone/piano_E.mp3',
+    'piano_4': 'lib/sound/tone/piano_F.mp3',
+    'piano_3': 'lib/sound/tone/piano_G.mp3',
+    'piano_2': 'lib/sound/tone/piano_A.mp3',
+    'piano_1': 'lib/sound/tone/piano_B.mp3',
+    'piano_0': 'lib/sound/tone/piano_hC.mp3',
+    'guita_7': 'lib/sound/tone/guita_C.mp3',
+    'guita_6': 'lib/sound/tone/guita_D.mp3',
+    'guita_5': 'lib/sound/tone/guita_E.mp3',
+    'guita_4': 'lib/sound/tone/guita_F.mp3',
+    'guita_3': 'lib/sound/tone/guita_G.mp3',
+    'guita_2': 'lib/sound/tone/guita_A.mp3',
+    'guita_1': 'lib/sound/tone/guita_B.mp3',
+    'guita_0': 'lib/sound/tone/guita_hC.mp3',
+    'xylophone_7': 'lib/sound/tone/xylophone_C.mp3',
+    'xylophone_6': 'lib/sound/tone/xylophone_D.mp3',
+    'xylophone_5': 'lib/sound/tone/xylophone_E.mp3',
+    'xylophone_4': 'lib/sound/tone/xylophone_F.mp3',
+    'xylophone_3': 'lib/sound/tone/xylophone_G.mp3',
+    'xylophone_2': 'lib/sound/tone/xylophone_A.mp3',
+    'xylophone_1': 'lib/sound/tone/xylophone_B.mp3',
+    'xylophone_0': 'lib/sound/tone/xylophone_hC.mp3'
 
 
 
@@ -237,7 +240,7 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
 
             let vs = Math.abs(lastDoppler.velocity)
             vs = vs > 3 ? 3 : vs
-            let targetVelocityVolume = (vs / 3) * (vs / 3)
+            let targetVelocityVolume = vs / 3
             // dist
             // maxDist
             // time
@@ -247,6 +250,7 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             let valueRate = 1 - velocityVolumeRate
             if (!lastGainValue) {
                 value = DBAP(mySpeakerID, p.gx, p.gy)
+
                 // console.log(value)
                 value = value * (valueRate + velocityVolumeRate * velocityVolume)
             } else {
@@ -262,6 +266,7 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
                 // console.log(value)
                 value = value / 2 + lastGainValue.value / 2
                 value = value * (valueRate + velocityVolumeRate * velocityVolume)
+                console.log(value)
             }
             // console.log(Math.abs(lastDoppler.velocity), volumeRate, value)
 
@@ -285,13 +290,21 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
                     return
                 }
                 l.value = l.value * (l.valueRate + 0)
-                console.log('Job', l.value, st / 1000 + l.soundTargetTime / 1000)
-                gainNode.gain.linearRampToValueAtTime(l.value, st / 1000 + (l.soundTargetTime + interval) / 1000)
-                syncSound.source.playbackRate.linearRampToValueAtTime(1.0, st / 1000 + (l.soundTargetTime + interval) / 1000)
+                let startT = st / 1000 + (l.soundTargetTime + interval) / 1000
+                // console.log('Job', l.value, st / 1000 + l.soundTargetTime / 1000)
+                if (startT <= syncPlay.context.currentTime) {
+                    gainNode.gain.value = value
+                    syncSound.source.playbackRate.value = 1.0
+                } else {
+                    gainNode.gain.linearRampToValueAtTime(l.value, startT)
+                    syncSound.source.playbackRate.linearRampToValueAtTime(1.0, startT)
+                }
+                // gainNode.gain.linearRampToValueAtTime(l.value, startT)
+                // syncSound.source.playbackRate.linearRampToValueAtTime(1.0, startT)
             }
             let lastTime = lastGainValue.time
-            Job(new Date(lastTime + 100), () => {
-                velocityVolumeUpdate(300, lastTime)
+            Job(new Date(lastTime + 300), () => {
+                velocityVolumeUpdate(400, lastTime)
             })
             // setTimeout(() => {
             //     gainNode.gain.linearRampToValueAtTime(0, st / 1000 + (soundTargetTime + 30) / 1000)
@@ -299,7 +312,13 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
 
 
             // console.log(value.toFixed(4))
-            gainNode.gain.linearRampToValueAtTime(value, st / 1000 + soundTargetTime / 1000)
+            let startT = st / 1000 + soundTargetTime / 1000
+            // console.log('lastValue ',value)
+            if (startT <= syncPlay.context.currentTime) {
+                gainNode.gain.value = value
+            } else {
+                gainNode.gain.linearRampToValueAtTime(value, st / 1000 + soundTargetTime / 1000)
+            }
 
             if (!isStart && value > 0) {
                 let plus = Date.now() - stoppingTime
@@ -341,11 +360,13 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
                 // エネルギーなので２乗
                 powerSum += rDist * rDist
                 if (name == id) {
-                    power = rDist
+                    power = rDist * rDist
+                    // console.log('this power',power)
                 }
             }
             if (powerSum != 0) {
-                power = power / Math.sqrt(powerSum)
+                // console.log('powerSum',powerSum)
+                power = power / powerSum
                 return power
             }
             return 0

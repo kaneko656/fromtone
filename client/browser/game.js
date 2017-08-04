@@ -101,7 +101,21 @@ function init() {
         let config = {
             user: user
         }
-        let game = require('./board-game/player/index.js')
+        let game = require('./demo/main/index.js')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            game.start(document.getElementById('wrap'), context, socket, ntp, config)
+        })
+    }
+
+    if (demo_type == 'demo-user') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        let game = require('./demo/player/index.js')
         // let demo_mention = require('./concept-image/main.js')
         let inputUserName = require('./demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {

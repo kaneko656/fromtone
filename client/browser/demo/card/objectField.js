@@ -334,7 +334,6 @@ Field.prototype.startSound = function(id, bufferName, startTime, option = {}) {
     let field = this
     // log.text((now - startTime) + '   ' + (startTime < now))
     if (startTime < now) {
-        console.log('delay', (now - startTime))
         SoundManager.play(bufferName, now, (now - startTime), option, (sound) => {
             field.sounds[id] = sound
         })
@@ -377,10 +376,10 @@ Field.prototype.updateSounds = function(objects) {
                 console.log('sound_start', id)
 
                 //**********//
-                this.startSound(obj.id, 'wind', obj.startTime, {
-                    loop: true,
-                    velocityVolumeRate: 0.7
-                })
+                // this.startSound(obj.id, 'wind', obj.startTime, {
+                //     loop: true,
+                //     velocityVolumeRate: 0.7
+                // })
                 //**********//
 
                 // 曲
@@ -393,12 +392,89 @@ Field.prototype.updateSounds = function(objects) {
         //**********//
         if (obj.events.indexOf('sound_position') >= 0) {
             let tone = ''
+            console.log(obj.events)
             obj.events.forEach((e) => {
                 if (e.indexOf('sound_position_') == 0) {
                     tone = e.replace('sound_position_', '')
                 }
             })
             console.log(tone)
+            let double = (tone) => {
+                if (field.sounds[tone]) {
+                    field.sounds[tone].stop()
+                    delete field.sounds[tone]
+                }
+                // not use obj.startTime  use obj.time
+                this.startSound(tone, tone, obj.time + 100, {
+                    loop: false,
+                    velocityVolumeRate: 0,
+                    limitEffectTimes: 2,
+                    noDoppler: true,
+                    start: true
+                })
+                if (field.sounds[tone]) {
+                    field.sounds[tone].positionEffect({
+                        gx: obj.gx,
+                        gy: obj.gy
+                    })
+                }
+            }
+            if (tone.indexOf('totoro_') == 0) {
+                let n = tone.replace('totoro_', '')
+                if (n == 1) {
+                    tone = 'pizz_hC'
+                    double('pizz_G')
+                } else if (n == 2) {
+                    tone = 'pizz_Bb'
+                    double('pizz_F')
+                } else if (n == 3) {
+                    tone = 'pizz_G'
+                    double('pizz_D')
+                } else if (n == 4) {
+                    tone = 'pizz_hC'
+                    double('pizz_G')
+                } else if (n == 6) {
+                    tone = 'pizz_Bb'
+                    double('pizz_F')
+                } else if (n == 7) {
+                    tone = 'pizz_G'
+                    double('pizz_D')
+                } else if (n == 9) {
+                    tone = 'pizz_hC'
+                    double('pizz_G')
+                } else if (n == 10) {
+                    tone = 'pizz_Bb'
+                    double('pizz_F')
+                } else if (n == 11) {
+                    tone = 'pizz_G'
+                    double('pizz_D')
+                } else if (n == 12) {
+                    tone = 'pizz_hC'
+                    double('pizz_G')
+                } else if (n == 14) {
+                    tone = 'pizz_Bb'
+                    double('pizz_F')
+                } else if (n == 15) {
+                    tone = 'pizz_G'
+                    double('pizz_D')
+                } else {
+                    return
+                }
+            }
+            if (tone.indexOf('beethoven_') == 0) {
+                let n = tone.replace('beethoven_', '')
+                if (n == 1 || n == 2 || n == 3) {
+                    tone = 'no5_1'
+                } else if (n == 4) {
+                    tone = 'no5_2'
+                } else if (n == 10 || n == 11 || n == 12) {
+                    tone = 'no5_3'
+                } else if (n == 13) {
+                    tone = 'no5_4'
+                } else {
+                    return
+                }
+            }
             if (field.sounds[tone]) {
                 field.sounds[tone].stop()
                 delete field.sounds[tone]
@@ -411,10 +487,14 @@ Field.prototype.updateSounds = function(objects) {
                 noDoppler: true,
                 start: true
             })
-            field.sounds[tone].positionEffect({
-                gx: obj.gx,
-                gy: obj.gy
-            })
+            if (field.sounds[tone]) {
+                field.sounds[tone].positionEffect({
+                    gx: obj.gx,
+                    gy: obj.gy
+                })
+            }
+
+
         }
         //**********//
     })

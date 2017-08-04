@@ -47,6 +47,7 @@ function init() {
             home.setLink(url + 'game', 'Board Game')
             home.setLink(url + 'game-player', 'Board Game - Player')
             home.setLink(url + 'demo', 'Demo')
+            home.setLink(url + 'demo-user', 'Demo - User')
 
             home.setNameChangeButton(() => {
                 inputUserName.userNameCheck(null, (user) => {

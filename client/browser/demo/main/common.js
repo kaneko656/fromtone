@@ -8,8 +8,8 @@ const CardCase = require('./../card/objectCase.js')
 const loginWindow = require('./loginWindow.js')
 const Job = require('./../Job/cron.js')
 
-let socketDir = 'board_game_'
-let socketType = 'board_game'
+let socketDir = 'demo_'
+let socketType = 'demo'
 
 let log = require('./../player/log.js')
 // const cardList = {

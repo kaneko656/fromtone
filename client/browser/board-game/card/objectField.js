@@ -379,7 +379,7 @@ Field.prototype.updateSounds = function(objects) {
                 //**********//
                 this.startSound(obj.id, 'wind', obj.startTime, {
                     loop: true,
-                    velocityVolumeRate: 0.7
+                    velocityVolumeRate: 0.8
                 })
                 //**********//
 
@@ -398,6 +398,9 @@ Field.prototype.updateSounds = function(objects) {
                     tone = e.replace('sound_position_', '')
                 }
             })
+            if(tone.indexOf('_') == 0){
+                return
+            }
             console.log(tone)
             if (field.sounds[tone]) {
                 field.sounds[tone].stop()
@@ -409,12 +412,16 @@ Field.prototype.updateSounds = function(objects) {
                 velocityVolumeRate: 0,
                 limitEffectTimes: 2,
                 noDoppler: true,
-                start: true
+                start: false
             })
-            field.sounds[tone].positionEffect({
-                gx: obj.gx,
-                gy: obj.gy
-            })
+            console.log(tone)
+            if (field.sounds[tone]) {
+                console.log('start ' + tone)
+                field.sounds[tone].positionEffect({
+                    gx: obj.gx,
+                    gy: obj.gy
+                })
+            }
         }
         //**********//
     })

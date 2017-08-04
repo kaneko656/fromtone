@@ -21,6 +21,7 @@ const demo_orchestra = require('./routes/demo-orchestra.js')
 const board_game = require('./routes/board-game.js')
 const board_game_player = require('./routes/board-game-player.js')
 const demo = require('./routes/demo.js')
+const demo_user = require('./routes/demo-user.js')
 
 const home = require('./routes/home.js')
 
@@ -50,6 +51,7 @@ exports.init = (app) => {
     app.use('/game', board_game)
     app.use('/game-player', board_game_player)
     app.use('/demo', demo)
+    app.use('/demo-user', demo_user)
 
     app.use('/', home)
 

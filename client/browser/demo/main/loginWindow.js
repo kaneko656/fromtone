@@ -6,8 +6,8 @@ let SwitchButton = require('./../html/switchButton.js')
 let homeButton = require('./../../demo-common/html/homeButton.js')
 
 
-let socketDir = 'board_game_'
-let socketType = 'board_game'
+let socketDir = 'demo_'
+let socketType = 'demo'
 
 exports.start = (element, context, socket, clientTime, config) => {
 

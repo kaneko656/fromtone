@@ -3,7 +3,7 @@ module.exports = (_positions = {}) => {
     let callMove = () => {}
     let callPositionChanged = () => {}
     let positions = Object.assign({}, _positions)
-    let sepNum = 3
+    let sepNum = 8
     let obj = {
         positions: positions,
         data: {},
@@ -14,10 +14,10 @@ module.exports = (_positions = {}) => {
             let data = obj.data
             let from = obj.from
             let to = obj.to
-            console.log(from, to)
-            console.log(data)
+            // console.log(from, to)
+            // console.log(data)
             if (data[from] && data[from].to[to]) {
-                console.log('update')
+                // console.log('update')
                 let result = data[from].to[to].update(gx, gy)
                 if (result) {
                     callPositionChanged(result)
