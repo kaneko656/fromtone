@@ -19,6 +19,8 @@ const board_game = require('./board-game.js')
 const board_game_player = require('./board-game-player.js')
 const demo = require('./demo.js')
 
+const develop = require('./develop.js')
+
 let socket_io = app.socket()
 
 let dateDiff = 0
@@ -53,6 +55,8 @@ socket_io.connect((obj) => {
     board_game.start(socket, disconnect, serverTime)
     board_game_player.start(socket, disconnect, serverTime)
     demo.start(socket, disconnect, serverTime)
+
+    develop.start(socket, disconnect, serverTime)
 
     socket.on('test', (body) => {
         console.log('test', body)

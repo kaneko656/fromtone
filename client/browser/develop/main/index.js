@@ -10,8 +10,8 @@ const Job = require('./../Job/cron.js')
 
 // const loginWindow = require('./loginWindow.js')
 
-let socketDir = 'board_game_'
-let socketType = 'board_game'
+let socketDir = 'develop_'
+let socketType = 'develop'
 
 const Main = require('./common.js')
 const PlayRoom = require('./playRoom.js')

@@ -68,6 +68,20 @@ function init() {
     }
     setRestart()
 
+    if (demo_type == 'develop') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        let game = require('./develop/main/index.js')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            game.start(document.getElementById('wrap'), context, socket, ntp, config)
+        })
+    }
+
     if (demo_type == 'board-game') {
         let user = demo_argument.getAttribute('data-user')
         let config = {

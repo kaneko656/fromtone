@@ -1,9 +1,11 @@
 // const io = require('socket.io-client')
 // let url = 'http://192.168.144.110:8001'
-let url = 'http://192.168.100.16:8001'
+// let url = 'http://192.168.10.10:8001'
+// let url = 'http://192.168.100.16:8001'
 // let url = 'http://133.26.45.88:8001'
 // let url = 'http://localhost:8001'
 // let url = 'http://133.26.42.131:8001'
+let url = 'http://192.168.0.8:8001'
 //
 // demo5  demoでも一緒
 // let url = 'http://192.168.10.14:8001'

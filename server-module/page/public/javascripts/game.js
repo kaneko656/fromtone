@@ -21378,7 +21378,7 @@ module.exports = (onTick, callback, start = true) => {
     })
 }
 
-},{"cron":199}],146:[function(require,module,exports){
+},{"cron":216}],146:[function(require,module,exports){
 
 module.exports = (element) => {
     var canvas = document.createElement('canvas')
@@ -22056,10 +22056,6 @@ Field.prototype.setObject = function(obj) {
         // this.objects[id].scale = (this.canvas.width / 5) / this.objects[id].w
         this.objects[id].scale = (this.canvas.width / 6) / this.objects[id].w
     }
-    // if (this.objects[id].types.indexOf('card') >= 0 && this.objects[id].types.indexOf('reverse') >= 0) {
-    //     let reverseCard = Card('裏')
-    //     this.objects[id].icon = reverseCard.icon
-    // }
 }
 
 Field.prototype.removeObject = function(id) {
@@ -22108,6 +22104,9 @@ Field.prototype.updateObjects = function(objects) {
             obj.x = encodePosition.x
             obj.y = encodePosition.y
             field.objects[id].update(obj)
+
+
+            // タイプ，イベント処理
             if (field.objects[id].types.indexOf('card') >= 0) {
                 field.objects[id].scale = (field.canvas.width / 6) / field.objects[id].w
             }
@@ -22187,6 +22186,15 @@ Field.prototype.setObjectCase = function(objectCase) {
 
     }
     this.sendObjectCaseInfoToServer(objectCase.id)
+
+
+    // let field = this
+    // return {
+    //     case: case,
+    //     send: () => {
+    //         field.sendObjectCaseInfoToServer(objectCase.id)
+    //     }
+    // }
 }
 
 Field.prototype.getObjectCase = function(id) {
@@ -22198,7 +22206,6 @@ Field.prototype.getObjectCase = function(id) {
 Field.prototype.inObjectCase = function(objectCase, obj) {
     this.objectCase[objectCase.id] = objectCase
     objectCase.push(obj)
-    // this.removeObject(obj.id)
 }
 
 
@@ -23062,6 +23069,35 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             return effectTime
         }
 
+        // setTimeout(() => {
+        //     speakerPosition = {
+        //         'field': {
+        //             gx: 0,
+        //             gy: 0
+        //         },
+        //         'left': {
+        //             gx: -0.4,
+        //             gy: -0.4
+        //         },
+        //         'up': {
+        //             gx: -0.2,
+        //             gy: 0.5
+        //         },
+        //         'right': {
+        //             gx: 0.6,
+        //             gy: 0.1
+        //         }
+        //     }
+        //
+        //     // DBAP('field', 0.4, 0.3)
+        //
+        //     for (let name in speakerPosition) {
+        //         console.log(name)
+        //         DBAP(name, 0.3, 0.1)
+        //     }
+        //
+        // }, 100)
+
         // let setOption = (_option) => {
 
         //     option = Object.assign({}, _option)
@@ -23069,6 +23105,7 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
         let positionEffect = (p) => {
             value = DBAP(mySpeakerID, p.gx, p.gy)
             console.log('positionEffect', value)
+
             gainNode.gain.value = value
             if (!isStart && value > 0) {
                 let plus = Date.now() - stoppingTime
@@ -23077,6 +23114,7 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
                 isStart = true
             }
         }
+
         let setEffect = (p) => {
             effectTime++
             if (option.limitEffectTimes && option.limitEffectTimes > effectTime) {
@@ -23252,21 +23290,29 @@ exports.play = (bufferName, time, offset, option = {}, call = () => {}) => {
             let speakerRadius = 0.00001
             let power = 0
             let powerSum = 0
+            console.log('\r\n')
             for (let name in speakerPosition) {
+                console.log('\r\n')
+
                 let gx = speakerPosition[name].gx
                 let gy = speakerPosition[name].gy
                 let dist = Math.sqrt((soundGx - gx) * (soundGx - gx) + (soundGy - gy) * (soundGy - gy) + speakerRadius * speakerRadius)
                 let rDist = Math.pow(dist, -rolloff / 20 * Math.log10(2))
                 // エネルギーなので２乗
+                console.log(name, gx, gy)
+                console.log('dist', dist)
+                console.log('rDist', rDist)
                 powerSum += rDist * rDist
+                console.log('power', rDist * rDist)
                 if (name == id) {
                     power = rDist * rDist
                     // console.log('this power',power)
                 }
             }
             if (powerSum != 0) {
-                // console.log('powerSum',powerSum)
+                console.log('power', power / powerSum, ' = ', power, ' / ', powerSum)
                 power = power / powerSum
+                // console.log('power', power, ' = ', power, ' / ', powerSum)
                 return power
             }
             return 0
@@ -24156,13 +24202,14 @@ exports.start = (canvas, context, socket, clientTime, config) => {
     }
 }
 
-},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../player/log.js":166,"./loginWindow.js":163,"node-uuid":204}],162:[function(require,module,exports){
+},{"./../Job/cron.js":145,"./../canvas/canvas.js":146,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../player/log.js":166,"./loginWindow.js":163,"node-uuid":221}],162:[function(require,module,exports){
 const uuid = require('node-uuid')
 
 const Canvas = require('./../card/canvas.js')
 const CardField = require('./../card/objectField.js')
 const Card = require('./../card/cardList.js')
 const CardCase = require('./../card/objectCase.js')
+const connect = require('./../../connect.js')
 
 const Job = require('./../Job/cron.js')
 
@@ -24187,15 +24234,15 @@ exports.start = (element, context, socket, clientTime, config) => {
     element.style.height = window.innerHeight + 'px'
     element.style.overflow = 'hidden'
 
-    let canvas = Canvas(element, 1.0, 1.0)
+    let canvas = Canvas(element, 1.0, 0.95)
     let main = Main.start(canvas, context, socket, clientTime, config)
     let field = main.field
     field.user = 'Field'
     field.setClip(0, 0, 1.0, 1.0)
 
-    // let toolCanvas = Canvas(element, 1.0, 0.1)
-    // let tool = ToolField(toolCanvas)
-    // tool.render()
+    let toolCanvas = Canvas(element, 1.0, 0.05)
+    let tool = ToolField(toolCanvas)
+    tool.render()
 
     function enterFullscreen() {
         let x = element
@@ -24325,9 +24372,15 @@ exports.start = (element, context, socket, clientTime, config) => {
                 userNum++
             }
             userNum = 0
-            field.setClip(0, 0, 0.3, 0.3)
+            field.setClip(0, 0, 0.7, 0.7)
         }
         distribution()
+
+        connect.on('toolMode', (id) => {
+            if (id == 'pointMove') {
+                distribution()
+            }
+        })
 
 
 
@@ -24341,7 +24394,7 @@ exports.start = (element, context, socket, clientTime, config) => {
 
 
         //*********//
-        field.setClip(0, 0, 0.3, 0.3)
+        field.setClip(0, 0, 0.7, 0.7)
         //*********//
     }
 
@@ -24381,7 +24434,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     }
 }
 
-},{"./../Job/cron.js":145,"./../card/canvas.js":147,"./../card/cardDistribution.js":148,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../card/sound/soundManager.js":155,"./../card/tool/toolField.js":158,"./common.js":161,"./playRoom.js":164,"node-uuid":204}],163:[function(require,module,exports){
+},{"./../../connect.js":168,"./../Job/cron.js":145,"./../card/canvas.js":147,"./../card/cardDistribution.js":148,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../card/sound/soundManager.js":155,"./../card/tool/toolField.js":158,"./common.js":161,"./playRoom.js":164,"node-uuid":221}],163:[function(require,module,exports){
 const uuid = require('node-uuid')
 let HtmlText = require('./../html/html-text.js')
 let SelectList = require('./../../demo-common/html/select-list.js')
@@ -24479,7 +24532,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     })
 }
 
-},{"./../../demo-common/html/button-notification.js":169,"./../../demo-common/html/homeButton.js":170,"./../../demo-common/html/select-list.js":171,"./../html/html-text.js":159,"./../html/switchButton.js":160,"node-uuid":204}],164:[function(require,module,exports){
+},{"./../../demo-common/html/button-notification.js":169,"./../../demo-common/html/homeButton.js":170,"./../../demo-common/html/select-list.js":171,"./../html/html-text.js":159,"./../html/switchButton.js":160,"node-uuid":221}],164:[function(require,module,exports){
 const myObject = require('./../card/object.js')
 
 exports.start = (canvas, field, socket, clientTime, config, callback = () => {}) => {
@@ -24660,7 +24713,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     player.start(element, context, socket, clientTime, config)
 }
 
-},{"./player.js":167,"node-uuid":204}],166:[function(require,module,exports){
+},{"./player.js":167,"node-uuid":221}],166:[function(require,module,exports){
 let log
 exports.set = (element) => {
     log = document.createElement('p')
@@ -24974,7 +25027,7 @@ exports.start = (element, context, socket, clientTime, config) => {
 
 }
 
-},{"./../../connect.js":168,"./../Job/cron.js":145,"./../card/canvas.js":147,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../card/sound/soundManager.js":155,"./../card/tool/toolField.js":158,"./../main/common.js":161,"./log.js":166,"node-uuid":204}],168:[function(require,module,exports){
+},{"./../../connect.js":168,"./../Job/cron.js":145,"./../card/canvas.js":147,"./../card/cardList.js":149,"./../card/objectCase.js":151,"./../card/objectField.js":152,"./../card/sound/soundManager.js":155,"./../card/tool/toolField.js":158,"./../main/common.js":161,"./log.js":166,"node-uuid":221}],168:[function(require,module,exports){
 let value = {}
 let call = {}
 exports.set = (name, v) => {
@@ -25315,7 +25368,7 @@ exports.userNameInput = (callback = () => {}, caution = '') => {
 
 },{}],173:[function(require,module,exports){
 arguments[4][145][0].apply(exports,arguments)
-},{"cron":199,"dup":145}],174:[function(require,module,exports){
+},{"cron":216,"dup":145}],174:[function(require,module,exports){
 arguments[4][146][0].apply(exports,arguments)
 },{"dup":146}],175:[function(require,module,exports){
 arguments[4][147][0].apply(exports,arguments)
@@ -27183,7 +27236,7 @@ exports.start = (canvas, context, socket, clientTime, config) => {
     }
 }
 
-},{"./../Job/cron.js":173,"./../canvas/canvas.js":174,"./../card/cardList.js":177,"./../card/objectCase.js":179,"./../card/objectField.js":180,"./../player/log.js":194,"./loginWindow.js":191,"node-uuid":204}],190:[function(require,module,exports){
+},{"./../Job/cron.js":173,"./../canvas/canvas.js":174,"./../card/cardList.js":177,"./../card/objectCase.js":179,"./../card/objectField.js":180,"./../player/log.js":194,"./loginWindow.js":191,"node-uuid":221}],190:[function(require,module,exports){
 const uuid = require('node-uuid')
 
 const Canvas = require('./../card/canvas.js')
@@ -27385,7 +27438,7 @@ exports.start = (element, context, socket, clientTime, config) => {
     }
 }
 
-},{"./../Job/cron.js":173,"./../card/canvas.js":175,"./../card/cardDistribution.js":176,"./../card/cardList.js":177,"./../card/objectCase.js":179,"./../card/objectField.js":180,"./../card/sound/soundManager.js":183,"./../card/tool/toolField.js":186,"./common.js":189,"./playRoom.js":192,"node-uuid":204}],191:[function(require,module,exports){
+},{"./../Job/cron.js":173,"./../card/canvas.js":175,"./../card/cardDistribution.js":176,"./../card/cardList.js":177,"./../card/objectCase.js":179,"./../card/objectField.js":180,"./../card/sound/soundManager.js":183,"./../card/tool/toolField.js":186,"./common.js":189,"./playRoom.js":192,"node-uuid":221}],191:[function(require,module,exports){
 const uuid = require('node-uuid')
 let HtmlText = require('./../html/html-text.js')
 let SelectList = require('./../../demo-common/html/select-list.js')
@@ -27483,11 +27536,11 @@ exports.start = (element, context, socket, clientTime, config) => {
     })
 }
 
-},{"./../../demo-common/html/button-notification.js":169,"./../../demo-common/html/homeButton.js":170,"./../../demo-common/html/select-list.js":171,"./../html/html-text.js":187,"./../html/switchButton.js":188,"node-uuid":204}],192:[function(require,module,exports){
+},{"./../../demo-common/html/button-notification.js":169,"./../../demo-common/html/homeButton.js":170,"./../../demo-common/html/select-list.js":171,"./../html/html-text.js":187,"./../html/switchButton.js":188,"node-uuid":221}],192:[function(require,module,exports){
 arguments[4][164][0].apply(exports,arguments)
 },{"./../card/object.js":178,"dup":164}],193:[function(require,module,exports){
 arguments[4][165][0].apply(exports,arguments)
-},{"./player.js":195,"dup":165,"node-uuid":204}],194:[function(require,module,exports){
+},{"./player.js":195,"dup":165,"node-uuid":221}],194:[function(require,module,exports){
 arguments[4][166][0].apply(exports,arguments)
 },{"dup":166}],195:[function(require,module,exports){
 const uuid = require('node-uuid')
@@ -27789,7 +27842,508 @@ exports.start = (element, context, socket, clientTime, config) => {
 
 }
 
-},{"./../../connect.js":168,"./../Job/cron.js":173,"./../card/canvas.js":175,"./../card/cardList.js":177,"./../card/objectCase.js":179,"./../card/objectField.js":180,"./../card/sound/soundManager.js":183,"./../card/tool/toolField.js":186,"./../main/common.js":189,"./log.js":194,"node-uuid":204}],196:[function(require,module,exports){
+},{"./../../connect.js":168,"./../Job/cron.js":173,"./../card/canvas.js":175,"./../card/cardList.js":177,"./../card/objectCase.js":179,"./../card/objectField.js":180,"./../card/sound/soundManager.js":183,"./../card/tool/toolField.js":186,"./../main/common.js":189,"./log.js":194,"node-uuid":221}],196:[function(require,module,exports){
+arguments[4][145][0].apply(exports,arguments)
+},{"cron":216,"dup":145}],197:[function(require,module,exports){
+arguments[4][147][0].apply(exports,arguments)
+},{"dup":147}],198:[function(require,module,exports){
+arguments[4][148][0].apply(exports,arguments)
+},{"./cardList.js":199,"dup":148}],199:[function(require,module,exports){
+arguments[4][149][0].apply(exports,arguments)
+},{"./object.js":200,"dup":149}],200:[function(require,module,exports){
+arguments[4][150][0].apply(exports,arguments)
+},{"dup":150}],201:[function(require,module,exports){
+arguments[4][151][0].apply(exports,arguments)
+},{"./../card/cardList.js":199,"./../player/log.js":212,"./position.js":203,"./sound/soundManager.js":205,"dup":151}],202:[function(require,module,exports){
+arguments[4][152][0].apply(exports,arguments)
+},{"./../../connect.js":168,"./../Job/cron.js":196,"./../card/cardList.js":199,"./../player/log.js":212,"./position.js":203,"./positionDistObject.js":204,"./sound/soundManager.js":205,"dup":152}],203:[function(require,module,exports){
+arguments[4][153][0].apply(exports,arguments)
+},{"dup":153}],204:[function(require,module,exports){
+arguments[4][154][0].apply(exports,arguments)
+},{"dup":154}],205:[function(require,module,exports){
+arguments[4][155][0].apply(exports,arguments)
+},{"./../../Job/cron.js":196,"./../../player/log.js":212,"./sync-play.js":206,"dup":155}],206:[function(require,module,exports){
+arguments[4][156][0].apply(exports,arguments)
+},{"./../../player/log.js":212,"dup":156}],207:[function(require,module,exports){
+arguments[4][157][0].apply(exports,arguments)
+},{"dup":157}],208:[function(require,module,exports){
+arguments[4][158][0].apply(exports,arguments)
+},{"./../../../connect.js":168,"./tool.js":207,"dup":158}],209:[function(require,module,exports){
+const uuid = require('node-uuid')
+
+// const Canvas = require('./../canvas/canvas.js')
+const CardField = require('./../card/objectField.js')
+const Card = require('./../card/cardList.js')
+const CardCase = require('./../card/objectCase.js')
+
+const Job = require('./../Job/cron.js')
+
+let socketDir = 'develop_'
+let socketType = 'develop'
+
+let log = require('./../player/log.js')
+// const cardList = {
+//     'アリバイ': 'lib/image/card/アリバイ.png',
+//     'いぬ': 'lib/image/card/いぬ.png',
+//     'うわさ': 'lib/image/card/うわさ.png',
+//     'たくらみ': 'lib/image/card/たくらみ.png',
+//     '一般人': 'lib/image/card/一般人.png',
+//     '取り引き': 'lib/image/card/取り引き.png',
+//     '情報交換': 'lib/image/card/情報交換.png',
+//     '第一発見者': 'lib/image/card/第一発見者.png',
+//     '犯人': 'lib/image/card/犯人.png',
+//     '目撃者': 'lib/image/card/アリバイ.png',
+//     '裏': 'lib/image/card/裏.png'
+// }
+
+let clientID = null
+exports.register = (canvas, context, socket, clientTime, config) => {
+    clientID = uuid.v4()
+
+    socket.emit(socketDir + 'register', {
+        type: socketType,
+        id: clientID,
+        user: config.user
+    })
+}
+
+exports.start = (canvas, context, socket, clientTime, config) => {
+
+    /**
+     * init
+     */
+
+    if (!clientID) {
+        clientID = uuid.v4()
+        socket.emit(socketDir + 'register', {
+            type: socketType,
+            id: clientID,
+            user: config.user
+        })
+    }
+
+    let field = CardField(canvas, context)
+    field.setClientID(clientID)
+    // field.setClip(0, 0.3, 0.8, 0.8)
+
+
+    /**
+     * send object
+     */
+
+    let bufferTime = 30
+    let sendObjectBuffer = []
+    field.sendObjectInfo((sendObj, option) => {
+        let start = (sendObjectBuffer.length == 0)
+        if (sendObjectBuffer.length > 0 && sendObj.events.length == 0) {
+            return
+        }
+
+        // 自分の描画を高速に
+        // if (field.objects[sendObj.id]) {
+        //     let date = new Date(sendObj.timestamp)
+        //     if (date <= Date.now()) {
+        //         field.updateObjects(sendObj)
+        //     } else {
+        //         Job(date, () => {
+        //             field.updateObjects(sendObj)
+        //         })
+        //     }
+        // }
+        // update at time
+        sendObj.timestamp = Math.floor(clientTime.correctionToServerTime(sendObj.timestamp))
+        sendObjectBuffer.push(sendObj)
+
+
+        let now = Date.now()
+        let date1 = new Date(Math.floor(now / bufferTime) * bufferTime + bufferTime)
+        let date2 = new Date(Math.floor(now / bufferTime) * bufferTime + bufferTime * 2)
+        if (start) {
+            Job(date1, () => {
+                if (sendObjectBuffer.length >= 1) {
+                    socket.emit(socketDir + 'sendObjectInfo', sendObjectBuffer)
+                    sendObjectBuffer = []
+                }
+            })
+            Job(date2, () => {
+                if (sendObjectBuffer.length >= 1) {
+                    socket.emit(socketDir + 'sendObjectInfo', sendObjectBuffer)
+                    sendObjectBuffer = []
+                }
+            })
+        }
+    })
+
+    /**
+     * catch Object
+     */
+
+    socket.on(socketDir + 'sendObjectInfo', (objects) => {
+        updateObjects(objects)
+    })
+
+    let updateObjects = (objects) => {
+        if (!Array.isArray(objects)) {
+            let temp = objects
+            objects = []
+            objects.push(temp)
+        }
+        objects.forEach((obj) => {
+            // remove myObject
+            // if (field.objects[obj.id] && obj.clientID == clientID) {
+            //     return
+            // }
+
+            // card set
+            if (!field.isObject(obj.id)) {
+                let card = Card(obj.name)
+                card.id = obj.id
+                card.types = obj.types
+                field.setObject(card)
+            }
+
+            // time correction
+            obj.time = clientTime.correctionServerTime(obj.time)
+            obj.startTime = clientTime.correctionServerTime(obj.startTime)
+
+            // update at time
+            let date = new Date(obj.time)
+            if (date <= Date.now()) {
+                field.updateObjects(obj)
+            } else {
+                Job(date, () => {
+                    field.updateObjects(obj)
+                })
+            }
+            field.updateSounds(obj)
+        })
+    }
+
+    field.sendObjectCaseInfo((sendObj, option) => {
+        socket.emit(socketDir + 'sendObjectCaseInfo', sendObj)
+    })
+
+    socket.on(socketDir + 'sendObjectCaseInfo', (upObj) => {
+        // updateObjects(objects)
+        let id = upObj.id
+        if (!field.objectCase[id]) {
+            let cardCase = CardCase()
+            cardCase.id = id
+            cardCase.update(upObj)
+            field.setObjectCase(cardCase)
+            field.render()
+        } else {
+            field.objectCase[id].update(upObj)
+            field.render()
+        }
+    })
+
+
+    /**
+     * Key
+     */
+
+    let moved = (x, y) => {
+        field.mouseMoved(x, y)
+    }
+
+    let clicked = (x, y) => {
+        // ios対策
+        context.createBufferSource().start(0)
+        field.mousePressed(x, y)
+    }
+
+    let released = (x, y) => {
+        field.mouseReleased(x, y)
+    }
+
+
+    canvas.addEventListener('mousemove', function(e) {
+        moved(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        moved(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mousedown', function(e) {
+        clicked(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        clicked(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mouseup', function(e) {
+        released(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        released(x, y)
+        return false
+    })
+
+    return {
+        socketDir: socketDir,
+        socketType: socketType,
+        clientID: clientID,
+        canvas: canvas,
+        field: field,
+        updateObjects: updateObjects
+    }
+}
+
+},{"./../Job/cron.js":196,"./../card/cardList.js":199,"./../card/objectCase.js":201,"./../card/objectField.js":202,"./../player/log.js":212,"node-uuid":221}],210:[function(require,module,exports){
+const uuid = require('node-uuid')
+
+const Canvas = require('./../card/canvas.js')
+const CardField = require('./../card/objectField.js')
+const Card = require('./../card/cardList.js')
+const CardCase = require('./../card/objectCase.js')
+const connect = require('./../../connect.js')
+
+const Job = require('./../Job/cron.js')
+
+// const loginWindow = require('./loginWindow.js')
+
+let socketDir = 'develop_'
+let socketType = 'develop'
+
+const Main = require('./common.js')
+const PlayRoom = require('./playRoom.js')
+let ToolField = require('./../card/tool/toolField.js')
+
+const cardDistribution = require('./../card/cardDistribution.js')
+const SoundManager = require('./../card/sound/soundManager.js')
+
+exports.start = (element, context, socket, clientTime, config) => {
+    // element.style.margin = '30px'
+    config.socketDir = socketDir
+    config.socketType = socketType
+    //
+    element.style.width = window.innerWidth + 'px'
+    element.style.height = window.innerHeight + 'px'
+    element.style.overflow = 'hidden'
+
+    let canvas = Canvas(element, 1.0, 0.95)
+    let main = Main.start(canvas, context, socket, clientTime, config)
+    let field = main.field
+    field.user = 'Field'
+    field.setClip(0, 0, 1.0, 1.0)
+
+    let toolCanvas = Canvas(element, 1.0, 0.05)
+    let tool = ToolField(toolCanvas)
+    tool.render()
+
+    function enterFullscreen() {
+        let x = element
+        if (x.webkitRequestFullScreen) {
+            x.webkitRequestFullScreen()
+        } else if (x.mozRequestFullScreen) {
+            x.mozRequestFullScreen()
+        } else if (x.requestFullScreen) {
+            x.requestFullScreen()
+        }
+    }
+
+
+    //フルスクリーンを解除
+    function exitFullscreen() {
+        if (document.webkitCancelFullScreen) {
+            document.webkitCancelFullScreen()
+        } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen()
+        } else if (document.exitFullscreen) {
+            document.exitFullscreen()
+        }
+    }
+
+    let playRoom = PlayRoom.start(canvas, field, socket, clientTime, config, (list) => {
+        gameStart(list)
+        phase1(list)
+        let pos = Object.assign(list)
+        pos['Field'] = {
+            gx: 0,
+            gy: 0
+        }
+        SoundManager.setSpeakerPosition(pos, 'Field')
+    })
+
+    let gameStart = (userList) => {
+        socket.emit(socketDir + 'game_start', userList)
+        // ユーザ毎にFieldCardCaseを作成
+        let cardCase = CardCase()
+        cardCase.id = 'Field'
+        cardCase.area.x = 0
+        cardCase.area.w = canvas.width
+        cardCase.area.h = canvas.height
+        cardCase.area.y = 0
+        // field.objectCase[user].noDraw = false
+        // field.objectCase[user].noOperation = false
+
+        cardCase.render = (ctx) => {
+            let a = cardCase.area
+            ctx.beginPath()
+            ctx.rect(a.x, a.y, a.w, a.h)
+            ctx.stroke()
+            cardCase.objects.forEach((object) => {
+                let obj = object.object
+                let posX = object.posX
+                let posY = object.posY
+                let temp = obj.icon
+                obj.x = posX
+                obj.y = posY
+                obj.noDraw = false
+                obj.icon = Card(obj.name).icon
+                obj.scale = canvas.width / obj.h * 0.2
+                obj.draw(ctx)
+            })
+        }
+        cardCase.sort = () => {}
+        field.setObjectCase(cardCase)
+        cardCase.noDraw = false
+        cardCase.noOperation = false
+
+    }
+
+    // カードを配る
+    let phase1 = (_list) => {
+        let list = Object.assign({}, _list)
+        let cards = cardDistribution.distribution(Object.keys(list).length)
+        let n = 0
+        for (let user in list) {
+            list[user].cards = cards[n]
+            n++
+            // console.log(list[user])
+        }
+
+        let userNum = 0
+        let userMaxNum = Object.keys(list).length
+        let distribution = () => {
+            console.log(list)
+            field.setClip(0, 0, 1.0, 1.0)
+            for (let user in list) {
+                if (user == 'Field') {
+                    continue
+                }
+                let x = list[user].x
+                let y = list[user].y
+                let ang = Math.atan2(y - field.h / 2, x - field.w / 2)
+
+                list[user].cards.forEach((card, i) => {
+                    card.x = canvas.width / 2
+                    card.y = canvas.height / 2
+                    card.events.push('initial')
+                    card.events.push('reverse')
+                    // setTimeout(() => {
+                    field.sendObjectInfoToServer(card.output())
+
+                    // 無理やりローカルでセット
+                    let out = card.output()
+                    out.x = card.x
+                    out.y = card.y
+                    let globalPos = field.clip.encodeToGloval(out.x, out.y)
+                    out.gx = globalPos.x
+                    out.gy = globalPos.y
+                    out.clientID = field.clientID
+                    out.events.push('initial')
+                    out.events.push('reverse')
+                    out.time = Date.now() - 100000
+                    out.startTime = Date.now() - 100000
+                    main.updateObjects(out)
+
+                    let obj = field.getObject(card.id)
+                    let toX = x + Math.sin(ang) * 5 * (i - 1)
+                    let toY = y + Math.cos(ang) * 5 * (i - 1)
+                    field.autoMove(obj, toX, toY, {
+                        duration: 1000,
+                        delay: userNum * 1000 + i * userMaxNum * 1000 + 1500
+                    })
+                })
+                userNum++
+            }
+            userNum = 0
+            field.setClip(0, 0, 0.7, 0.7)
+        }
+        distribution()
+
+        connect.on('toolMode', (id) => {
+            if (id == 'pointMove') {
+                distribution()
+            }
+        })
+
+
+
+        document.addEventListener('keydown', function(event) {
+            // lastDownTarget = event.target
+            if (event.key == 's') {
+                distribution()
+            }
+            // alert('mousedown')
+        }, false)
+
+
+        //*********//
+        field.setClip(0, 0, 0.7, 0.7)
+        //*********//
+    }
+
+    let phase2 = () => {
+        let cardCase = CardCase()
+        cardCase.id = config.user + '_case'
+        cardCase.area.y = 100
+        cardCase.area.w = canvas.width
+        cardCase.push(Card('たくらみ'))
+        cardCase.push(Card('探偵'))
+        cardCase.push(Card('うわさ'), 50)
+        cardCase.render = (ctx) => {
+            cardCase.objects.forEach((object) => {
+                let obj = object.object
+                let posX = object.posX
+                let posY = object.posY
+                let temp = obj.icon
+                obj.x = posX
+                obj.y = posY
+                obj.icon = Card('裏').icon
+                obj.scale = 0.3
+                obj.draw(ctx)
+            })
+        }
+        field.setObjectCase(cardCase)
+
+        console.log(cardCase.objects)
+
+        let card = Card('アリバイ')
+
+
+        card.x = canvas.width / 2
+        card.y = canvas.height / 2
+        card.scale = 0.5
+        field.sendObjectInfoToServer(card.output())
+        field.setClip(0, 0, 0.5, 0.5)
+    }
+}
+
+},{"./../../connect.js":168,"./../Job/cron.js":196,"./../card/canvas.js":197,"./../card/cardDistribution.js":198,"./../card/cardList.js":199,"./../card/objectCase.js":201,"./../card/objectField.js":202,"./../card/sound/soundManager.js":205,"./../card/tool/toolField.js":208,"./common.js":209,"./playRoom.js":211,"node-uuid":221}],211:[function(require,module,exports){
+arguments[4][164][0].apply(exports,arguments)
+},{"./../card/object.js":200,"dup":164}],212:[function(require,module,exports){
+arguments[4][166][0].apply(exports,arguments)
+},{"dup":166}],213:[function(require,module,exports){
 window.addEventListener('load', init, false)
 
 /*
@@ -27860,6 +28414,20 @@ function init() {
     }
     setRestart()
 
+    if (demo_type == 'develop') {
+        let user = demo_argument.getAttribute('data-user')
+        let config = {
+            user: user
+        }
+        let game = require('./develop/main/index.js')
+        // let demo_mention = require('./concept-image/main.js')
+        let inputUserName = require('./demo-common/prompt.js')
+        inputUserName.userNameCheck(config.user, (user) => {
+            config.user = user
+            game.start(document.getElementById('wrap'), context, socket, ntp, config)
+        })
+    }
+
     if (demo_type == 'board-game') {
         let user = demo_argument.getAttribute('data-user')
         let config = {
@@ -27917,7 +28485,7 @@ function init() {
     }
 }
 
-},{"./board-game/main/index.js":162,"./board-game/player/index.js":165,"./connect.js":168,"./demo-common/prompt.js":172,"./demo/main/index.js":190,"./demo/player/index.js":193,"./ntp-client.js":197,"./socket-client/index.js":198}],197:[function(require,module,exports){
+},{"./board-game/main/index.js":162,"./board-game/player/index.js":165,"./connect.js":168,"./demo-common/prompt.js":172,"./demo/main/index.js":190,"./demo/player/index.js":193,"./develop/main/index.js":210,"./ntp-client.js":214,"./socket-client/index.js":215}],214:[function(require,module,exports){
 let socket
 let dateDiff = 0
 
@@ -27955,6 +28523,16 @@ exports.dateDiff = () => {
 
 exports.correctionTime = () => {
     return -dateDiff
+}
+
+exports.autoCorrection = (intervalMillis) => {
+    let setRestart = () => {
+        setTimeout(() => {
+            module.exports.restart()
+            setRestart()
+        }, intervalMillis)
+    }
+    setRestart()
 }
 
 exports.restart = () => {
@@ -28069,13 +28647,15 @@ let emit = () => {
     }, 300 * 1 + Math.floor((Math.random() * 200)))
 }
 
-},{}],198:[function(require,module,exports){
+},{}],215:[function(require,module,exports){
 // const io = require('socket.io-client')
 // let url = 'http://192.168.144.110:8001'
-let url = 'http://192.168.100.16:8001'
+// let url = 'http://192.168.10.10:8001'
+// let url = 'http://192.168.100.16:8001'
 // let url = 'http://133.26.45.88:8001'
 // let url = 'http://localhost:8001'
 // let url = 'http://133.26.42.131:8001'
+let url = 'http://192.168.0.8:8001'
 //
 // demo5  demoでも一緒
 // let url = 'http://192.168.10.14:8001'
@@ -28119,7 +28699,7 @@ socket.on('disconnect', () => {
     call.emit('disconnect', url)
 })
 
-},{"./../../../exCall-module/simpleCall":209}],199:[function(require,module,exports){
+},{"./../../../exCall-module/simpleCall":226}],216:[function(require,module,exports){
 (function (root, factory) {
 	if (typeof define === 'function' && define.amd) {
 		define(['moment-timezone'], factory);
@@ -28661,7 +29241,7 @@ return exports;
 
 }));
 
-},{"child_process":44,"moment-timezone":201}],200:[function(require,module,exports){
+},{"child_process":44,"moment-timezone":218}],217:[function(require,module,exports){
 module.exports={
 	"version": "2017b",
 	"zones": [
@@ -29262,11 +29842,11 @@ module.exports={
 		"Pacific/Tarawa|Pacific/Wallis"
 	]
 }
-},{}],201:[function(require,module,exports){
+},{}],218:[function(require,module,exports){
 var moment = module.exports = require("./moment-timezone");
 moment.tz.load(require('./data/packed/latest.json'));
 
-},{"./data/packed/latest.json":200,"./moment-timezone":202}],202:[function(require,module,exports){
+},{"./data/packed/latest.json":217,"./moment-timezone":219}],219:[function(require,module,exports){
 //! moment-timezone.js
 //! version : 0.5.13
 //! Copyright (c) JS Foundation and other contributors
@@ -29869,7 +30449,7 @@ moment.tz.load(require('./data/packed/latest.json'));
 	return moment;
 }));
 
-},{"moment":203}],203:[function(require,module,exports){
+},{"moment":220}],220:[function(require,module,exports){
 //! moment.js
 //! version : 2.18.1
 //! authors : Tim Wood, Iskren Chernev, Moment.js contributors
@@ -34334,7 +34914,7 @@ return hooks;
 
 })));
 
-},{}],204:[function(require,module,exports){
+},{}],221:[function(require,module,exports){
 (function (Buffer){
 //     uuid.js
 //
@@ -34610,7 +35190,7 @@ return hooks;
 })('undefined' !== typeof window ? window : null);
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":46,"crypto":55}],205:[function(require,module,exports){
+},{"buffer":46,"crypto":55}],222:[function(require,module,exports){
 const CallbackChild = require('./CallbackChild.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -34788,7 +35368,7 @@ let keyCheck = (key) => {
     return key
 }
 
-},{"./CallOperator.js":207,"./CallbackChild.js":208}],206:[function(require,module,exports){
+},{"./CallOperator.js":224,"./CallbackChild.js":225}],223:[function(require,module,exports){
 /**
  * 一連の流れで連続するcallback
  * contextInfoを受け継ぐ
@@ -34944,7 +35524,7 @@ CallMeasure.prototype.Operator = function(num, next) {
     }
 }
 
-},{}],207:[function(require,module,exports){
+},{}],224:[function(require,module,exports){
 // CallOperator
 
 module.exports = (Child, num) => {
@@ -34964,7 +35544,7 @@ module.exports = (Child, num) => {
     }
 }
 
-},{}],208:[function(require,module,exports){
+},{}],225:[function(require,module,exports){
 const CallMeasure = require('./CallMeasure.js')
 const CallOperator = require('./CallOperator.js')
 
@@ -35143,7 +35723,7 @@ CallbackChild.prototype.emit = function(...option) {
     callMeasure.start()
 }
 
-},{"./CallMeasure.js":206,"./CallOperator.js":207}],209:[function(require,module,exports){
+},{"./CallMeasure.js":223,"./CallOperator.js":224}],226:[function(require,module,exports){
 module.exports = require('./Call/Call.js')()
 
-},{"./Call/Call.js":205}]},{},[196]);
+},{"./Call/Call.js":222}]},{},[213]);

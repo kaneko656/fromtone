@@ -166,6 +166,8 @@ function init() {
     //         })
     //     })
     // }
+    //
+
 
     if (demo_type == 'demo-simple-notification') {
         let user = demo_argument.getAttribute('data-user')

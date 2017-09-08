@@ -37,6 +37,16 @@ exports.correctionTime = () => {
     return -dateDiff
 }
 
+exports.autoCorrection = (intervalMillis) => {
+    let setRestart = () => {
+        setTimeout(() => {
+            module.exports.restart()
+            setRestart()
+        }, intervalMillis)
+    }
+    setRestart()
+}
+
 exports.restart = () => {
     isRestart = true
     buffer = []

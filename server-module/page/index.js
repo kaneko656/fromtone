@@ -25,6 +25,8 @@ const demo_user = require('./routes/demo-user.js')
 
 const home = require('./routes/home.js')
 
+const develop = require('./routes/develop')
+
 
 exports.init = (app) => {
     // view engine setup
@@ -54,6 +56,8 @@ exports.init = (app) => {
     app.use('/demo-user', demo_user)
 
     app.use('/', home)
+
+    app.use('/develop', develop)
 
     // lib
     app.use('/lib', express.static(__dirname + '/public'))

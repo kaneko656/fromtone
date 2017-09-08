@@ -3,6 +3,10 @@ var sendTime = Date.now()
 let dateDiff = 0
 
 request.get('https://ntp-a1.nict.go.jp/cgi-bin/json', (err, res, body) => {
+    return
+    if(err || !body){
+        return
+    }
     body = JSON.parse(body)
 
     let endTime = Date.now()
