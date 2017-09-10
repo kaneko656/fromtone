@@ -14,7 +14,7 @@ let url = 'http://192.168.0.8:8001'
 
 // const io = require('socket.io-client')
 let socket = io.connect(url)
-let call = require('./../../../exCall-module/simpleCall')
+let call = require('./../exCall-module/Call').Call()
 let isConnect = false
 
 socket.call = {
