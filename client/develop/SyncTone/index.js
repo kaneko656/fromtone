@@ -1,4 +1,4 @@
-let soundList = {
+let audioList = {
     '３音': 'lib/sound/notification-common.mp3',
     '和風メロディ': 'lib/sound/wafuringtone.mp3',
     'wind': 'lib/sound/wind8.mp3',
@@ -44,3 +44,27 @@ let soundList = {
     'xylophone_1': 'lib/sound/tone/xylophone_B.mp3',
     'xylophone_0': 'lib/sound/tone/xylophone_hC.mp3'
 }
+
+let SoundManager = require('./SoundManager.js')
+
+SoundManager.setAudioList(audioList)
+
+SoundManager.setSpeakerPosition('a', {
+    a: {
+        x: 0.2,
+        y: 0.2
+    },
+    b: {
+        x: 0.7,
+        y: 0.4
+    }
+})
+console.log('play')
+let dbap = SoundManager.DBAP({
+  x:0,
+  y:0
+})
+console.log(dbap)
+setTimeout(()=>{
+    SoundManager.play('xylophone_0')
+}, 5000)

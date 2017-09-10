@@ -6,17 +6,18 @@
 window.addEventListener('load', init, false)
 
 // サーバ
-let socket = require('./socket-client/index.js')
-let ntp = require('./ntp-client.js')
+let socket = require('./../socket-client/index.js')
+let ntp = require('./../ntp-client.js')
 
 // 共有
 // データ共有
-let shareData = require('./connect.js')
+let shareData = require('./../connect.js')
 // イベント共有
-let eventListener = require('./Call').Call()
+// let eventListener = require('./../Call').Call()
 
 
 function init() {
+
 
     // loadMessage
     let loadMessage = document.getElementById('loading_message')
@@ -32,6 +33,9 @@ function init() {
     } catch (e) {
         alert('Web Audio API is not supported in this browser')
     }
+
+    require('./SyncTone/index.js')
+
 
     // demo type
     let demo_argument = document.getElementById('demo-argument')
@@ -74,11 +78,11 @@ function init() {
         let config = {
             user: user
         }
-        let inputUserName = require('./demo-common/prompt.js')
+        let inputUserName = require('./../demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {
             config.user = user
-            let game = require('./develop/examples/index.js')
-            game.start(document.getElementById('wrap'), webAudio, socket, ntp, config, shareData, eventListener)
+            // let game = require('./index.js')
+            // game.start(document.getElementById('wrap'), webAudio, socket, ntp, config, shareData, eventListener)
         })
     }
 }

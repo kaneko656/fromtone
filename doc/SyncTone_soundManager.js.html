@@ -1,4 +1,32 @@
-/**
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: SyncTone/SoundManager.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: SyncTone/SoundManager.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
  * @overview このファイルが音関係の処理を行うモジュールとなる．WebAudioAPIを使用．
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
  * @version 1.0.0
@@ -28,6 +56,7 @@ let buffer = {}
 try {
     window.AudioContext = window.AudioContext || window.webkitAudioContext
     webAudio = new AudioContext()
+    init(webAudio)
 } catch (e) {
     webAudio = null
     console.log('Web Audio API is not supported in this browser')
@@ -64,12 +93,12 @@ exports.setAudioList = (audioUrlList) => {
     }
 
     // urlList -> (each) key, audio buffer
-    let requestAllSound = (audioUrlList, callback = () => {}) => {
+    let requestAllSound = (soundList, callback = () => {}) => {
         let bufferList = {}
         let cnt = 0
-        let length = Object.keys(audioUrlList).length
-        for (let key in audioUrlList) {
-            requestSound(audioUrlList[key], (buffer) => {
+        let length = Object.keys(soundList).length
+        for (let key in soundList) {
+            loadSound(soundList[key], (buffer) => {
                 callback(key, buffer)
                 cnt++
                 if (cnt == length) {
@@ -80,7 +109,7 @@ exports.setAudioList = (audioUrlList) => {
     }
 
     // aduio buffer -> decodedBuffer
-    let decodeAudioData = (buffer, callback = () => {}) => {
+    let decodeAudioData = (buffer) => {
         webAudio.decodeAudioData(buffer, function(decodedBuffer) {
             callback(decodedBuffer)
         }, (err) => {
@@ -89,13 +118,13 @@ exports.setAudioList = (audioUrlList) => {
     }
 
     // AllProcess
-    requestAllSound(audioUrlList, (key, buf) => {
-        decodeAudioData(buf, (decodedBuffer) => {
-            console.log('load: ' + key, decodedBuffer)
-            buffer[key] = decodedBuffer
+    requestAllSound(soundList, () => {
+        requestAllSound(soundList, (key, buffer) => {
+            decodeAudioData(buffer, (decodedBuffer) => {
+                buffer[key] = decodedBuffer
+            })
         })
     })
-
 }
 
 /**
@@ -126,12 +155,12 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
         return
     }
 
-    let gainNode = webAudio.createGain()
-    gainNode.connect(webAudio.destination)
-    gainNode.gain.value = 1.0
+    let gainNode = context.createGain()
+    gainNode.connect(context.destination)
+    gainNode.gain.value = 0
     audioOptions.destination = gainNode
 
-    let syncAudio = SyncAudio(webAudio, buffer[audioName], audioOptions)
+    let syncAudio = SyncAudio(webAudio, audioOptions)
 
     return {
         setDBAP: () => {
@@ -152,8 +181,8 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
 
     syncPlay.createSyncSound(bufferName, time, offset, (syncSound) => {
 
-        let gainNode = webAudio.createGain()
-        gainNode.connect(webAudio.destination)
+        let gainNode = context.createGain()
+        gainNode.connect(context.destination)
         gainNode.gain.value = 0
 
         syncSound.started((leftTime) => {})
@@ -172,7 +201,7 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
             console.log('positionEffect', value)
 
             gainNode.gain.value = value
-            if (!isStart && value > 0) {
+            if (!isStart &amp;&amp; value > 0) {
                 let plus = Date.now() - stoppingTime
                 syncSound.offset += plus
                 syncPlay.play(gainNode, syncSound)
@@ -254,12 +283,12 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
                 // console.log(value)
                 value = value * (valueRate + velocityVolumeRate * velocityVolume)
             } else {
-                if (velocityVolume < targetVelocityVolume) {
+                if (velocityVolume &lt; targetVelocityVolume) {
                     velocityVolume += 0.03
                     velocityVolume = velocityVolume >= targetVelocityVolume ? targetVelocityVolume : velocityVolume
                 } else if (velocityVolume > targetVelocityVolume) {
                     velocityVolume -= 0.03
-                    velocityVolume = velocityVolume <= targetVelocityVolume ? targetVelocityVolume : velocityVolume
+                    velocityVolume = velocityVolume &lt;= targetVelocityVolume ? targetVelocityVolume : velocityVolume
                 }
 
                 value = DBAP(mySpeakerID, p.gx, p.gy)
@@ -292,7 +321,7 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
                 l.value = l.value * (l.valueRate + 0)
                 let startT = st / 1000 + (l.soundTargetTime + interval) / 1000
                 // console.log('Job', l.value, st / 1000 + l.soundTargetTime / 1000)
-                if (startT <= syncPlay.context.currentTime) {
+                if (startT &lt;= syncPlay.context.currentTime) {
                     gainNode.gain.value = value
                     syncSound.source.playbackRate.value = 1.0
                 } else {
@@ -314,13 +343,13 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
             // console.log(value.toFixed(4))
             let startT = st / 1000 + soundTargetTime / 1000
             // console.log('lastValue ',value)
-            if (startT <= syncPlay.context.currentTime) {
+            if (startT &lt;= syncPlay.context.currentTime) {
                 gainNode.gain.value = value
             } else {
                 gainNode.gain.linearRampToValueAtTime(value, st / 1000 + soundTargetTime / 1000)
             }
 
-            if (!isStart && value > 0) {
+            if (!isStart &amp;&amp; value > 0) {
                 let plus = Date.now() - stoppingTime
                 syncSound.offset += plus
                 syncPlay.play(gainNode, syncSound)
@@ -431,7 +460,7 @@ exports.DBAP = (soundPosition, rolloff = 6.02 * 10) => {
     }
     let result = {}
     if (powerSum != 0) {
-        for (let name in power) {
+        for(let name in power){
             result[name] = power[name] / powerSum
         }
         // console.log('power', power / powerSum, ' = ', power, ' / ', powerSum)
@@ -439,3 +468,26 @@ exports.DBAP = (soundPosition, rolloff = 6.02 * 10) => {
     }
     return result
 }
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-SoundManager.html">SoundManager</a></li><li><a href="module-SoundManager_SyncAudio.html">SoundManager/SyncAudio</a></li></ul><h3>Classes</h3><ul><li><a href="module-SoundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li></ul><h3>Events</h3><ul><li><a href="module-SoundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Mon Sep 11 2017 04:09:12 GMT+0900 (JST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

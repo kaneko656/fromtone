@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: Call/CallbackChild.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: Call/CallbackChild.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>const CallMeasure = require('./CallMeasure.js')
+const CallOperator = require('./CallOperator.js')
+
+/**
+ *  Callback manage,ent class corresponding to key
+ */
+
+module.exports = CallbackChild
+
+function CallbackChild(name, key) {
+    this.name = name
+    this.listNum = 0
+    this.key = key
+    this.callbackList = {}
+
+    this.timeout = 3000
+    this.repeatLimit = 3
+
+    this.maxLevel = 10
+    this.targetLevel = 10
+    this.sectionAmount = 100
+    this.sectionCount = {}
+    for (let lev = 0; lev &lt;= this.maxLevel; lev++) {
+        this.sectionCount[lev] = 0
+    }
+}
+
+// getNewSectionNumber
+// Called in decreasing order
+
+CallbackChild.prototype.getNewSectionNumber = function() {
+    let level = this.targetLevel
+    if (this.sectionCount[level] + 1 >= this.sectionAmount) {
+        level = this.maxLevel
+    }
+    this.sectionCount[level] += 1
+    return this.sectionCount[level] + level * this.sectionAmount
+}
+
+// setTargetLevel
+
+CallbackChild.prototype.setTargetLevel = function(level) {
+    if (isFinite(level) &amp;&amp; level >= 0 &amp;&amp; level &lt;= this.maxLevel) {
+        this.targetLevel = Math.floor(level)
+    }
+}
+
+// remove
+
+CallbackChild.prototype.remove = function(num) {
+    if (num in this.callbackList) {
+        delete this.callbackList[num]
+    }
+}
+
+// remove
+
+CallbackChild.prototype.allRemove = function() {
+    for (let num in this.callbackList) {
+        delete this.callbackList[num]
+    }
+}
+
+// setCallStatus
+
+CallbackChild.prototype.setCallStatus = function(num, status) {
+    if (num in this.callbackList) {
+        this.callbackList[num].call = status
+    }
+}
+
+// isCall
+
+CallbackChild.prototype.isCall = function(num) {
+    if (num in this.callbackList) {
+        return this.callbackList[num].call
+    }
+}
+
+// setName
+
+CallbackChild.prototype.setName = function(name) {
+    this.name = name
+}
+
+// getName
+
+CallbackChild.prototype.getName = function() {
+    return this.name
+}
+
+// setTimeout
+
+CallbackChild.prototype.setTimeout = function(millis) {
+    if (isFinite(millis) &amp;&amp; millis >= 0) {
+        this.timeout = millis
+    }
+}
+
+// setRepeatLimit
+
+CallbackChild.prototype.setRepeatLimit = function(num) {
+    if (isFinite(num) &amp;&amp; num >= 0) {
+        this.repeatLimit = num
+    }
+}
+
+// on
+
+CallbackChild.prototype.on = function(applyCallback, filter) {
+
+    if (typeof applyCallback == 'function') {
+        let sectionNum = this.getNewSectionNumber()
+        this.callbackList[sectionNum] = {
+            callback: applyCallback,
+            num: sectionNum,
+            call: true,
+            type: 'function',
+            filter: filter
+        }
+        return sectionNum
+    } else if (['string', 'number', 'boolean', 'undefined'].indexOf(typeof applyCallback) >= 0) {
+        let sectionNum = this.getNewSectionNumber()
+        this.callbackList[sectionNum] = {
+            callback: () => {
+                return applyCallback
+            },
+            num: sectionNum,
+            call: true,
+            type: 'value',
+            filter: filter
+        }
+        return sectionNum
+    }
+}
+
+// emit
+
+CallbackChild.prototype.emit = function(...option) {
+    let Child = this
+
+    // callbacks
+    let setMeasure = []
+    for (let num in Child.callbackList) {
+        if (Child.callbackList[num].call) {
+
+            let callback = Child.callbackList[num].callback
+            let filter = Child.callbackList[num].filter
+
+            setMeasure.push((operator) => {
+
+                // copy
+                let copy = Object.assign([], option)
+
+                // again check callStatus
+                if (!Child.callbackList[num] || !Child.callbackList[num].call) {
+                    return
+                }
+
+                // setOperator
+                operator.Call = CallOperator(Child, num)
+                copy.unshift(operator)
+
+                // filter
+                if (filter &amp;&amp; filter.type == 'filter' &amp;&amp; typeof filter.judge == 'function') {
+                    filter.judge(operator.getContext(), (result) => {
+                        if (result &amp;&amp; result.judge) {
+                            // emit
+                            callback.apply(Child, copy)
+                        } else {
+                            // do not emit
+                        }
+                    })
+                } else {
+
+                    // emit
+                    callback.apply(Child, copy)
+                }
+            })
+        }
+    }
+
+    let callMeasure = new CallMeasure(setMeasure, Child.timeout, Child.repeatLimit)
+    callMeasure.start()
+}
+
+
+CallbackChild.prototype.list = function() {
+    let list = {}
+    let Child = this
+    for (let num in Child.callbackList) {
+        let status = Child.callbackList[num]
+        list[num] = {
+            num: status.num,
+            call: status.call,
+            type: status.call,
+            filter: status.filter &amp;&amp; status.filter.ifText
+        }
+    }
+    return list
+}
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-SoundManager.html">SoundManager</a></li><li><a href="module-SoundManager_SyncAudio.html">SoundManager/SyncAudio</a></li></ul><h3>Classes</h3><ul><li><a href="module-SoundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li></ul><h3>Events</h3><ul><li><a href="module-SoundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Mon Sep 11 2017 04:09:12 GMT+0900 (JST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

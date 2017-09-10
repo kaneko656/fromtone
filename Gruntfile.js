@@ -1,10 +1,10 @@
 module.exports = function(grunt) {
 
-    grunt.registerTask('hello', 'description here', function() {
-        grunt.log.writeln('hello! hello!');
+    grunt.registerTask('start', 'description here', function() {
+        grunt.log.writeln('Grunt Start!');
     });
 
-    grunt.registerTask('default', ['hello']);
+
 
     grunt.initConfig({
         jsdoc: {
@@ -16,6 +16,10 @@ module.exports = function(grunt) {
             }
         }
     });
+    // プラグインの読み込み
     grunt.loadNpmTasks('grunt-jsdoc');
+
+    // デフォルトで実行
+    grunt.registerTask('default', ['start', 'jsdoc']);
 
 };
