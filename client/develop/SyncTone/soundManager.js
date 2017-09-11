@@ -5,7 +5,9 @@
  * @module SoundManager
  */
 
+const TimeValue = require('./TimeValue.js')
 const SyncAudio = require('./SyncAudio.js')
+const socket = require('./webSocket/socketClient.js')
 let syncAudios = {}
 let soundList = {}
 let soundNameList = []
@@ -18,6 +20,13 @@ let speakerPosition = {
     }
 }
 let mySpeakerID = 'default'
+let listenerPosition = {
+    x: 0,
+    y: 0,
+    z: 0
+}
+// 1.0 が何mに相当するか
+let areaDist = 5
 
 let finishInit = false
 
@@ -91,7 +100,7 @@ exports.setAudioList = (audioUrlList) => {
     // AllProcess
     requestAllSound(audioUrlList, (key, buf) => {
         decodeAudioData(buf, (decodedBuffer) => {
-            console.log('load: ' + key, decodedBuffer)
+            console.log('load: ' + key)
             buffer[key] = decodedBuffer
         })
     })
@@ -113,8 +122,9 @@ exports.setSpeakerPosition = (id, _speakerPosition) => {
 /**
  * 再生
  * @param  {string} audioName    keyName of setAudioList
- * @param  {Object} [audioOptions={}] options of SyncAudio > name, destination, startDateTime(UTCmillis), offset(sec), duration(sec), loop(boolean)
+ * @param  {Object} [audioOptions={}] options of SyncAudio > name, destination, loop(boolean), startDateTime(UTCmillis), offset(sec), duration(sec)
  * @param  {Object} [syncOptions={}]
+ * @return {AudioSyncController} functions  applyDBAP, applyDoppler, uypdate
  */
 
 exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
@@ -131,21 +141,59 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
     gainNode.gain.value = 1.0
     audioOptions.destination = gainNode
 
+    let soundManager = this
+    let useDBAP = false
+    let useDoppler = false
     let syncAudio = SyncAudio(webAudio, buffer[audioName], audioOptions)
-
-    return {
-        setDBAP: () => {
-
-        },
-        setDoppler: (listenerPosition) => {
-
-        },
-        // listener speakerPositionはここではなくSoundManager側
-        // { time, position }
-        update: () => {
-
+    let timeValue = TimeValue()
+    timeValue.updateEvent = (pre, next) => {
+        let atNextTime = webAudio.currentTime + (next.time - Date.now()) / 1000
+        if (useDBAP) {
+            let nextDBAP = DBAP(next.value)
+            let power = nextDBAP[mySpeakerID]
+            gainNode.gain.linearRampToValueAtTime(power, atNextTime)
+            console.log('DBAP', 'power:', power.toFixed(3), 'time:', atNextTime.toFixed(3))
+        }
+        if (useDoppler) {
+            let rate = Doppler(pre.time, pre.value, next.time, next.value)
+            if (rate) {
+                syncAudio.source.playbackRate.linearRampToValueAtTime(rate, atNextTime)
+                console.log('Doppler', 'rate:', rate.toFixed(3), 'time:', atNextTime.toFixed(3))
+            }
         }
     }
+
+    /**
+     * AudioSyncController
+     * @class
+     */
+    let AudioSyncController = {
+
+        /**
+         * AudioSyncController
+         * @param  {boolean} apply DBAPを適応(defalut=false)
+         */
+        applyDBAP: (apply) => {
+            useDBAP = apply
+        },
+
+        /**
+         * AudioSyncController
+         * @param  {boolean} apply Dopplerを適応(defalut=false)
+         */
+        applyDoppler: (apply) => {
+            useDoppler = apply
+        },
+
+        /**
+         * AudioSyncController
+         * @param  {Object} updateValue { time: {x, y} }
+         */
+        update: (updateValue) => {
+            timeValue.update(updateValue)
+        }
+    }
+    return AudioSyncController
 
 
     // return positionUpdate
@@ -402,7 +450,7 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
  * @return {object} { speakerID: powerBalance(0.0-1.0) }
  */
 
-exports.DBAP = (soundPosition, rolloff = 6.02 * 10) => {
+let DBAP = exports.DBAP = (soundPosition, rolloff = 6.02 * 10) => {
     // console.log(speakerPosition, soundGx, soundGy)
     if (!speakerPosition) {
         return null
@@ -410,11 +458,8 @@ exports.DBAP = (soundPosition, rolloff = 6.02 * 10) => {
     // スピーカの半径　無限大発散を防ぐ
     let speakerRadius = 0.00001
     let powerSum = 0
-    // console.log('\r\n')
     let power = {}
     for (let name in speakerPosition) {
-        // console.log('\r\n')
-
         let spX = speakerPosition[name].x
         let spY = speakerPosition[name].y
         let aX = soundPosition.x
@@ -423,11 +468,8 @@ exports.DBAP = (soundPosition, rolloff = 6.02 * 10) => {
         let rDist = Math.pow(dist, -rolloff / 20 * Math.log10(2))
         let p = rDist * rDist
         // エネルギーなので２乗
-        // console.log(name, spX, spY)
-        // console.log('dist', dist)
         power[name] = p
         powerSum += p
-        // console.log('power', p)
     }
     let result = {}
     if (powerSum != 0) {
@@ -438,4 +480,24 @@ exports.DBAP = (soundPosition, rolloff = 6.02 * 10) => {
         // console.log('power', power, ' = ', power, ' / ', powerSum)
     }
     return result
+}
+
+let Doppler = exports.Doppler = (preTime, prePosition, nextTime, nextPosition) => {
+
+    let diffDist = culculateDist(listenerPosition, nextPosition) - culculateDist(listenerPosition, prePosition)
+    let diffTime = nextTime - preTime
+    if (diffTime == 0) {
+        return
+    }
+    // m / ms
+    let vs = areaDist * diffDist / diffTime
+    // km/h
+    vs = vs * 3600
+
+    let rate = 340 / (340 - vs)
+    return rate
+}
+
+let culculateDist = (a, b) => {
+    return Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y))
 }

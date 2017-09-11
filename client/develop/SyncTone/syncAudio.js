@@ -9,7 +9,7 @@
  * SyncAudioコンストラクタ
  * @param       {Object} webAudio     WebAudioAPI -> AudioContext
  * @param       {Object} buffer       audio buffer of WebAudioAPI
- * @param       {Object} [options={}] name, startDateTime(UTCmillis), offset(sec), duration(sec), loop(boolean)
+ * @param       {Object} [options={}] name, destination,  loop(boolean), startDateTime(UTCmillis), offset(sec), duration(sec)
  * @return {SyncAudio}           SyncAudioインスタンス
  *
  */
@@ -21,7 +21,7 @@ module.exports = (webAudio, buffer, options = {}) => {
  * @class SyncAudio
  * @param       {Object} webAudio     WebAudioAPI -> AudioContext
  * @param       {Object} buffer       buffer of WebAudioAPI
- * @param       {Object} [options={}] name, destination, startDateTime(UTCmillis), offset(sec), duration(sec), loop(boolean)
+ * @param       {Object} [options={}] name, destination,  loop(boolean), startDateTime(UTCmillis), offset(sec), duration(sec)
  * @constructor
  */
 
@@ -46,7 +46,7 @@ function SyncAudio(webAudio, buffer, options = {}) {
         let delayedOffset = (this.offset - leftTime) % this.duration
         this.source.start(this.startTime, delayedOffset)
         this.isPlaying = true
-        console.log('SyncAudio ' + this.name + ' delay: ' + delayTime)
+        console.log('SyncAudio ' + this.name + ' delay: ' + delayedOffset)
     } else {
         this.source.start(this.startTime, this.offset)
         setTimeout(() => {
@@ -67,14 +67,14 @@ function SyncAudio(webAudio, buffer, options = {}) {
  * @event
  * @param {string} status 終了条件（end, stop）
  */
-SyncAudio.prototype.finished = () => {
+SyncAudio.prototype.finished = function(){
 
 }
 
 /**
  * 途中で再生を終了する
  */
-SyncAudio.prototype.stop = () => {
+SyncAudio.prototype.stop = function(){
     if(this.isPlaying){
         this.source.stop()
         this.source.disconnect()

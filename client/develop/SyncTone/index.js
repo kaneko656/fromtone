@@ -59,12 +59,29 @@ SoundManager.setSpeakerPosition('a', {
         y: 0.4
     }
 })
-console.log('play')
 let dbap = SoundManager.DBAP({
   x:0,
   y:0
 })
 console.log(dbap)
 setTimeout(()=>{
-    SoundManager.play('xylophone_0')
-}, 5000)
+    let audioSyncController = SoundManager.play('pizz_melody')
+    console.log('play')
+    audioSyncController.applyDBAP(true)
+    audioSyncController.applyDoppler(true)
+    let pos = {}
+    for(let i=0; i<4; i++){
+        pos[Date.now() + i * 1000] = {
+            x: i/3,
+            y: 0.2
+        }
+    }
+    audioSyncController.update(pos)
+    for(let i=4; i<7; i++){
+        pos[Date.now() + i * 1000] = {
+            x: 0.2,
+            y: 0.2
+        }
+    }
+    audioSyncController.update(pos)
+}, 2500)

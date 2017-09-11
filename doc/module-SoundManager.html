@@ -138,18 +138,12 @@
     
 
     
-
-    
-        <h3 class="subsection-title">Methods</h3>
+        <h3 class="subsection-title">Members</h3>
 
         
             
+<h4 class="name" id="~DBAP"><span class="type-signature">(inner) </span>DBAP<span class="type-signature"></span></h4>
 
-    
-
-    <h4 class="name" id=".DBAP"><span class="type-signature">(static) </span>DBAP<span class="signature">(soundPosition, rolloff<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {object}</span></h4>
-
-    
 
 
 
@@ -157,116 +151,6 @@
     DBAP法
 </div>
 
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-        <th>Attributes</th>
-        
-
-        
-        <th>Default</th>
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>soundPosition</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">object</span>
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-
-                
-
-                
-                </td>
-            
-
-            
-                <td class="default">
-                
-                </td>
-            
-
-            <td class="description last">{x, y}</td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>rolloff</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">number</span>
-
-
-            
-            </td>
-
-            
-                <td class="attributes">
-                
-                    &lt;optional><br>
-                
-
-                
-
-                
-                </td>
-            
-
-            
-                <td class="default">
-                
-                    6.02 * 10
-                
-                </td>
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-    </tbody>
-</table>
 
 
 
@@ -302,7 +186,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="SyncTone_SoundManager.js.html">SyncTone/SoundManager.js</a>, <a href="SyncTone_SoundManager.js.html#line406">line 406</a>
+        <a href="SyncTone_SoundManager.js.html">SyncTone/SoundManager.js</a>, <a href="SyncTone_SoundManager.js.html#line453">line 453</a>
     </li></ul></dd>
     
 
@@ -318,44 +202,18 @@
 
 
 
-
-
-
-
-
-
-
-<h5>Returns:</h5>
-
         
-<div class="param-desc">
-    { speakerID: powerBalance(0.0-1.0) }
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">object</span>
-
-
-    </dd>
-</dl>
-
     
 
-
+    
+        <h3 class="subsection-title">Methods</h3>
 
         
             
 
     
 
-    <h4 class="name" id=".play"><span class="type-signature">(static) </span>play<span class="signature">(audioName, audioOptions<span class="signature-attributes">opt</span>, syncOptions<span class="signature-attributes">opt</span>)</span><span class="type-signature"></span></h4>
+    <h4 class="name" id=".play"><span class="type-signature">(static) </span>play<span class="signature">(audioName, audioOptions<span class="signature-attributes">opt</span>, syncOptions<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {AudioSyncController}</span></h4>
 
     
 
@@ -469,7 +327,7 @@
                 </td>
             
 
-            <td class="description last">options of SyncAudio > name, destination, startDateTime(UTCmillis), offset(sec), duration(sec), loop(boolean)</td>
+            <td class="description last">options of SyncAudio > name, destination, loop(boolean), startDateTime(UTCmillis), offset(sec), duration(sec)</td>
         </tr>
 
     
@@ -549,7 +407,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="SyncTone_SoundManager.js.html">SyncTone/SoundManager.js</a>, <a href="SyncTone_SoundManager.js.html#line121">line 121</a>
+        <a href="SyncTone_SoundManager.js.html">SyncTone/SoundManager.js</a>, <a href="SyncTone_SoundManager.js.html#line130">line 130</a>
     </li></ul></dd>
     
 
@@ -572,6 +430,28 @@
 
 
 
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    functions  applyDBAP, applyDoppler, uypdate
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">AudioSyncController</span>
+
+
+    </dd>
+</dl>
+
+    
 
 
 
@@ -680,7 +560,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="SyncTone_SoundManager.js.html">SyncTone/SoundManager.js</a>, <a href="SyncTone_SoundManager.js.html#line51">line 51</a>
+        <a href="SyncTone_SoundManager.js.html">SyncTone/SoundManager.js</a>, <a href="SyncTone_SoundManager.js.html#line59">line 59</a>
     </li></ul></dd>
     
 
@@ -834,7 +714,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="SyncTone_SoundManager.js.html">SyncTone/SoundManager.js</a>, <a href="SyncTone_SoundManager.js.html#line107">line 107</a>
+        <a href="SyncTone_SoundManager.js.html">SyncTone/SoundManager.js</a>, <a href="SyncTone_SoundManager.js.html#line115">line 115</a>
     </li></ul></dd>
     
 
@@ -876,13 +756,13 @@
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-SoundManager.html">SoundManager</a></li><li><a href="module-SoundManager_SyncAudio.html">SoundManager/SyncAudio</a></li></ul><h3>Classes</h3><ul><li><a href="module-SoundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li></ul><h3>Events</h3><ul><li><a href="module-SoundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-SoundManager.html">SoundManager</a></li><li><a href="module-SoundManager_SyncAudio.html">SoundManager/SyncAudio</a></li><li><a href="module-SoundManager_TimeValue.html">SoundManager/TimeValue</a></li></ul><h3>Classes</h3><ul><li><a href="module-SoundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-SoundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-SoundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-SoundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-SoundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Mon Sep 11 2017 04:09:12 GMT+0900 (JST)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Mon Sep 11 2017 12:09:01 GMT+0900 (JST)
 </footer>
 
 <script> prettyPrint(); </script>

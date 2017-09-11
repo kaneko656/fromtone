@@ -20,6 +20,6 @@ module.exports = function(grunt) {
     grunt.loadNpmTasks('grunt-jsdoc');
 
     // デフォルトで実行
-    grunt.registerTask('default', ['start', 'jsdoc']);
+    grunt.registerTask('default', ['start', 'jsdoc'])
 
 };
