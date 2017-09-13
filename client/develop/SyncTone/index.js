@@ -63,7 +63,7 @@ let dbap = SoundManager.DBAP({
   x:0,
   y:0
 })
-console.log(dbap)
+
 setTimeout(()=>{
     let audioSyncController = SoundManager.play('pizz_melody')
     console.log('play')

@@ -6,18 +6,17 @@
 window.addEventListener('load', init, false)
 
 // サーバ
-let socket = require('./../socket-client/index.js')
-let ntp = require('./../ntp-client.js')
+// let socket = require('./webSocket/socketClient.js')
+// let ntp = require('./../ntp-client.js')
 
 // 共有
 // データ共有
-let shareData = require('./../connect.js')
+// let shareData = require('./../connect.js')
 // イベント共有
-// let eventListener = require('./../Call').Call()
+// let eventListener = require('./Call').Call()
 
 
 function init() {
-
 
     // loadMessage
     let loadMessage = document.getElementById('loading_message')
@@ -26,15 +25,15 @@ function init() {
     }
 
     // web Audio
-    let webAudio
-    try {
-        window.AudioContext = window.AudioContext || window.webkitAudioContext
-        webAudio = new AudioContext()
-    } catch (e) {
-        alert('Web Audio API is not supported in this browser')
-    }
+    // let webAudio
+    // try {
+    //     window.AudioContext = window.AudioContext || window.webkitAudioContext
+    //     webAudio = new AudioContext()
+    // } catch (e) {
+    //     alert('Web Audio API is not supported in this browser')
+    // }
 
-    require('./SyncTone/index.js')
+    // require('./SyncTone/index.js')
 
 
     // demo type
@@ -43,34 +42,29 @@ function init() {
     console.log(demo_type)
 
     // sokcet
-    shareData.set('socket_status', {
-        connect: false,
-        url: ''
-    })
-    socket.call.on('connect', (operator, url) => {
-        console.log('Socket: connect', url)
-        shareData.set('socket_status', {
-            connect: true,
-            url: url
-        })
-    })
-    socket.call.on('disconnect', (operator, url) => {
-        console.log('Socket: disconnect', url)
-        shareData.set('socket_status', {
-            connect: false,
-            url: url
-        })
-    })
+    // shareData.set('socket_status', {
+    //     connect: false,
+    //     url: ''
+    // })
+    // socket.connect((url) => {
+    //     console.log('Socket: connect', url)
+    //     shareData.set('socket_status', {
+    //         connect: true,
+    //         url: url
+    //     })
+    // })
+    //
+    // socket.disconnect((url) => {
+    //     console.log('Socket: disconnect', url)
+    //     shareData.set('socket_status', {
+    //         connect: false,
+    //         url: url
+    //     })
+    // })
 
     // ntp
-    ntp.setSocket(socket)
-    ntp.autoCorrection(60000)
-    ntp.getDiff((dif) => {
-        let text = 'offset time: ' + (dif.offset).toFixed(1) + 'ms  　trans delay: ' + (dif.delay).toFixed(1) + 'ms<br>'
-        text += 'correctionTime: ' + (dif.correctionTime).toFixed(1) + 'ms ==? ' + (dif.temp_delay).toFixed(1) + 'ms  (temporary delay)'
-        dif.text = text
-        shareData.set('ntp_status', dif)
-    })
+    // socket.ntp.repeat(60000)
+
 
     // system
     if (demo_type == 'develop') {
@@ -81,6 +75,8 @@ function init() {
         let inputUserName = require('./../demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {
             config.user = user
+            let main = require('./main.js')
+            main.start(config)
             // let game = require('./index.js')
             // game.start(document.getElementById('wrap'), webAudio, socket, ntp, config, shareData, eventListener)
         })

@@ -1,5 +1,6 @@
 let clientList = {}
 let speakerList = {}
+let socketRoot = 'develop/'
 let socketDir = 'develop_'
 let socketType = 'develop'
 
@@ -14,44 +15,15 @@ let serverTime
 
 const CronJob = require('cron').CronJob
 
-let emitAllClient = (key, body) => {
-    for (let id in clientList) {
-        if (clientList[id].socket) {
-            clientList[id].socket.emit(key, body)
-        }
-    }
-}
+const clientRegister = require('./register.js')
 
-let getClientList = () => {
-    let list = []
-    for (let id in clientList) {
-        let c = clientList[id]
-        if (list.indexOf(c.name) == -1) {
-            list.push(c.name)
-        }
-    }
-    return list
-}
 
 exports.start = (socket, disconnect, _serverTime) => {
     serverTime = _serverTime
 
     let id = ''
-    socket.on(socketDir + 'register', (body) => {
-        id = body.id || 'null'
-        clientList[id] = {
-            id: id,
-            socket: socket,
-            name: body.user
-        }
-        socket.emit(socketDir + 'register', {
-            id: id,
-            name: body.user
-        })
-        let list = getClientList()
-        socket.emit(socketDir + 'user_list', list)
-        emitAllClient(socketDir + 'user_add', body.user)
-    })
+
+    clientRegister.init(socket, disconnect, socketRoot)
 
     socket.on(socketDir + 'gyro', (body) => {
         // console.log(body)
@@ -59,24 +31,24 @@ exports.start = (socket, disconnect, _serverTime) => {
     })
 
     disconnect(() => {
-        if (id in clientList) {
-            let name = clientList[id].name
-            emitAllClient(socketDir + 'user_remove', name)
-            delete clientList[id]
-        }
-
-        for (let name in noteClient) {
-            if (tempNote[name] && id === noteClient[name]) {
-                tempNote[name].isOtherMove = false
-                tempNote[name].ovre = false
-                emitAllClient(socketDir + 'surround_note', Object.assign({}, tempNote[name]))
-                delete noteClient[name]
-                delete tempNote[name]
-            }
-        }
-        if (id in speakerList) {
-            delete speakerList[id]
-        }
+        // if (id in clientList) {
+        //     let name = clientList[id].name
+        //     emitAllClient(socketDir + 'user_remove', name)
+        //     delete clientList[id]
+        // }
+        //
+        // for (let name in noteClient) {
+        //     if (tempNote[name] && id === noteClient[name]) {
+        //         tempNote[name].isOtherMove = false
+        //         tempNote[name].ovre = false
+        //         emitAllClient(socketDir + 'surround_note', Object.assign({}, tempNote[name]))
+        //         delete noteClient[name]
+        //         delete tempNote[name]
+        //     }
+        // }
+        // if (id in speakerList) {
+        //     delete speakerList[id]
+        // }
     })
 
     let objectInfoBuffer = []

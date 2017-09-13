@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: server/register.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: server/register.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @overview socketを接続 clientをグループ登録  emit[All/Group]Client, get[All/Group]ClientData
+ * @author {@link https://github.com/kaneko656 Shoma Kaneko}
+ * @version 1.0.0
+ * @module server/register
+ */
+
+let clientList = {}
+let clientData = {}
+let socket
+let registerEvent = () => {}
+
+
+/**
+ * clientList
+ * @param  {string} emitKey
+ * @param  {Object} emitData
+ * @param  {Object} [options={}] removeClient/Group [...id]
+ */
+
+let emitAllClient = exports.emitAllClient = (emitKey, emitData, options = {}) => {
+    for (let group in clientList) {
+        if (options.removeGroup &amp;&amp; options.removeGroup.indexOf(group) >= 0) {
+            continue
+        }
+        for (let id in clientList[group]) {
+            let client = clientList[group][id]
+            if (options.removeClient &amp;&amp; options.removeClient.indexOf(id) >= 0) {
+                continue
+            }
+            clientList.socket.emit(emitKey, emitData)
+        }
+    }
+}
+
+
+/**
+ * clientList
+ * @param  {string} group        [description]
+ * @param  {string} emitKey      [description]
+ * @param  {Object} emitData     [description]
+ * @param  {Object} [options={}] removeClient[...id]
+ */
+
+let emitGroupClient = exports.emitGroupClient = (group, emitKey, emitData, options = {}) => {
+    console.log(emitKey, group, emitData)
+    if (group in clientList) {
+        for (let id in clientList[group]) {
+            let client = clientList[group][id]
+            if (options.removeClient &amp;&amp; options.removeClient.indexOf(id) >= 0) {
+                continue
+            }
+            client.socket.emit(emitKey, emitData)
+        }
+    }
+}
+
+/**
+ * clientData
+ * [getAllClientData description]
+ * @param  {Object} [options={}] removeClient/Group [...id]
+ * @return {object|null}       [description]
+ */
+
+let getAllClientData = exports.getAllClientData = (options) => {
+    if (!options.removeGroup &amp;&amp; !options.removeClient) {
+        if (Object.keys(clientData).length == 0) {
+            return null
+        }
+        return clientData
+    }
+    let tempData = {}
+    for (let group in clientData) {
+        if (options.removeGroup &amp;&amp; options.removeGroup.indexOf(group) >= 0) {
+            continue
+        }
+        if (!options.removeClient) {
+            tempData[group] = clientData[group]
+        }
+        for (let id in clientData[group]) {
+            let data = clientData[group][id]
+            if (options.removeClient &amp;&amp; options.removeClient.indexOf(id) >= 0) {
+                continue
+            }
+            // init
+            if (!tempData[group][id]) {
+                tempData[group][id] = {}
+            }
+            tempData[group][id] = data
+        }
+    }
+    if (Object.keys(tempData).length == 0) {
+        return null
+    }
+    return tempData
+}
+
+
+/**
+ * clientData
+ * @param  {stirng} group [description]
+ * @param  {Object} [options={}] removeClient
+ * @return {object|null}       [description]
+ */
+
+let getGroupClientData = exports.getGroupClientData = (group, options = {}) => {
+    if (group in clientData) {
+        if (!options.removeClient) {
+            return clientData[group]
+        } else {
+            let tempData = {}
+            for (let id in clientData[group]) {
+                let data = clientData[group][id]
+                if (options.removeClient &amp;&amp; options.removeClient.indexOf(id) >= 0) {
+                    continue
+                }
+                tempData[id] = data
+            }
+            if (Object.keys(tempData).length == 0) {
+                return null
+            }
+            return tempData
+        }
+    }
+    return null
+}
+
+
+/**
+ * clientData
+ * @param  {stirng} group [description]
+ * @param  {string} id    [description]
+ * @return {object|null}       [description]
+ */
+
+let getClientData = exports.getClientData = (group, id) => {
+    if (group in clientData) {
+        if (id in clientData[group]) {
+            let tempData = {}
+            tempData[id] = clientData[group][id]
+            return tempData
+        }
+    }
+    return null
+}
+
+
+/**
+ * clientList[group][id] = {socket, id, group, data}
+ * &lt;br>&lt;br>on&lt;ul>
+ *   &lt;li>register
+ *   &lt;li>register/update
+ * &lt;/ul>
+ * emit&lt;ul>
+ *   &lt;li>register/confirm
+ *   &lt;li>register/group_client_list  registerしたclientに一度だけ送る
+ *   &lt;li>register/event/add_client
+ *   &lt;li>register/event/remove_client
+ *   &lt;li>register/event/update
+ * &lt;/ul>
+ * @param  {Object} socket 各CilentごとのSocket
+ * @param {funtion} connect
+ * @param {funtion} disconnect
+ * @param {string} socketRoot socketKeyのルート ex. root = aa/bb/
+ */
+
+exports.init = (socket, connect, disconnect, socketRoot) => {
+    let clinetID = null
+    let clientGroup = null
+
+
+    socket.on(socketRoot + 'register', (body) => {
+        clientID = body.id || 'default'
+        clientGroup = body.group || 'default'
+        let id = clientID
+        let group = clientGroup
+        let data = body.data || {}
+
+        // init
+        if (!(group in clientList)) {
+            clientList[group] = {}
+        }
+        if (!(group in clientData)) {
+            clientData[group] = {}
+        }
+
+        clientList[group][id] = {
+            socket: socket,
+            id: id,
+            group: group,
+            data: data
+        }
+        clientData[group][id] = body.data || {}
+
+        // 登録によるデータをClientへ送る
+
+        // to Client
+        // response
+        socket.emit(socketRoot + 'register/confirm', {
+            id: id,
+            group: group,
+            ok: true
+        })
+
+        // groupClientData
+        let groupClientData = getGroupClientData(group, {
+            removeClient: [id]
+        })
+        if (groupClientData) {
+            socket.emit(socketRoot + 'register/group_client_list', groupClientData)
+        }
+
+        // to GroupClient
+        // addClient
+        let addClientData = {}
+        addClientData[id] = data
+        emitGroupClient(group, socketRoot + 'register/event/add_client', addClientData, {
+            removeClient: [id]
+        })
+
+        // serverEvent
+        registerEvent({
+            type: 'add',
+            data: addClientData
+        })
+    })
+
+    //
+    socket.on(socketRoot + 'register/update', (data = {}) => {
+        if (clientData[clientGroup] &amp;&amp; clientData[clientGroup][clientID]) {
+            clientData[clientGroup][clientID] = data
+        }
+        if (clientList[clientGroup] &amp;&amp; clientList[clientGroup][clientID]) {
+            clientList[clientGroup][clientID].data = data
+            emitGroupClient(clientGroup, socketRoot + 'register/event/update', getClientData(clientGroup, clientID))
+        }
+    })
+
+    disconnect(() => {
+        // to GroupClient
+        let removeClientData = getClientData(clientGroup, clientID)
+        emitGroupClient(clientGroup, socketRoot + 'register/event/remove_client', removeClientData)
+        removeClient(clientGroup, clientID)
+
+        // serverEvent
+        registerEvent({
+            type: 'remove',
+            data: removeClientData
+        })
+    })
+}
+
+
+let removeClient = (group, id) => {
+    if (group in clientData) {
+        if (id in clientData[group]) {
+            delete clientData[group][id]
+        }
+    }
+    if (group in clientList) {
+        if (id in clientList[group]) {
+            delete clientList[group][id]
+        }
+    }
+}
+
+
+exports.registerEvent = (callback = () => {}) => {
+    registerEvent = callback
+}
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-SoundManager.html">SoundManager</a></li><li><a href="module-SoundManager_SyncAudio.html">SoundManager/SyncAudio</a></li><li><a href="module-SoundManager_TimeValue.html">SoundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li></ul><h3>Classes</h3><ul><li><a href="module-SoundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-SoundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-SoundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-SoundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-SoundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#start">start</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Wed Sep 13 2017 18:52:40 GMT+0900 (JST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

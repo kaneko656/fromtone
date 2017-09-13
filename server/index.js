@@ -19,7 +19,7 @@ const board_game = require('./board-game.js')
 const board_game_player = require('./board-game-player.js')
 const demo = require('./demo.js')
 
-const develop = require('./develop.js')
+// const develop = require('./develop.js')
 
 let socket_io = app.socket()
 
@@ -32,10 +32,10 @@ let serverTime = () => {
     return Date.now() + dateDiff
 }
 
-socket_io.connect((obj) => {
-    let socket = obj.socket
-    let connect = obj.connect
-    let disconnect = obj.disconnect
+socket_io.connect((socketClient) => {
+    let socket = socketClient.socket
+    let connect = socketClient.connect
+    let disconnect = socketClient.disconnect
 
     // webaudio.start(socket, disconnect, serverTime)
     syncmusic.start(socket, disconnect, serverTime)
@@ -56,7 +56,7 @@ socket_io.connect((obj) => {
     board_game_player.start(socket, disconnect, serverTime)
     demo.start(socket, disconnect, serverTime)
 
-    develop.start(socket, disconnect, serverTime)
+    // develop.start(socket, connect, disconnect, serverTime)
 
     socket.on('test', (body) => {
         console.log('test', body)

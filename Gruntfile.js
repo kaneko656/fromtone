@@ -9,7 +9,7 @@ module.exports = function(grunt) {
     grunt.initConfig({
         jsdoc: {
             dist: {
-                src: ['client/develop/*'],
+                src: ['client/develop/*', 'server/*'],
                 options: {
                     destination: 'doc'
                 }

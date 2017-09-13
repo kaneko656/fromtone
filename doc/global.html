@@ -101,160 +101,6 @@
 
     
 
-    <h4 class="name" id="hoge"><span class="type-signature"></span>hoge<span class="signature">(name, age)</span><span class="type-signature"></span></h4>
-
-    
-
-
-
-<div class="description">
-    hogeメソッドです。
-</div>
-
-
-
-
-
-
-
-
-
-    <h5>Parameters:</h5>
-    
-
-<table class="params">
-    <thead>
-    <tr>
-        
-        <th>Name</th>
-        
-
-        <th>Type</th>
-
-        
-
-        
-
-        <th class="last">Description</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    
-
-        <tr>
-            
-                <td class="name"><code>name</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">String</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-
-        <tr>
-            
-                <td class="name"><code>age</code></td>
-            
-
-            <td class="type">
-            
-                
-<span class="param-type">Int</span>
-
-
-            
-            </td>
-
-            
-
-            
-
-            <td class="description last"></td>
-        </tr>
-
-    
-    </tbody>
-</table>
-
-
-
-
-
-
-<dl class="details">
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-    <dt class="tag-source">Source:</dt>
-    <dd class="tag-source"><ul class="dummy"><li>
-        <a href="jsdoc_test.js.html">jsdoc_test.js</a>, <a href="jsdoc_test.js.html#line25">line 25</a>
-    </li></ul></dd>
-    
-
-    
-
-    
-
-    
-</dl>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-            
-
-    
-
     <h4 class="name" id="module:SoundManager/SyncAudio"><span class="type-signature"></span>module:SoundManager/SyncAudio<span class="signature">(webAudio, buffer, options<span class="signature-attributes">opt</span>)</span><span class="type-signature"> &rarr; {SyncAudio}</span></h4>
 
     
@@ -404,7 +250,7 @@
                 </td>
             
 
-            <td class="description last">name, startDateTime(UTCmillis), offset(sec), duration(sec), loop(boolean)</td>
+            <td class="description last">name, destination,  loop(boolean), startDateTime(UTCmillis), offset(sec), duration(sec)</td>
         </tr>
 
     
@@ -445,7 +291,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="SyncTone_syncAudio.js.html">SyncTone/syncAudio.js</a>, <a href="SyncTone_syncAudio.js.html#line16">line 16</a>
+        <a href="client_develop_SyncTone_SyncAudio.js.html">client/develop/SyncTone/SyncAudio.js</a>, <a href="client_develop_SyncTone_SyncAudio.js.html#line16">line 16</a>
     </li></ul></dd>
     
 
@@ -498,14 +344,118 @@
 
     
 
-    <h4 class="name" id="sum"><span class="type-signature"></span>sum<span class="signature">(a, b)</span><span class="type-signature"> &rarr; {Number}</span></h4>
+    <h4 class="name" id="module:SoundManager/TimeValue"><span class="type-signature"></span>module:SoundManager/TimeValue<span class="signature">()</span><span class="type-signature"> &rarr; {TimeValue}</span></h4>
 
     
 
 
 
 <div class="description">
-    Return the sum of a and b.
+    TimeValueクラスのコンストラクタ
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="client_develop_SyncTone_TimeValue.js.html">client/develop/SyncTone/TimeValue.js</a>, <a href="client_develop_SyncTone_TimeValue.js.html#line14">line 14</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    TimeValueのインスタンスを返す
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">TimeValue</span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+        
+            
+
+    
+
+    <h4 class="name" id="start"><span class="type-signature"></span>start<span class="signature">(socket, connect, disconnect, _serverTime)</span><span class="type-signature"></span></h4>
+
+    
+
+
+
+<div class="description">
+    [start description]
 </div>
 
 
@@ -541,13 +491,13 @@
 
         <tr>
             
-                <td class="name"><code>a</code></td>
+                <td class="name"><code>socket</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">Number</span>
+<span class="param-type">Object</span>
 
 
             
@@ -557,20 +507,20 @@
 
             
 
-            <td class="description last">1st number.</td>
+            <td class="description last">各ClientごとのSocket</td>
         </tr>
 
     
 
         <tr>
             
-                <td class="name"><code>b</code></td>
+                <td class="name"><code>connect</code></td>
             
 
             <td class="type">
             
                 
-<span class="param-type">Number</span>
+<span class="param-type">function</span>
 
 
             
@@ -580,7 +530,53 @@
 
             
 
-            <td class="description last">2nd number.</td>
+            <td class="description last">[description]</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>disconnect</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">[description]</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>_serverTime</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">[description]</td>
         </tr>
 
     
@@ -621,7 +617,7 @@
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="jsdoc_test.js.html">jsdoc_test.js</a>, <a href="jsdoc_test.js.html#line12">line 12</a>
+        <a href="server_board-game.js.html">server/board-game.js</a>, <a href="server_board-game.js.html#line43">line 43</a>
     </li></ul></dd>
     
 
@@ -644,28 +640,6 @@
 
 
 
-<h5>Returns:</h5>
-
-        
-<div class="param-desc">
-    Sum of number.
-</div>
-
-
-
-<dl>
-    <dt>
-        Type
-    </dt>
-    <dd>
-        
-<span class="param-type">Number</span>
-
-
-    </dd>
-</dl>
-
-    
 
 
 
@@ -685,13 +659,13 @@
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-SoundManager.html">SoundManager</a></li><li><a href="module-SoundManager_SyncAudio.html">SoundManager/SyncAudio</a></li></ul><h3>Classes</h3><ul><li><a href="module-SoundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="MyClass.html">MyClass</a></li></ul><h3>Events</h3><ul><li><a href="module-SoundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li></ul><h3>Global</h3><ul><li><a href="global.html#hoge">hoge</a></li><li><a href="global.html#sum">sum</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-SoundManager.html">SoundManager</a></li><li><a href="module-SoundManager_SyncAudio.html">SoundManager/SyncAudio</a></li><li><a href="module-SoundManager_TimeValue.html">SoundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li></ul><h3>Classes</h3><ul><li><a href="module-SoundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-SoundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-SoundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-SoundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-SoundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#start">start</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Mon Sep 11 2017 02:35:44 GMT+0900 (JST)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Wed Sep 13 2017 18:52:40 GMT+0900 (JST)
 </footer>
 
 <script> prettyPrint(); </script>

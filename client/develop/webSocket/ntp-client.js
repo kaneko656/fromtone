@@ -2,7 +2,8 @@
  * @overview 時刻同期処理 socketを使用
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
  * @version 1.0.0
- * @module socketClient
+ * @module webSocket/ntpClient
+ * @see {@link module:webSocket/socketClient}
  */
 
 let socket
@@ -10,6 +11,7 @@ let dateDiff = 0
 let call = []
 
 /**
+ * 一回目を実行
  * @param {Object} socket
  */
 exports.setSocket = (_socket) => {
@@ -24,54 +26,38 @@ exports.setSocket = (_socket) => {
     })
 }
 
-/**
- * @param  {callback} callback
- */
-exports.getDiff = (callback = () => {}) => {
-    call.push(callback)
-}
 
 // +2sずれ　サーバが送ってくる時刻に +2s した時刻　と内部時刻で整合性
 // 家の時計 5分進んでいる
 // 10時集合と言われたら10時5分に集合すればいい
 
 /**
+ * server時刻をLocal時刻に補正する
  * @param  {number} time
  * @return {number} correctionTime
  */
-exports.correctionServerTime = (time) => {
+exports.toClientTime = (time) => {
     return Math.round(time + dateDiff)
 }
 
 /**
+ * Local時刻をserver時刻に補正する
  * @param  {number} time
  * @return {number} correctionTime
  */
-exports.correctionToServerTime = (time) => {
+exports.toServerTime = (time) => {
     return Math.round(time - dateDiff)
 }
 
 /**
- * @return
- */
-exports.dateDiff = () => {
-    return dateDiff
-}
-
-/**
- * @return
- */
-exports.correctionTime = () => {
-    return -dateDiff
-}
-
-/**
+ * 時刻補正処理をintervalで繰り返す
  * @param  {number} intervalMillis
  */
-exports.autoCorrection = (intervalMillis) => {
+
+exports.repeat = (intervalMillis) => {
     let setRestart = () => {
         setTimeout(() => {
-            module.exports.restart()
+            restart()
             setRestart()
         }, intervalMillis)
     }
@@ -79,9 +65,28 @@ exports.autoCorrection = (intervalMillis) => {
 }
 
 /**
- * Restart
+ * ずれ時間を返す
+ * @return {number}
  */
-exports.restart = () => {
+
+exports.getShiftTime = () => {
+    return dateDiff
+}
+
+/**
+ * ずれ時刻を返す 変更の度にコールバック
+ * @param  {callback} callback
+ */
+
+exports.checkShiftTime = (callback = () => {}) => {
+    call.push(callback)
+}
+
+
+/**
+ *
+ */
+let restart = () => {
     isRestart = true
     buffer = []
     buffer_head = 0
@@ -106,6 +111,10 @@ let average_offset = 0
 let stableCheckNum = 0
 let stopCheckNum = 10
 let isRestart = false
+
+/**
+ *
+ */
 let smoothing = (obj) => {
     if (isFirstBuffer && buffer_head < buffer_max) {
         buffer.push(obj)
@@ -146,6 +155,9 @@ let smoothing = (obj) => {
     })
 }
 
+/**
+ *
+ */
 let setAverage = (buf) => {
     let offset = 0
     let delay = 0
@@ -163,7 +175,9 @@ let setAverage = (buf) => {
     }
 }
 
-
+/**
+ *
+ */
 let on = () => {
     socket.on('ntp_server', (body) => {
         let catchTime = Date.now()
@@ -178,9 +192,11 @@ let on = () => {
             catchTime: catchTime
         })
     })
-
 }
 
+/**
+ *
+ */
 let emit = () => {
     setTimeout(() => {
         let send = Date.now()
