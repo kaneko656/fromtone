@@ -2,7 +2,8 @@
  * @overview  一つの時系列データを持つクラス
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
  * @version 1.0.0
- * @module SoundManager/TimeValue
+ * @module soundManager/TimeValue
+ * @see {@link module:soundManager}
  */
 
 

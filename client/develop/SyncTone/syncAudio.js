@@ -2,7 +2,8 @@
  * @overview  一つのAudio Bufferに対しての同期再生処理を行うSoundManagerの内部クラス
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
  * @version 1.0.0
- * @module SoundManager/SyncAudio
+ * @module soundManager/SyncAudio
+ * @see {@link module:soundManager}
  */
 
 /**

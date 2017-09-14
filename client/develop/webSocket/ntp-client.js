@@ -37,7 +37,7 @@ exports.setSocket = (_socket) => {
  * @return {number} correctionTime
  */
 exports.toClientTime = (time) => {
-    return Math.round(time + dateDiff)
+    return Math.round(Number(time) + dateDiff)
 }
 
 /**
@@ -46,7 +46,7 @@ exports.toClientTime = (time) => {
  * @return {number} correctionTime
  */
 exports.toServerTime = (time) => {
-    return Math.round(time - dateDiff)
+    return Math.round(Number(time) - dateDiff)
 }
 
 /**

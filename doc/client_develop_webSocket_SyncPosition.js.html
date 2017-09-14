@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: client/develop/webSocket/syncPosition.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: client/develop/webSocket/syncPosition.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @overview socketを接続 config.json - socketUrl
+ * @author {@link https://github.com/kaneko656 Shoma Kaneko}
+ * @version 1.0.0
+ * @module webSocket/SyncPosition
+ * @see {@link module:webSocket/socketClient}
+ */
+
+const Job = require('./../Job/cron.js')
+
+// => position, events, types,
+
+
+// リアルタイム time
+// アニメーション time
+
+/**
+ * syncObject
+ * @typedef {Object} syncObject
+ * @property {stirng|number} time
+ * @property {string[]} [events]
+ * @property {string[]} [types]
+ * @property {Object} [position]
+ * @property {Object} [data]
+ */
+
+let syncObjectTemplate = {
+    time: 'UTCmillis',
+    events: [],
+    types: [],
+    position: {
+        x: 0,
+        y: 0,
+        z: 0
+    },
+    data: {}
+}
+
+let bufferTime = 30
+let sendObjectBuffer = []
+exports.sendSyncObject = (ntp, syncObject, option) => {
+
+    // objectの定義にそっているか判定と変換
+    syncObject = checkSyncObject(syncObject)
+    if(syncObject){
+        syncObject.time = ntp.toServerTime(syncObject.time)
+        if(isNaN(syncObject.time)){
+            return
+        }
+
+    }
+    // let start = (sendObjectBuffer.length == 0)
+    // if (sendObjectBuffer.length > 0 &amp;&amp; sendObj.events.length == 0) {
+    //     return
+    // }
+    //
+    // // update at time
+    // sendObj.timestamp = Math.floor(clientTime.correctionToServerTime(sendObj.timestamp))
+    // sendObjectBuffer.push(sendObj)
+    //
+    //
+    // let now = Date.now()
+    // let date1 = new Date(Math.floor(now / bufferTime) * bufferTime + bufferTime)
+    // let date2 = new Date(Math.floor(now / bufferTime) * bufferTime + bufferTime * 2)
+    // if (start) {
+    //     Job(date1, () => {
+    //         if (sendObjectBuffer.length >= 1) {
+    //             socket.emit(socketDir + 'sendObjectInfo', sendObjectBuffer)
+    //             sendObjectBuffer = []
+    //         }
+    //     })
+    //     Job(date2, () => {
+    //         if (sendObjectBuffer.length >= 1) {
+    //             socket.emit(socketDir + 'sendObjectInfo', sendObjectBuffer)
+    //             sendObjectBuffer = []
+    //         }
+    //     })
+    // }
+}
+
+let checkSyncObject = (syncObject) => {
+    if(!syncObject || !syncObject.time){
+        return false
+    }
+    if(!Array.isArray(syncObject.events)){
+        if(typeof syncObject.events == 'string'){
+            syncObject.events = [syncObject.events]
+        }else{
+            syncObject.events = []
+        }
+    }
+    if(!Array.isArray(types)){
+        if(typeof syncObject.types == 'string'){
+            syncObject.types = [syncObject.types]
+        }else{
+            syncObject.types = []
+        }
+    }
+    if(typeof syncObject.position != 'object'){
+        syncObject.position = {}
+    }
+    if(typeof syncObject.data != 'object'){
+        syncObject.data = {}
+    }
+    return syncObject
+}
+
+// let globalPos = this.clip.encodeToGloval(sendObj.x, sendObj.y)
+// sendObj.gx = globalPos.x
+// sendObj.gy = globalPos.y
+// sendObj.clientID = this.clientID
+// if (sendObj.events.indexOf('auto_move') == -1) {
+//     sendObj.timestamp = Date.now()
+//     // console.log('time')
+// }
+// this.callSendObjectInfo(sendObj, option)
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-soundManager.html">soundManager</a></li><li><a href="module-soundManager_SyncAudio.html">soundManager/SyncAudio</a></li><li><a href="module-soundManager_TimeValue.html">soundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li><li><a href="module-webSocket_SyncPosition.html">webSocket/SyncPosition</a></li></ul><h3>Classes</h3><ul><li><a href="module-soundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-soundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-soundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#start">start</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Thu Sep 14 2017 17:06:40 GMT+0900 (JST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

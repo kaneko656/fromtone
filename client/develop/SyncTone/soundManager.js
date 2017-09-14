@@ -2,7 +2,9 @@
  * @overview このファイルが音関係の処理を行うモジュールとなる．WebAudioAPIを使用．
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
  * @version 1.0.0
- * @module SoundManager
+ * @module soundManager
+ * @see {@link module:soundManager/SyncAudio}
+ * @see {@link module:soundManager/TimeValue}
  */
 
 const TimeValue = require('./TimeValue.js')

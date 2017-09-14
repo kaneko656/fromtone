@@ -49,25 +49,21 @@ let registrationConfirm = false
  * @param  {function} connect
  * @param  {function} disconnect
  * @param  {string} socketRoot
+ * @param  {string} group
  * @param  {Object} [clientData={}]
  * @return {function} updater()
  */
 
-exports.init = (socket, connect, disconnect, socketRoot, clientData = {}) => {
+exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {}) => {
     let clientID = uuid.v4()
 
-    console.log(clientID)
-    connect(() => {
-        console.log(socketRoot + 'register')
-        socket.emit(socketRoot + 'register', {
-            id: clientID,
-            data: clientData
-        })
-    })
-
+    console.log('register.js clientID: ' + clientID)
+    if (typeof group != 'string') {
+        group = null
+    }
 
     socket.on(socketRoot + 'register/confirm', (response) => {
-        console.log('confirm', response)
+        console.log('register.js register confirm', response)
         if (response.ok) {
             registrationConfirm = true
         }
@@ -75,7 +71,7 @@ exports.init = (socket, connect, disconnect, socketRoot, clientData = {}) => {
 
     // 初回に現在のリストが送られてくる それ以降の差分はadd, removeで取得
     socket.on(socketRoot + 'register/group_client_list', (list) => {
-        console.log('list', list)
+        console.log('register.js list', list)
         if (isLock) {
             return
         }
@@ -84,7 +80,7 @@ exports.init = (socket, connect, disconnect, socketRoot, clientData = {}) => {
     })
 
     socket.on(socketRoot + 'register/event/add_client', (list) => {
-        console.log('add', list)
+        console.log('register.js add', list)
         if (isLock) {
             return
         }
@@ -95,7 +91,7 @@ exports.init = (socket, connect, disconnect, socketRoot, clientData = {}) => {
     })
 
     socket.on(socketRoot + 'register/event/remove_client', (list) => {
-        console.log('remove', list)
+        console.log('register.js remove', list)
         if (isLock) {
             return
         }
@@ -113,9 +109,22 @@ exports.init = (socket, connect, disconnect, socketRoot, clientData = {}) => {
                 user[id] = list[id]
             }
         }
+        console.log('register.js update', list)
+
+    })
+
+
+    connect(() => {
+        // console.log(socketRoot + 'register')
+        socket.emit(socketRoot + 'register', {
+            id: clientID,
+            group: group,
+            data: clientData
+        })
     })
 
     let updater = (data) => {
+        console.log('register.js emit ' + socketRoot + 'register/update')
         socket.emit(socketRoot + 'register/update', data)
     }
     return updater
@@ -163,13 +172,13 @@ exports.updateClientEvent = (callback = () => {}) => {
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-SoundManager.html">SoundManager</a></li><li><a href="module-SoundManager_SyncAudio.html">SoundManager/SyncAudio</a></li><li><a href="module-SoundManager_TimeValue.html">SoundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li></ul><h3>Classes</h3><ul><li><a href="module-SoundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-SoundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-SoundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-SoundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-SoundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#start">start</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-soundManager.html">soundManager</a></li><li><a href="module-soundManager_SyncAudio.html">soundManager/SyncAudio</a></li><li><a href="module-soundManager_TimeValue.html">soundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li><li><a href="module-webSocket_sync.html">webSocket/sync</a></li></ul><h3>Classes</h3><ul><li><a href="module-soundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-soundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-soundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#start">start</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Wed Sep 13 2017 18:52:40 GMT+0900 (JST)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Thu Sep 14 2017 17:57:45 GMT+0900 (JST)
 </footer>
 
 <script> prettyPrint(); </script>

@@ -21,17 +21,21 @@ let registrationConfirm = false
  * @param  {function} connect
  * @param  {function} disconnect
  * @param  {string} socketRoot
+ * @param  {string} group
  * @param  {Object} [clientData={}]
  * @return {function} updater()
  */
 
-exports.init = (socket, connect, disconnect, socketRoot, clientData = {}) => {
+exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {}) => {
     let clientID = uuid.v4()
 
-    console.log(clientID)
+    console.log('register.js clientID: ' + clientID)
+    if (typeof group != 'string') {
+        group = null
+    }
 
     socket.on(socketRoot + 'register/confirm', (response) => {
-        console.log('confirm', response)
+        console.log('register.js register confirm', response)
         if (response.ok) {
             registrationConfirm = true
         }
@@ -39,7 +43,7 @@ exports.init = (socket, connect, disconnect, socketRoot, clientData = {}) => {
 
     // 初回に現在のリストが送られてくる それ以降の差分はadd, removeで取得
     socket.on(socketRoot + 'register/group_client_list', (list) => {
-        console.log('list', list)
+        console.log('register.js list', list)
         if (isLock) {
             return
         }
@@ -48,7 +52,7 @@ exports.init = (socket, connect, disconnect, socketRoot, clientData = {}) => {
     })
 
     socket.on(socketRoot + 'register/event/add_client', (list) => {
-        console.log('add', list)
+        console.log('register.js add', list)
         if (isLock) {
             return
         }
@@ -59,7 +63,7 @@ exports.init = (socket, connect, disconnect, socketRoot, clientData = {}) => {
     })
 
     socket.on(socketRoot + 'register/event/remove_client', (list) => {
-        console.log('remove', list)
+        console.log('register.js remove', list)
         if (isLock) {
             return
         }
@@ -77,21 +81,22 @@ exports.init = (socket, connect, disconnect, socketRoot, clientData = {}) => {
                 user[id] = list[id]
             }
         }
-        console.log('update', list)
+        console.log('register.js update', list)
 
     })
 
 
     connect(() => {
-        console.log(socketRoot + 'register')
+        // console.log(socketRoot + 'register')
         socket.emit(socketRoot + 'register', {
             id: clientID,
+            group: group,
             data: clientData
         })
     })
 
     let updater = (data) => {
-        console.log(socketRoot + 'register/update')
+        console.log('register.js emit ' + socketRoot + 'register/update')
         socket.emit(socketRoot + 'register/update', data)
     }
     return updater

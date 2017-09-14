@@ -33,15 +33,18 @@
  * @module webSocket/socketClient
  * @see {@link module:webSocket/register}
  * @see {@link module:webSocket/ntpClient}
+ * @see {@link module:webSocket/sync}
  */
 
 let ntp = require('./ntp-client')
 let register = require('./register')
+let sync = require('./sync')
 let call = require('./../Call').Call()
 
 let url = require('./../config.json').socketUrl || 'http://192.168.144.142:8001'
 let socket = io.connect(url)
 let isConnect = false
+let isConnecting = true
 
 // module: ntp
 
@@ -64,18 +67,51 @@ exports.ntp = ntp
 exports.register = register
 
 /**
- * {@link module:webSocket/register} init()
  * @see {@link module:webSocket/register} init()
  * @param  {String} [socketRoot=''] [description]
+ * @param  {String} [group]  グループごとにデータを共有範囲を区切る
  * @param  {Object} [clinetData={}]
  * @return {function} updater
  */
 
-exports.initRegister = (socketRoot = '', clientData = {}) => {
-    return register.init(socket, connect, disconnect, socketRoot, clientData)
+exports.initRegister = (socketRoot = '', group, clientData = {}) => {
+    return register.init(socket, connect, disconnect, socketRoot, group, clientData)
 }
 
 
+// module: sync
+
+/**
+ * @see {@link module:webSocket/sync} sendSyncObject()
+ * @param  {string} socketRoot
+ * @param  {syncObject} syncObject [description]
+ * @param  {Object} [options]     現在，未使用
+ */
+exports.sendSyncObject = (socketRoot = '', syncObject, options = {}) => {
+    sync.sendSyncObject(socket, ntp, socketRoot, syncObject, options = {})
+}
+
+/**
+ * @param  {string} socketRoot
+ * @param  {callback} callback syncObject[]
+ */
+exports.receiveSyncObject = (socketRoot = '', callback) => {
+    sync.receiveSyncObject(socket, ntp, socketRoot, callback)
+}
+
+
+
+// socket
+
+/**
+ * @param  {callback}
+ */
+
+exports.connecting = (callback = () => {}) => {
+    if (isConnecting) {
+        callback(url)
+    }
+}
 
 /**
  * @param  {callback}
@@ -86,6 +122,7 @@ let connect = exports.connect = (callback = () => {}) => {
         callback(url)
     }
     call.on('connect', () => {
+        isConnecting = false
         callback(url)
     })
 }
@@ -96,7 +133,7 @@ let connect = exports.connect = (callback = () => {}) => {
  */
 
 let disconnect = exports.disconnect = (callback = () => {}) => {
-    if (!isConnect) {
+    if (!isConnect &amp;&amp; !isConnecting) {
         callback(url)
     }
     call.on('disconnect', () => {
@@ -108,6 +145,9 @@ let disconnect = exports.disconnect = (callback = () => {}) => {
 socket.on('connect', () => {
     isConnect = true
 
+    // callback
+    call.emit('connect', url)
+
     // ntp
     ntp.setSocket(socket)
 
@@ -118,15 +158,11 @@ socket.on('connect', () => {
     //     dif.text = text
     //     shareData.set('ntp_status', dif)
     // })
-
-    call.emit('connect', url)
-    // console.log('Socket: connect', url)
 })
 
 socket.on('disconnect', () => {
     isConnect = false
     call.emit('disconnect', url)
-    // console.log('Socket: disconnect', url)
 })
 </code></pre>
         </article>
@@ -138,13 +174,13 @@ socket.on('disconnect', () => {
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-SoundManager.html">SoundManager</a></li><li><a href="module-SoundManager_SyncAudio.html">SoundManager/SyncAudio</a></li><li><a href="module-SoundManager_TimeValue.html">SoundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li></ul><h3>Classes</h3><ul><li><a href="module-SoundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-SoundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-SoundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-SoundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-SoundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#start">start</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-soundManager.html">soundManager</a></li><li><a href="module-soundManager_SyncAudio.html">soundManager/SyncAudio</a></li><li><a href="module-soundManager_TimeValue.html">soundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li><li><a href="module-webSocket_sync.html">webSocket/sync</a></li></ul><h3>Classes</h3><ul><li><a href="module-soundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-soundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-soundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#start">start</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Wed Sep 13 2017 18:52:40 GMT+0900 (JST)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Thu Sep 14 2017 17:57:45 GMT+0900 (JST)
 </footer>
 
 <script> prettyPrint(); </script>
