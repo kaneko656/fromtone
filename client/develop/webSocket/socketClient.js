@@ -11,10 +11,17 @@
 let ntp = require('./ntp-client')
 let register = require('./register')
 let sync = require('./sync')
-let call = require('./../Call').Call()
-
+let call = require('./eventCall')
 let url = require('./../config.json').socketUrl || 'http://192.168.144.142:8001'
-let socket = io.connect(url)
+let socketRoot = ''
+
+let socket
+if (!window.io) {
+    socket = require('socket.io-client')(url)
+} else {
+    socket = io.connect(url)
+}
+
 let isConnect = false
 let isConnecting = true
 
@@ -46,7 +53,8 @@ exports.register = register
  * @return {function} updater
  */
 
-exports.initRegister = (socketRoot = '', group, clientData = {}) => {
+exports.initRegister = (_socketRoot = '', group, clientData = {}) => {
+    socketRoot = _socketRoot
     return register.init(socket, connect, disconnect, socketRoot, group, clientData)
 }
 
@@ -55,19 +63,17 @@ exports.initRegister = (socketRoot = '', group, clientData = {}) => {
 
 /**
  * @see {@link module:webSocket/sync} sendSyncObject()
- * @param  {string} socketRoot
  * @param  {syncObject} syncObject [description]
  * @param  {Object} [options]     現在，未使用
  */
-exports.sendSyncObject = (socketRoot = '', syncObject, options = {}) => {
+exports.sendSyncObject = (syncObject, options = {}) => {
     sync.sendSyncObject(socket, ntp, socketRoot, syncObject, options = {})
 }
 
 /**
- * @param  {string} socketRoot
  * @param  {callback} callback syncObject[]
  */
-exports.receiveSyncObject = (socketRoot = '', callback) => {
+exports.receiveSyncObject = (callback) => {
     sync.receiveSyncObject(socket, ntp, socketRoot, callback)
 }
 
@@ -89,7 +95,7 @@ exports.connecting = (callback = () => {}) => {
  * @param  {callback}
  */
 
-let connect = exports.connect = (callback = () => {}) => {
+exports.connect = (callback = () => {}) => {
     if (isConnect) {
         callback(url)
     }
@@ -98,13 +104,14 @@ let connect = exports.connect = (callback = () => {}) => {
         callback(url)
     })
 }
+let connect = exports.connect
 
 
 /**
  * @param  {callback}
  */
 
-let disconnect = exports.disconnect = (callback = () => {}) => {
+exports.disconnect = (callback = () => {}) => {
     if (!isConnect && !isConnecting) {
         callback(url)
     }
@@ -112,6 +119,18 @@ let disconnect = exports.disconnect = (callback = () => {}) => {
         callback(url)
     })
 }
+let disconnect = exports.disconnect
+
+
+/**
+ * serverにlogを送る
+ * @param  {string} socketRoot [description]
+ * @param  {} logData    [description]
+ */
+exports.log = (logData) => {
+    socket.emit(socketRoot + 'log', logData)
+}
+let log = exports.log
 
 
 socket.on('connect', () => {

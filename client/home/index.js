@@ -36,6 +36,10 @@ function init() {
 
             home.setUser(config.user)
 
+            // http://192.168.144.142:8001/lib/doc/index.html
+            //
+            home.setLink(url + 'lib/doc', 'References')
+
             home.setLink(url + 'demo-simple-notification', 'Simple-Notification')
             home.setLink(url + 'demo-task-notification', 'Task-Notification')
             home.setLink(url + 'demo-motivation', 'SyncMusic-surround')

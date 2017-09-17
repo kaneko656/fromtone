@@ -2,10 +2,12 @@ const app = require('./app.js')
 const socketio = require('socket.io')
 const ntp = require('./ntp.js')
 const page = require('./../../server-module/page/index.js')
+const localAddress = require('./localAddress.js')
 
 let server = app.initialize(8001)
 let io = socketio.listen(server.server)
 page.init(server.app)
+console.log(localAddress.toURL(8001))
 
 io.sockets.on('connection', (clientSocket) => {
     const develop = require('./develop.js')

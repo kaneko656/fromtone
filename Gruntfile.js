@@ -11,7 +11,7 @@ module.exports = function(grunt) {
             dist: {
                 src: ['client/develop/*', 'server/*'],
                 options: {
-                    destination: 'doc'
+                    destination: './server-module/page/public/doc'
                 }
             }
         }

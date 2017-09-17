@@ -1,5 +1,5 @@
 // サーバ
-let socket = require('./webSocket/socketClient.js')
+let socketClient = require('./webSocket/socketClient.js')
 
 // 共有
 // データ共有
@@ -13,29 +13,47 @@ let group = 'Serval'
 let syncTone = require('./SyncTone/soundManager.js')
 
 exports.start = (clientData) => {
-    socket.ntp.repeat(60000)
 
-    let updater = socket.initRegister(socketRoot, group, clientData)
+    // socketClient.ntp.repeat(60000)
 
-    socket.connecting((url) => {
-        console.log('connecting: ' + url)
+    let updater = socketClient.initRegister(socketRoot, group, clientData)
+
+    socketClient.connecting((url) => {
+        console.log('connecting... ' + url)
     })
 
-    socket.connect((url) => {
+    socketClient.connect((url) => {
         console.log('connect: ' + url)
+        socketClient.connect(() => {
+            socketClient.log(socketRoot, {
+                connect: 'a'
+            })
+            socketClient.log(socketRoot, {
+                connect: 'b'
+            })
+            setTimeout(() => {
+                socketClient.log(socketRoot, {
+                    connect: 'c'
+                })
+                // socketClient.log('develop/', vrDisplay.pose)
+            }, 1000)
+        })
+
     })
 
-    socket.disconnect((url) => {
+    socketClient.disconnect((url) => {
         console.log('disconnect: ' + url)
     })
 
     setTimeout(() => {
         clientData.value = Math.floor(Math.random() * 10)
         updater(clientData)
+        socketClient.sendSyncObject(socketRoot, syncObject)
     }, 2000)
 
-    socket.receiveSyncObject(socketRoot, (syncObjects) => {
+    socketClient.receiveSyncObject(socketRoot, (syncObjects) => {
         console.log(syncObjects)
+        socketClient.log(socketRoot, syncObjects)
     })
 
     let syncObject = {
@@ -46,5 +64,5 @@ exports.start = (clientData) => {
             y: 0
         }
     }
-    socket.sendSyncObject(socketRoot, syncObject)
+
 }

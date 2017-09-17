@@ -16,40 +16,21 @@ let serverTime
 const CronJob = require('cron').CronJob
 
 const clientRegister = require('./register.js')
+const common = require('./common.js')
 
 
 exports.start = (socket, disconnect, _serverTime) => {
     serverTime = _serverTime
 
-    let id = ''
+    let client = {}
 
-    clientRegister.init(socket, disconnect, socketRoot)
-
-    socket.on(socketDir + 'gyro', (body) => {
-        // console.log(body)
-        emitAllClient(socketDir + 'gyro_value', body)
+    clientRegister.init(socket, disconnect, socketRoot, (_client) => {
+        client.id = _client.id
+        client.group = _client.group
+        client.data = _client.data
     })
 
-    disconnect(() => {
-        // if (id in clientList) {
-        //     let name = clientList[id].name
-        //     emitAllClient(socketDir + 'user_remove', name)
-        //     delete clientList[id]
-        // }
-        //
-        // for (let name in noteClient) {
-        //     if (tempNote[name] && id === noteClient[name]) {
-        //         tempNote[name].isOtherMove = false
-        //         tempNote[name].ovre = false
-        //         emitAllClient(socketDir + 'surround_note', Object.assign({}, tempNote[name]))
-        //         delete noteClient[name]
-        //         delete tempNote[name]
-        //     }
-        // }
-        // if (id in speakerList) {
-        //     delete speakerList[id]
-        // }
-    })
+    common.init(socket, clientRegister, socketRoot, client)
 
     let objectInfoBuffer = []
     let bufferTime = 30

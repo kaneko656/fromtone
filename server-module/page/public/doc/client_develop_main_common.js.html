@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: client/develop/main/common.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: client/develop/main/common.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>const uuid = require('node-uuid')
+
+// const Canvas = require('./../canvas/canvas.js')
+const CardField = require('./../card/objectField.js')
+const Card = require('./../card/cardList.js')
+const CardCase = require('./../card/objectCase.js')
+
+const Job = require('./../Job/cron.js')
+
+let socketDir = 'develop_'
+let socketType = 'develop'
+
+let log = require('./../player/log.js')
+// const cardList = {
+//     'アリバイ': 'lib/image/card/アリバイ.png',
+//     'いぬ': 'lib/image/card/いぬ.png',
+//     'うわさ': 'lib/image/card/うわさ.png',
+//     'たくらみ': 'lib/image/card/たくらみ.png',
+//     '一般人': 'lib/image/card/一般人.png',
+//     '取り引き': 'lib/image/card/取り引き.png',
+//     '情報交換': 'lib/image/card/情報交換.png',
+//     '第一発見者': 'lib/image/card/第一発見者.png',
+//     '犯人': 'lib/image/card/犯人.png',
+//     '目撃者': 'lib/image/card/アリバイ.png',
+//     '裏': 'lib/image/card/裏.png'
+// }
+
+let clientID = null
+exports.register = (canvas, context, socket, clientTime, config) => {
+    clientID = uuid.v4()
+
+    socket.emit(socketDir + 'register', {
+        type: socketType,
+        id: clientID,
+        user: config.user
+    })
+}
+
+exports.start = (canvas, context, socket, clientTime, config) => {
+
+    /**
+     * init
+     */
+
+    if (!clientID) {
+        clientID = uuid.v4()
+        socket.emit(socketDir + 'register', {
+            type: socketType,
+            id: clientID,
+            user: config.user
+        })
+    }
+
+    let field = CardField(canvas, context)
+    field.setClientID(clientID)
+    // field.setClip(0, 0.3, 0.8, 0.8)
+
+
+    /**
+     * send object
+     */
+
+    let bufferTime = 30
+    let sendObjectBuffer = []
+    field.sendObjectInfo((sendObj, option) => {
+        let start = (sendObjectBuffer.length == 0)
+        if (sendObjectBuffer.length > 0 &amp;&amp; sendObj.events.length == 0) {
+            return
+        }
+
+        // 自分の描画を高速に
+        // if (field.objects[sendObj.id]) {
+        //     let date = new Date(sendObj.timestamp)
+        //     if (date &lt;= Date.now()) {
+        //         field.updateObjects(sendObj)
+        //     } else {
+        //         Job(date, () => {
+        //             field.updateObjects(sendObj)
+        //         })
+        //     }
+        // }
+        // update at time
+        sendObj.timestamp = Math.floor(clientTime.correctionToServerTime(sendObj.timestamp))
+        sendObjectBuffer.push(sendObj)
+
+
+        let now = Date.now()
+        let date1 = new Date(Math.floor(now / bufferTime) * bufferTime + bufferTime)
+        let date2 = new Date(Math.floor(now / bufferTime) * bufferTime + bufferTime * 2)
+        if (start) {
+            Job(date1, () => {
+                if (sendObjectBuffer.length >= 1) {
+                    socket.emit(socketDir + 'sendObjectInfo', sendObjectBuffer)
+                    sendObjectBuffer = []
+                }
+            })
+            Job(date2, () => {
+                if (sendObjectBuffer.length >= 1) {
+                    socket.emit(socketDir + 'sendObjectInfo', sendObjectBuffer)
+                    sendObjectBuffer = []
+                }
+            })
+        }
+    })
+
+    /**
+     * catch Object
+     */
+
+    socket.on(socketDir + 'sendObjectInfo', (objects) => {
+        updateObjects(objects)
+    })
+
+    let updateObjects = (objects) => {
+        if (!Array.isArray(objects)) {
+            let temp = objects
+            objects = []
+            objects.push(temp)
+        }
+        objects.forEach((obj) => {
+            // remove myObject
+            // if (field.objects[obj.id] &amp;&amp; obj.clientID == clientID) {
+            //     return
+            // }
+
+            // card set
+            if (!field.isObject(obj.id)) {
+                let card = Card(obj.name)
+                card.id = obj.id
+                card.types = obj.types
+                field.setObject(card)
+            }
+
+            // time correction
+            obj.time = clientTime.correctionServerTime(obj.time)
+            obj.startTime = clientTime.correctionServerTime(obj.startTime)
+
+            // update at time
+            let date = new Date(obj.time)
+            if (date &lt;= Date.now()) {
+                field.updateObjects(obj)
+            } else {
+                Job(date, () => {
+                    field.updateObjects(obj)
+                })
+            }
+            field.updateSounds(obj)
+        })
+    }
+
+    field.sendObjectCaseInfo((sendObj, option) => {
+        socket.emit(socketDir + 'sendObjectCaseInfo', sendObj)
+    })
+
+    socket.on(socketDir + 'sendObjectCaseInfo', (upObj) => {
+        // updateObjects(objects)
+        let id = upObj.id
+        if (!field.objectCase[id]) {
+            let cardCase = CardCase()
+            cardCase.id = id
+            cardCase.update(upObj)
+            field.setObjectCase(cardCase)
+            field.render()
+        } else {
+            field.objectCase[id].update(upObj)
+            field.render()
+        }
+    })
+
+
+    /**
+     * Key
+     */
+
+    let moved = (x, y) => {
+        field.mouseMoved(x, y)
+    }
+
+    let clicked = (x, y) => {
+        // ios対策
+        context.createBufferSource().start(0)
+        field.mousePressed(x, y)
+    }
+
+    let released = (x, y) => {
+        field.mouseReleased(x, y)
+    }
+
+
+    canvas.addEventListener('mousemove', function(e) {
+        moved(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchmove', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        moved(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mousedown', function(e) {
+        clicked(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchstart', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        clicked(x, y)
+        return false
+    })
+
+    canvas.addEventListener('mouseup', function(e) {
+        released(e.offsetX, e.offsetY)
+    })
+
+    canvas.addEventListener('touchend', function(e) {
+        e.preventDefault()
+        let rect = e.target.getBoundingClientRect()
+        let x = e.changedTouches[0].clientX - rect.left
+        let y = e.changedTouches[0].clientY - rect.top
+        released(x, y)
+        return false
+    })
+
+    return {
+        socketDir: socketDir,
+        socketType: socketType,
+        clientID: clientID,
+        canvas: canvas,
+        field: field,
+        updateObjects: updateObjects
+    }
+}
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-soundManager.html">soundManager</a></li><li><a href="module-soundManager_SyncAudio.html">soundManager/SyncAudio</a></li><li><a href="module-soundManager_TimeValue.html">soundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li><li><a href="module-webSocket_sync.html">webSocket/sync</a></li></ul><h3>Classes</h3><ul><li><a href="module-soundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-soundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-soundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#start">start</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Sun Sep 17 2017 15:06:55 GMT+0900 (JST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

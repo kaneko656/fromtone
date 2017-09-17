@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: server/board-game.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: server/board-game.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>let clientList = {}
+let speakerList = {}
+let socketDir = 'board_game_'
+let socketType = 'board_game'
+
+let noteClient = {}
+let tempNote = {}
+
+let musicStartTime = 0
+let musicDuration = 60000
+let resTime = 800
+
+let serverTime
+
+const CronJob = require('cron').CronJob
+
+let emitAllClient = (key, body) => {
+    for (let id in clientList) {
+        if (clientList[id].socket) {
+            clientList[id].socket.emit(key, body)
+        }
+    }
+}
+
+let getClientList = () => {
+    let list = []
+    for (let id in clientList) {
+        let c = clientList[id]
+        if (list.indexOf(c.name) == -1) {
+            list.push(c.name)
+        }
+    }
+    return list
+}
+
+/**
+ * [start description]
+ * @param  {Object} socket      各ClientごとのSocket
+ * @param  {Function} connect     [description]
+ * @param  {Function} disconnect  [description]
+ * @param  {Function} _serverTime [description]
+ */
+exports.start = (socket, connect, disconnect, _serverTime) => {
+    serverTime = _serverTime
+
+    let id = ''
+    socket.on(socketDir + 'register', (body) => {
+        id = body.id || 'null'
+        clientList[id] = {
+            id: id,
+            socket: socket,
+            userData: body.userData || {}
+        }
+        socket.emit(socketDir + 'register', {
+            id: id,
+            name: body.user
+        })
+        let list = getClientList()
+        socket.emit(socketDir + 'user_list', list)
+
+        let addUser = {}
+        addUser[id] = body
+        emitAllClient(socketDir + 'user_add', addUser)
+    })
+
+    socket.on(socketDir + 'gyro', (body) => {
+        // console.log(body)
+        emitAllClient(socketDir + 'gyro_value', body)
+    })
+
+    disconnect(() => {
+        if (id in clientList) {
+            let name = clientList[id].name
+            let removeUser = {}
+            removeUser[id] = clientList[id]
+            emitAllClient(socketDir + 'user_remove', removeUser)
+            delete clientList[id]
+        }
+
+        for (let name in noteClient) {
+            if (tempNote[name] &amp;&amp; id === noteClient[name]) {
+                tempNote[name].isOtherMove = false
+                tempNote[name].ovre = false
+                emitAllClient(socketDir + 'surround_note', Object.assign({}, tempNote[name]))
+                delete noteClient[name]
+                delete tempNote[name]
+            }
+        }
+        if (id in speakerList) {
+            delete speakerList[id]
+        }
+    })
+
+    let objectInfoBuffer = []
+    let bufferTime = 30
+
+    let newJob = (onTick, callback, start = true) => {
+        let job = new CronJob({
+            cronTime: onTick,
+            onTick: () => {
+                callback()
+            },
+            start: true,
+            timeZone: 'Asia/Tokyo'
+        })
+    }
+
+    socket.on(socketDir + 'game_start', (body) => {
+        // console.log(body)
+        emitAllClient(socketDir + 'game_start', body)
+    })
+
+    let objectStartTime = {}
+    let objectLastTime = {}
+    let timeout = 15000
+
+    socket.on(socketDir + 'sendObjectInfo', (bodys) => {
+        if (!Array.isArray(bodys)) {
+            let temp = bodys
+            bodys = []
+            bodys.push(temp)
+        }
+
+        let start = (objectInfoBuffer.length == 0)
+
+        bodys.forEach((body) => {
+            objectInfoBuffer.push(body)
+            body.time = body.timestamp ? Math.floor(body.timestamp) : serverTime()
+            body.time += bufferTime
+
+            // startTime
+            if (!objectStartTime[body.id] || !objectLastTime[body.id] || (body.events &amp;&amp; body.events == 'sound_start')) {
+                objectStartTime[body.id] = body.time
+                objectLastTime[body.id] = body.time
+                body.startTime = body.time
+            } else if (objectLastTime[body.id] - serverTime() > timeout) {
+                objectStartTime[body.id] = body.time
+                objectLastTime[body.id] = body.time
+                body.startTime = body.time
+            } else {
+                objectLastTime[body.id] = body.time
+                body.startTime = objectStartTime[body.id]
+            }
+        })
+
+
+        let now = new Date()
+        let date1 = new Date(Math.floor(now.getTime() / bufferTime) * bufferTime + bufferTime)
+        let date2 = new Date(Math.floor(now.getTime() / bufferTime) * bufferTime + bufferTime * 2)
+        if (start) {
+            newJob(date1, () => {
+                if (objectInfoBuffer.length >= 1) {
+                    emitAllClient(socketDir + 'sendObjectInfo', objectInfoBuffer)
+                    objectInfoBuffer = []
+                }
+            })
+
+            newJob(date2, () => {
+                if (objectInfoBuffer.length >= 1) {
+                    emitAllClient(socketDir + 'sendObjectInfo', objectInfoBuffer)
+                    objectInfoBuffer = []
+                }
+            })
+        }
+    })
+
+    socket.on(socketDir + 'sendObjectCaseInfo', (body) => {
+        emitAllClient(socketDir + 'sendObjectCaseInfo', body)
+    })
+
+    socket.on(socketDir + 'notification_common', (body) => {
+        if (!Array.isArray(body.to)) {
+            let ar = []
+            ar.push(body.to)
+            body.to = ar
+        }
+        if (!Array.isArray(body.from)) {
+            let ar = []
+            ar.push(body.from)
+            body.from = ar
+        }
+        let st = serverTime()
+        emitAllClient(socketDir + 'notification_common', {
+            from: body.from,
+            to: body.to,
+            doppler: body.doppler || false,
+            editer: body.editer,
+            position: body.position,
+            notes: [{
+                st: st,
+                time: st + 1500,
+                sound: body.sound,
+                panner: body.panner,
+                distance: body.distance,
+                notification: body.notification
+                // offset
+                // duration: 10000
+            }]
+        })
+    })
+
+    socket.on(socketDir + 'play', (body) => {
+
+        let st = serverTime()
+        let time = st + resTime
+        let offset = 0
+        if (time - musicStartTime > musicDuration) {
+            if (body.duration) {
+                musicDuration = body.duration
+            }
+            musicStartTime = time
+            offset = 0
+        } else {
+            offset = time - musicStartTime
+        }
+        socket.emit(socketDir + 'play', {
+            st: serverTime(),
+            time: time,
+            offset: offset,
+            duration: musicDuration,
+            notes: body.notes
+        })
+    })
+}
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-soundManager.html">soundManager</a></li><li><a href="module-soundManager_SyncAudio.html">soundManager/SyncAudio</a></li><li><a href="module-soundManager_TimeValue.html">soundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li><li><a href="module-webSocket_sync.html">webSocket/sync</a></li></ul><h3>Classes</h3><ul><li><a href="module-soundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-soundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-soundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#start">start</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Sun Sep 17 2017 15:06:55 GMT+0900 (JST)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
