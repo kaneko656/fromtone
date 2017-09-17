@@ -177,6 +177,7 @@ exports.init = (socket, disconnect, socketRoot, callback = () => {}) => {
     socket.on(socketRoot + 'register', (body) => {
 
         let clientID = body.id || 'default'
+        clientID = String(clientID).substring(0, 5)
         let clientGroup = body.group || 'default'
         let id = clientID
         let group = clientGroup

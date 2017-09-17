@@ -14,7 +14,10 @@ exports.init = (socket, clientRegister, socketRoot, client) => {
 
     // log
     socket.on(socketRoot + 'log', (log) => {
-        console.log('>>> ' + socketRoot + 'log', client.group, client.id.substring(0, 5), client.data)
+        console.log('>>> ' + socketRoot + 'log')
+        if (client && client.group && client.id && client.data) {
+            console.log(client.group, String(client.id).substring(0, 5), client.data)
+        }
         console.log(log)
         console.log('')
     })

@@ -15,7 +15,6 @@ let syncTone = require('./SyncTone/soundManager.js')
 exports.start = (clientData) => {
 
     // socketClient.ntp.repeat(60000)
-
     let updater = socketClient.initRegister(socketRoot, group, clientData)
 
     socketClient.connecting((url) => {
@@ -24,21 +23,6 @@ exports.start = (clientData) => {
 
     socketClient.connect((url) => {
         console.log('connect: ' + url)
-        socketClient.connect(() => {
-            socketClient.log(socketRoot, {
-                connect: 'a'
-            })
-            socketClient.log(socketRoot, {
-                connect: 'b'
-            })
-            setTimeout(() => {
-                socketClient.log(socketRoot, {
-                    connect: 'c'
-                })
-                // socketClient.log('develop/', vrDisplay.pose)
-            }, 1000)
-        })
-
     })
 
     socketClient.disconnect((url) => {

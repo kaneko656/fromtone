@@ -12,8 +12,11 @@ let ntp = require('./ntp-client')
 let register = require('./register')
 let sync = require('./sync')
 let call = require('./eventCall')
-let url = require('./../config.json').socketUrl || 'http://192.168.144.142:8001'
-let socketRoot = ''
+
+let url = 'http://192.168.144.142:8001'
+try {
+    url = require('./../config.json').socketUrl
+} catch (e) {}
 
 let socket
 if (!window.io) {
@@ -21,6 +24,7 @@ if (!window.io) {
 } else {
     socket = io.connect(url)
 }
+let socketRoot = ''
 
 let isConnect = false
 let isConnecting = true
@@ -123,14 +127,28 @@ let disconnect = exports.disconnect
 
 
 /**
- * serverにlogを送る
- * @param  {string} socketRoot [description]
+ * serverにlogを送る  connectされていない間はbufferに入れ, connect後に送る
  * @param  {} logData    [description]
  */
 exports.log = (logData) => {
-    socket.emit(socketRoot + 'log', logData)
+    if (isConnect) {
+        socket.emit(socketRoot + 'log', logData)
+    } else {
+        logBuffer.push(logData)
+    }
+    call.on('connect', () => {
+        setTimeout(() => {
+            if (logBuffer.length >= 1) {
+                logBuffer.forEach((log) => {
+                    socket.emit(socketRoot + 'log', log)
+                })
+                logBuffer = []
+            }
+        }, 500)
+    })
 }
 let log = exports.log
+let logBuffer = []
 
 
 socket.on('connect', () => {
