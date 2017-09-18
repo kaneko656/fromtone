@@ -31,9 +31,11 @@ let registrationConfirm = false
 // register/confirm
 const spec = require('./spec')
 const property = require('./property')
+let thisClientID
 
 exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {}) => {
     let clientID = uuid.v4()
+    thisClientID = clientID
 
     console.log('register.js clientID: ' + clientID)
     if (typeof group != 'string') {
@@ -44,11 +46,8 @@ exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {})
         console.log('register.js register confirm', response)
         if (response.ok) {
             registrationConfirm = true
-            setTimeout(() => {
-                spec.init(socket, socketRoot)
-                property.init(socket, socketRoot)
-            }, 1000)
-
+            property.init(socket, socketRoot)
+            spec.init(socket, socketRoot)
         }
     })
 
@@ -93,7 +92,6 @@ exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {})
             }
         }
         console.log('register.js update', list)
-
     })
 
 
@@ -111,6 +109,14 @@ exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {})
         socket.emit(socketRoot + 'register/update', data)
     }
     return updater
+}
+
+/**
+ * @see {@link module:webSocket/socketClient} socketClient.register
+ * @param  {callback} [callback=(] {...clientID: clientData}
+ */
+exports.getClientID = () => {
+    return thisClientID
 }
 
 

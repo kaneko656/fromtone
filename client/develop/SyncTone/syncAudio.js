@@ -32,35 +32,41 @@ function SyncAudio(webAudio, buffer, options = {}) {
     this.startDate = options.startDateTime || Date.now() // UTC millis
     this.startTime = webAudio.currentTime + (this.startDate - Date.now()) / 1000 // sec
     this.duration = options.duration || buffer.duration //  (sec)
-    this.offset = options.offset % this.duration || 0 // (sec)
+    this.offset = (options.offset % this.duration) || 0 // (sec)
     this.buffer = buffer
     this.source = webAudio.createBufferSource()
     this.source.buffer = buffer
     this.source.loop = options.loop || false
     this.source.connect(options.destination || webAudio.destination)
+    if(this.startTime < 0){
+        this.offset += Math.abs(this.startTime)%this.duration
+        this.startTime = 0
+    }
 
-    console.log(this.source)
     let leftTime = this.startTime - webAudio.currentTime
     let leftTimeToFinish = leftTime + this.duration - this.offset
     // delay
+    let my = this
     if (leftTime < 0) {
         let delayedOffset = (this.offset - leftTime) % this.duration
+        let st = this.startTime > 0 ? this.startTime : 0
         this.source.start(this.startTime, delayedOffset)
         this.isPlaying = true
         console.log('SyncAudio ' + this.name + ' delay: ' + delayedOffset)
+        leftTimeToFinish += delayedOffset
     } else {
         this.source.start(this.startTime, this.offset)
         setTimeout(() => {
-            this.isPlaying = true
+            my.isPlaying = true
         }, leftTime * 1000)
     }
 
     setTimeout(() => {
-        if (!this.source.loop) {
-            this.isPlaying = false
-            this.finished('end')
+        if (!my.source.loop) {
+            my.isPlaying = false
+            my.finished('end')
         }
-    }, leftTimeToFinish)
+    }, leftTimeToFinish * 1000)
 }
 
 /**
@@ -69,7 +75,7 @@ function SyncAudio(webAudio, buffer, options = {}) {
  * @param {string} status 終了条件（end, stop）
  */
 SyncAudio.prototype.finished = function(){
-
+  console.log('ff')
 }
 
 /**

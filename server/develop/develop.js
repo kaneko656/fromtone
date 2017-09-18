@@ -30,7 +30,7 @@ exports.start = (socket, disconnect, _serverTime) => {
         client.data = _client.data
     })
 
-    common.init(socket, clientRegister, socketRoot, client)
+    common.init(socket, disconnect, clientRegister, socketRoot, client)
 
     let objectInfoBuffer = []
     let bufferTime = 30

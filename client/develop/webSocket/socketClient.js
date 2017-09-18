@@ -6,12 +6,14 @@
  * @see {@link module:webSocket/register}
  * @see {@link module:webSocket/ntpClient}
  * @see {@link module:webSocket/sync}
+ * @see {@link module:webSocket/property}
  */
 
 let ntp = require('./ntp-client')
 let register = require('./register')
 let sync = require('./sync')
 let call = require('./eventCall')
+let property = require('./property') // server.startTime
 
 let url = 'http://192.168.144.142:8001'
 try {
@@ -25,6 +27,7 @@ if (!window.io) {
     socket = io.connect(url)
 }
 let socketRoot = ''
+let thisClientID
 
 let isConnect = false
 let isConnecting = true
@@ -59,7 +62,9 @@ exports.register = register
 
 exports.initRegister = (_socketRoot = '', group, clientData = {}) => {
     socketRoot = _socketRoot
-    return register.init(socket, connect, disconnect, socketRoot, group, clientData)
+    let updater = register.init(socket, connect, disconnect, socketRoot, group, clientData)
+    thisClientID = register.getClientID()
+    return updater
 }
 
 
@@ -81,6 +86,20 @@ exports.receiveSyncObject = (callback) => {
     sync.receiveSyncObject(socket, ntp, socketRoot, callback)
 }
 
+/**
+ * @param  {callback} callback syncObject[]
+ */
+exports.getSyncObjectBuffer = (callback) => {
+    sync.getSyncObjectBuffer(socket, ntp, socketRoot, callback)
+}
+// module: property
+
+/**
+ * @see {@link module:webSocket/property}
+ */
+
+exports.property = property
+
 
 
 // socket
@@ -91,7 +110,7 @@ exports.receiveSyncObject = (callback) => {
 
 exports.connecting = (callback = () => {}) => {
     if (isConnecting) {
-        callback(url)
+        callback(url, thisClientID)
     }
 }
 
@@ -105,7 +124,7 @@ exports.connect = (callback = () => {}) => {
     }
     call.on('connect', () => {
         isConnecting = false
-        callback(url)
+        callback(url, thisClientID)
     })
 }
 let connect = exports.connect
@@ -117,10 +136,10 @@ let connect = exports.connect
 
 exports.disconnect = (callback = () => {}) => {
     if (!isConnect && !isConnecting) {
-        callback(url)
+        callback(url, thisClientID)
     }
     call.on('disconnect', () => {
-        callback(url)
+        callback(url, thisClientID)
     })
 }
 let disconnect = exports.disconnect
@@ -160,6 +179,16 @@ socket.on('connect', () => {
     // ntp
     ntp.setSocket(socket)
 
+    // server startTime
+    socket.on(socketRoot + 'system/time/receive', (time) => {
+        if ('startTime' in time) {
+            let st = time.startTime
+            property.set('startTime', ntp.toClientTime(st))
+            ntp.checkShiftTime(() => {
+                property.set('startTime', ntp.toClientTime(st))
+            })
+        }
+    })
     // デバック
     // ntp.checkShiftTime((dif) => {
     //     let text = 'offset time: ' + (dif.offset).toFixed(1) + 'ms  　trans delay: ' + (dif.delay).toFixed(1) + 'ms<br>'

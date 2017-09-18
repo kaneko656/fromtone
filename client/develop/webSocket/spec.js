@@ -5,6 +5,7 @@
  */
 
 exports.init = (socket, socketRoot) => {
+
     let st = Date.now()
     let timeout = 500
     let max = 1000000
@@ -22,15 +23,17 @@ exports.init = (socket, socketRoot) => {
         })
     }
 
+    setTimeout(() => {
+        st = Date.now()
+        for (let n = 1; n < max; n++) {
+            // power
+            let a = Math.pow(Math.sin(n))
 
-    for (let n = 1; n < max; n++) {
-        // power
-        let a = Math.pow(Math.sin(n))
-
-        if (Date.now() - st > timeout) {
-            finish(n)
-            break
+            if (Date.now() - st > timeout) {
+                finish(n)
+                break
+            }
         }
-    }
-    finish(max)
+        finish(max)
+    }, 500)
 }

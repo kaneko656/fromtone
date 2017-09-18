@@ -61,5 +61,6 @@ exports.init = (app) => {
 
     // lib
     app.use('/lib', express.static(__dirname + '/public'))
+    app.use('', express.static(__dirname + '/html'))
 
 }

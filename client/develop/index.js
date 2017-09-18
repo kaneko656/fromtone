@@ -5,36 +5,11 @@
 
 window.addEventListener('load', init, false)
 
-// サーバ
-// let socket = require('./webSocket/socketClient.js')
-// let ntp = require('./../ntp-client.js')
-
-// 共有
-// データ共有
-// let shareData = require('./../connect.js')
-// イベント共有
-// let eventListener = require('./Call').Call()
-
+const queryString = require('query-string');
+let query = queryString.parse(location.search)
+console.log(query)
 
 function init() {
-
-    // loadMessage
-    let loadMessage = document.getElementById('loading_message')
-    if (loadMessage && loadMessage.innerHTML) {
-        loadMessage.innerHTML = ''
-    }
-
-    // web Audio
-    // let webAudio
-    // try {
-    //     window.AudioContext = window.AudioContext || window.webkitAudioContext
-    //     webAudio = new AudioContext()
-    // } catch (e) {
-    //     alert('Web Audio API is not supported in this browser')
-    // }
-
-    // require('./SyncTone/index.js')
-
 
     // demo type
     let demo_argument = document.getElementById('demo-argument')
@@ -68,10 +43,7 @@ function init() {
 
     // system
     if (demo_type == 'develop') {
-        let user = demo_argument.getAttribute('data-user')
-        let config = {
-            user: user
-        }
+        let config = query || {}
         let inputUserName = require('./../demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {
             config.user = user

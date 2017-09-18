@@ -22188,6 +22188,27 @@ exports.MultiCall = (...Call) => {
 // }
 
 },{"./Call.js":147,"./MultiCall.js":151}],153:[function(require,module,exports){
+const CronJob = require('cron').CronJob
+
+// onTick  Dateクラス
+module.exports = (onTick, callback, start = true) => {
+    if (typeof onTick != 'string') {
+        if (Date.now() + 1 >= onTick.getTime()) {
+            callback()
+            return
+        }
+    }
+    let job = new CronJob({
+        cronTime: onTick,
+        onTick: () => {
+            callback()
+        },
+        start: true,
+        timeZone: 'Asia/Tokyo'
+    })
+}
+
+},{"cron":189}],154:[function(require,module,exports){
 /**
  * @overview  一つのAudio Bufferに対しての同期再生処理を行うSoundManagerの内部クラス
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -22222,35 +22243,41 @@ function SyncAudio(webAudio, buffer, options = {}) {
     this.startDate = options.startDateTime || Date.now() // UTC millis
     this.startTime = webAudio.currentTime + (this.startDate - Date.now()) / 1000 // sec
     this.duration = options.duration || buffer.duration //  (sec)
-    this.offset = options.offset % this.duration || 0 // (sec)
+    this.offset = (options.offset % this.duration) || 0 // (sec)
     this.buffer = buffer
     this.source = webAudio.createBufferSource()
     this.source.buffer = buffer
     this.source.loop = options.loop || false
     this.source.connect(options.destination || webAudio.destination)
+    if(this.startTime < 0){
+        this.offset += Math.abs(this.startTime)%this.duration
+        this.startTime = 0
+    }
 
-    console.log(this.source)
     let leftTime = this.startTime - webAudio.currentTime
     let leftTimeToFinish = leftTime + this.duration - this.offset
     // delay
+    let my = this
     if (leftTime < 0) {
         let delayedOffset = (this.offset - leftTime) % this.duration
+        let st = this.startTime > 0 ? this.startTime : 0
         this.source.start(this.startTime, delayedOffset)
         this.isPlaying = true
         console.log('SyncAudio ' + this.name + ' delay: ' + delayedOffset)
+        leftTimeToFinish += delayedOffset
     } else {
         this.source.start(this.startTime, this.offset)
         setTimeout(() => {
-            this.isPlaying = true
+            my.isPlaying = true
         }, leftTime * 1000)
     }
 
     setTimeout(() => {
-        if (!this.source.loop) {
-            this.isPlaying = false
-            this.finished('end')
+        if (!my.source.loop) {
+            my.isPlaying = false
+            my.finished('end')
         }
-    }, leftTimeToFinish)
+    }, leftTimeToFinish * 1000)
 }
 
 /**
@@ -22259,7 +22286,7 @@ function SyncAudio(webAudio, buffer, options = {}) {
  * @param {string} status 終了条件（end, stop）
  */
 SyncAudio.prototype.finished = function(){
-
+  console.log('ff')
 }
 
 /**
@@ -22390,7 +22417,7 @@ SyncAudio.prototype.createSyncSound = function(sourceName, startDate, offset, ca
     return syncSound
 }
 
-},{}],154:[function(require,module,exports){
+},{}],155:[function(require,module,exports){
 /**
  * @overview  一つの時系列データを持つクラス
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -22474,7 +22501,7 @@ TimeValue.prototype.updateEvent = function(pre, next) {
 
 }
 
-},{}],155:[function(require,module,exports){
+},{}],156:[function(require,module,exports){
 /**
  * @overview このファイルが音関係の処理を行うモジュールとなる．WebAudioAPIを使用．
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -22486,7 +22513,6 @@ TimeValue.prototype.updateEvent = function(pre, next) {
 
 const TimeValue = require('./TimeValue.js')
 const SyncAudio = require('./SyncAudio.js')
-const socket = require('./../webSocket/socketClient.js')
 let syncAudios = {}
 let soundList = {}
 let soundNameList = []
@@ -22505,13 +22531,14 @@ let listenerPosition = {
     z: 0
 }
 // 1.0 が何mに相当するか
-let areaDist = 5
+let areaScale = 1
 
 let finishInit = false
 
 // WebAudioAPI
 let webAudio = null
 let buffer = {}
+let bufferLoadCall = {}
 
 try {
     window.AudioContext = window.AudioContext || window.webkitAudioContext
@@ -22526,6 +22553,10 @@ let canUseModules = () => {
         return true
     }
     return false
+}
+
+exports.interactionStart = () => {
+    webAudio.createBufferSource().start(0)
 }
 
 
@@ -22581,9 +22612,23 @@ exports.setAudioList = (audioUrlList) => {
         decodeAudioData(buf, (decodedBuffer) => {
             console.log('load: ' + key)
             buffer[key] = decodedBuffer
+            if (key in bufferLoadCall && typeof bufferLoadCall[key] == 'function') {
+                bufferLoadCall[key]()
+            }
         })
     })
+}
 
+/**
+ * bufferのロードが終わったとき呼ばれる　すでにロードされているときはすぐにコールバックする
+ * @param  {string} audioName    [description]
+ * @param  {callback} [callback=(] [description]
+ */
+exports.finishLoad = (audioName, callback = () => {}) => {
+    if (buffer[audioName]) {
+        callback()
+    }
+    bufferLoadCall[audioName] = callback
 }
 
 /**
@@ -22596,6 +22641,17 @@ exports.setSpeakerPosition = (id, _speakerPosition) => {
     if (id) {
         mySpeakerID = id
     }
+    console.log(mySpeakerID, speakerPosition)
+}
+
+/**
+ * 共有されている全スピーカの位置をセットする
+ * @param {string} id このスピーカのID
+ * @param {speakerPosition} speakerPosition { speakerID: { x, y, z } }
+ */
+exports.updateSpeakerPosition = (id, position) => {
+    speakerPosition[id] = position
+    console.log(speakerPosition)
 }
 
 /**
@@ -22603,7 +22659,7 @@ exports.setSpeakerPosition = (id, _speakerPosition) => {
  * @param  {string} audioName    keyName of setAudioList
  * @param  {Object} [audioOptions={}] options of SyncAudio > name, destination, loop(boolean), startDateTime(UTCmillis), offset(sec), duration(sec)
  * @param  {Object} [syncOptions={}]
- * @return {AudioSyncController} functions  applyDBAP, applyDoppler, uypdate
+ * @return {AudioSyncController} functions  applyDBAP, applyDoppler, update
  */
 
 exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
@@ -22630,8 +22686,13 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
         if (useDBAP) {
             let nextDBAP = DBAP(next.value)
             let power = nextDBAP[mySpeakerID]
-            gainNode.gain.linearRampToValueAtTime(power, atNextTime)
-            console.log('DBAP', 'power:', power.toFixed(3), 'time:', atNextTime.toFixed(3))
+            // console.log(power)
+            if (power) {
+                // gainNode.gain.linearRampToValueAtTime(power, atNextTime)
+                gainNode.gain.value = power
+                console.log('DBAP', 'power:', power.toFixed(3), 'time:', atNextTime.toFixed(3))
+                require('./../webSocket/socketClient').log(power)
+            }
         }
         if (useDoppler) {
             let rate = Doppler(pre.time, pre.value, next.time, next.value)
@@ -22673,252 +22734,6 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
         }
     }
     return AudioSyncController
-
-
-    // return positionUpdate
-
-    syncPlay.createSyncSound(bufferName, time, offset, (syncSound) => {
-
-        let gainNode = webAudio.createGain()
-        gainNode.connect(webAudio.destination)
-        gainNode.gain.value = 0
-
-        syncSound.started((leftTime) => {})
-
-        let lastGainValue = null
-        let lastDoppler = null
-        let stoppingTime = Date.now()
-        let isStart = false
-        let effectTime = 0
-        let getEffectTimes = () => {
-            return effectTime
-        }
-
-        let positionEffect = (p) => {
-            value = DBAP(mySpeakerID, p.gx, p.gy)
-            console.log('positionEffect', value)
-
-            gainNode.gain.value = value
-            if (!isStart && value > 0) {
-                let plus = Date.now() - stoppingTime
-                syncSound.offset += plus
-                syncPlay.play(gainNode, syncSound)
-                isStart = true
-            }
-        }
-
-        let setEffect = (p) => {
-            effectTime++
-
-            let dist = Math.sqrt(p.gx * p.gx + p.gy * p.gy)
-
-            let st = syncSound.startTime
-            let soundTargetTime = p.time - syncSound.startDate
-            soundTargetTime = soundTargetTime > 0 ? soundTargetTime : 0
-
-            let diffDist = 0
-            let diffTime = 0
-            if (!lastDoppler) {
-                diffDist = 0
-                diffTime = soundTargetTime
-                lastDoppler = {
-                    time: p.time,
-                    dist: dist,
-                    velocity: 0,
-                    diffTime: diffTime,
-                    diffDist: 0,
-                    rate: 1.0
-                }
-            } else {
-                // 平滑化
-                diffDist = (dist - lastDoppler.dist) / 2 + diffDist / 2
-                diffTime = p.time - lastDoppler.time
-                if (diffTime == 0) {
-                    return
-                }
-                // m
-                let areaDist = p.areaDist || 3
-                // m / ms
-                let vs = areaDist * diffDist / diffTime
-
-                // km/h
-                // vs = vs * 60 * 60 * 1000 / 1000
-                vs = vs * 3600
-
-                let rate = 340 / (340 - vs)
-
-                // console.log(diffDist.toFixed(5), diffTime.toFixed(1), 'rate', rate.toFixed(4), 'vs', vs.toFixed(4))
-
-                // 平滑化
-                rate = rate * 0.5 + lastDoppler.rate * 0.5
-                // console.log(rate)
-                if (!option.noDoppler) {
-                    syncSound.source.playbackRate.linearRampToValueAtTime(rate, st / 1000 + soundTargetTime / 1000)
-                }
-                lastDoppler = {
-                    time: p.time,
-                    dist: dist,
-                    velocity: vs,
-                    diffTime: diffTime,
-                    diffDist: diffDist,
-                    rate: rate
-                }
-            }
-
-            let vs = Math.abs(lastDoppler.velocity)
-            vs = vs > 3 ? 3 : vs
-            let targetVelocityVolume = vs / 3
-            // dist
-            // maxDist
-            // time
-            let value = 0
-            let velocityVolume = lastGainValue ? lastGainValue.velocityVolume : 0
-            let velocityVolumeRate = option.velocityVolumeRate || 0
-            let valueRate = 1 - velocityVolumeRate
-            if (!lastGainValue) {
-                value = DBAP(mySpeakerID, p.gx, p.gy)
-
-                // console.log(value)
-                value = value * (valueRate + velocityVolumeRate * velocityVolume)
-            } else {
-                if (velocityVolume < targetVelocityVolume) {
-                    velocityVolume += 0.03
-                    velocityVolume = velocityVolume >= targetVelocityVolume ? targetVelocityVolume : velocityVolume
-                } else if (velocityVolume > targetVelocityVolume) {
-                    velocityVolume -= 0.03
-                    velocityVolume = velocityVolume <= targetVelocityVolume ? targetVelocityVolume : velocityVolume
-                }
-
-                value = DBAP(mySpeakerID, p.gx, p.gy)
-                // console.log(value)
-                value = value / 2 + lastGainValue.value / 2
-                value = value * (valueRate + velocityVolumeRate * velocityVolume)
-                console.log(value)
-            }
-            // console.log(Math.abs(lastDoppler.velocity), volumeRate, value)
-
-            lastGainValue = {
-                time: p.time,
-                value: value,
-                soundTargetTime: soundTargetTime,
-                valueRate: valueRate,
-                velocityVolumeRate: velocityVolumeRate,
-                velocityVolume: velocityVolume,
-                targetVelocityVolume: targetVelocityVolume
-            }
-
-            let velocityVolumeUpdate = (interval, lastTime) => {
-                let l = lastGainValue
-                l.targetVelocityVolume = 0
-                if (l.velocityVolume == l.targetVelocityVolume) {
-                    return
-                }
-                if (l.time != lastTime) {
-                    return
-                }
-                l.value = l.value * (l.valueRate + 0)
-                let startT = st / 1000 + (l.soundTargetTime + interval) / 1000
-                // console.log('Job', l.value, st / 1000 + l.soundTargetTime / 1000)
-                if (startT <= syncPlay.context.currentTime) {
-                    gainNode.gain.value = value
-                    syncSound.source.playbackRate.value = 1.0
-                } else {
-                    gainNode.gain.linearRampToValueAtTime(l.value, startT)
-                    syncSound.source.playbackRate.linearRampToValueAtTime(1.0, startT)
-                }
-                // gainNode.gain.linearRampToValueAtTime(l.value, startT)
-                // syncSound.source.playbackRate.linearRampToValueAtTime(1.0, startT)
-            }
-            let lastTime = lastGainValue.time
-            Job(new Date(lastTime + 300), () => {
-                velocityVolumeUpdate(400, lastTime)
-            })
-            // setTimeout(() => {
-            //     gainNode.gain.linearRampToValueAtTime(0, st / 1000 + (soundTargetTime + 30) / 1000)
-            // }, 30)
-
-
-            // console.log(value.toFixed(4))
-            let startT = st / 1000 + soundTargetTime / 1000
-            // console.log('lastValue ',value)
-            if (startT <= syncPlay.context.currentTime) {
-                gainNode.gain.value = value
-            } else {
-                gainNode.gain.linearRampToValueAtTime(value, st / 1000 + soundTargetTime / 1000)
-            }
-
-            if (!isStart && value > 0) {
-                let plus = Date.now() - stoppingTime
-                syncSound.offset += plus
-                syncPlay.play(gainNode, syncSound)
-                isStart = true
-            }
-        }
-
-        if (option.start) {
-            gainNode.gain.value = 1
-            syncPlay.play(gainNode, syncSound)
-            isStart = true
-        }
-
-        let stop = () => {
-            let ct = syncPlay.getCurrentTime()
-            gainNode.gain.linearRampToValueAtTime(0, ct + 0.2)
-            setTimeout(() => {
-                syncSound.stop()
-                gainNode.disconnect()
-            }, 200)
-        }
-
-        // let DBAP = (id, soundGx, soundGy, rolloff = 6.02 * 10) => {
-        //     // console.log(speakerPosition, soundGx, soundGy)
-        //     if (!speakerPosition) {
-        //         return 0
-        //     }
-        //     // スピーカの半径　無限大発散を防ぐ
-        //     let speakerRadius = 0.00001
-        //     let power = 0
-        //     let powerSum = 0
-        //     console.log('\r\n')
-        //     for (let name in speakerPosition) {
-        //         console.log('\r\n')
-        //
-        //         let gx = speakerPosition[name].gx
-        //         let gy = speakerPosition[name].gy
-        //         let dist = Math.sqrt((soundGx - gx) * (soundGx - gx) + (soundGy - gy) * (soundGy - gy) + speakerRadius * speakerRadius)
-        //         let rDist = Math.pow(dist, -rolloff / 20 * Math.log10(2))
-        //         // エネルギーなので２乗
-        //         console.log(name, gx, gy)
-        //         console.log('dist', dist)
-        //         console.log('rDist', rDist)
-        //         powerSum += rDist * rDist
-        //         console.log('power', rDist * rDist)
-        //         if (name == id) {
-        //             power = rDist * rDist
-        //             // console.log('this power',power)
-        //         }
-        //     }
-        //     if (powerSum != 0) {
-        //         console.log('power', power / powerSum, ' = ', power, ' / ', powerSum)
-        //         power = power / powerSum
-        //         // console.log('power', power, ' = ', power, ' / ', powerSum)
-        //         return power
-        //     }
-        //     return 0
-        // }
-
-        // syncPlay.play(gainNode, syncSound)
-        let returnObj = {
-            bufferName: bufferName,
-            gainNode: gainNode,
-            time: time,
-            syncSound: syncSound,
-            setEffect: setEffect,
-            positionEffect,
-            stop: stop
-        }
-        call(returnObj)
-    })
 }
 
 
@@ -22941,9 +22756,11 @@ let DBAP = exports.DBAP = (soundPosition, rolloff = 6.02 * 10) => {
     for (let name in speakerPosition) {
         let spX = speakerPosition[name].x
         let spY = speakerPosition[name].y
+        let spZ = speakerPosition[name].z || 0
         let aX = soundPosition.x
         let aY = soundPosition.y
-        let dist = Math.sqrt((aX - spX) * (aX - spX) + (aY - spY) * (aY - spY) + speakerRadius * speakerRadius)
+        let aZ = soundPosition.z || 0
+        let dist = Math.sqrt((aX - spX) * (aX - spX) + (aY - spY) * (aY - spY) + (aZ - spZ) * (aZ - spZ) + speakerRadius * speakerRadius)
         let rDist = Math.pow(dist, -rolloff / 20 * Math.log10(2))
         let p = rDist * rDist
         // エネルギーなので２乗
@@ -22969,7 +22786,7 @@ let Doppler = exports.Doppler = (preTime, prePosition, nextTime, nextPosition) =
         return
     }
     // m / ms
-    let vs = areaDist * diffDist / diffTime
+    let vs = areaScale * diffDist / diffTime
     // km/h
     vs = vs * 3600
 
@@ -22981,12 +22798,12 @@ let culculateDist = (a, b) => {
     return Math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y))
 }
 
-},{"./../webSocket/socketClient.js":168,"./SyncAudio.js":153,"./TimeValue.js":154}],156:[function(require,module,exports){
+},{"./../webSocket/socketClient":178,"./SyncAudio.js":154,"./TimeValue.js":155}],157:[function(require,module,exports){
 module.exports={
   "socketUrl": "http://192.168.144.142:8001"
 }
 
-},{}],157:[function(require,module,exports){
+},{}],158:[function(require,module,exports){
 /**
  * ページにアクセス
  */
@@ -22994,36 +22811,11 @@ module.exports={
 
 window.addEventListener('load', init, false)
 
-// サーバ
-// let socket = require('./webSocket/socketClient.js')
-// let ntp = require('./../ntp-client.js')
-
-// 共有
-// データ共有
-// let shareData = require('./../connect.js')
-// イベント共有
-// let eventListener = require('./Call').Call()
-
+const queryString = require('query-string');
+let query = queryString.parse(location.search)
+console.log(query)
 
 function init() {
-
-    // loadMessage
-    let loadMessage = document.getElementById('loading_message')
-    if (loadMessage && loadMessage.innerHTML) {
-        loadMessage.innerHTML = ''
-    }
-
-    // web Audio
-    // let webAudio
-    // try {
-    //     window.AudioContext = window.AudioContext || window.webkitAudioContext
-    //     webAudio = new AudioContext()
-    // } catch (e) {
-    //     alert('Web Audio API is not supported in this browser')
-    // }
-
-    // require('./SyncTone/index.js')
-
 
     // demo type
     let demo_argument = document.getElementById('demo-argument')
@@ -23057,10 +22849,7 @@ function init() {
 
     // system
     if (demo_type == 'develop') {
-        let user = demo_argument.getAttribute('data-user')
-        let config = {
-            user: user
-        }
+        let config = query || {}
         let inputUserName = require('./../demo-common/prompt.js')
         inputUserName.userNameCheck(config.user, (user) => {
             config.user = user
@@ -23072,9 +22861,12 @@ function init() {
     }
 }
 
-},{"./../demo-common/prompt.js":146,"./main.js":158}],158:[function(require,module,exports){
+},{"./../demo-common/prompt.js":146,"./main.js":159,"query-string":230}],159:[function(require,module,exports){
 // サーバ
-let socketClient = require('./webSocket/socketClient.js')
+const client = require('./webSocket/socketClient.js')
+
+// Sound
+const sound = require('./SyncTone/soundManager.js')
 
 // 共有
 // データ共有
@@ -23085,48 +22877,790 @@ let eventListener = require('./Call').Call()
 let socketRoot = 'develop/'
 let group = 'Serval'
 
-let syncTone = require('./SyncTone/soundManager.js')
+let Job = require('./Job/cron.js')
+
+let proto = require('./webAR/proto.js')
+let clientID = ''
+
+let audioList = {
+    '３音': 'lib/sound/notification-common.mp3',
+    '和風メロディ': 'lib/sound/wafuringtone.mp3',
+    'wind': 'lib/sound/wind8.mp3',
+    'pizz_melody': 'lib/sound/pizz2_melody.mp3',
+    'pizz_7': 'lib/sound/tone/pizz_C.mp3',
+}
 
 exports.start = (clientData) => {
 
-    // socketClient.ntp.repeat(60000)
-    let updater = socketClient.initRegister(socketRoot, group, clientData)
+    // client.ntp.repeat(60000)
+    let updater = client.initRegister(socketRoot, group, clientData)
 
-    socketClient.connecting((url) => {
+    sound.setAudioList(audioList)
+    sound.finishLoad('pizz_7', () => {
+        sound.play('pizz_7')
+    })
+
+    proto.start(client, sound)
+
+    sound.setSpeakerPosition(clientData.user, {})
+
+
+
+    client.connecting((url, thisClientID) => {
         console.log('connecting... ' + url)
+        if (thisClientID) {
+            clientID = thisClientID
+            eventListener.emit('setClientID')
+        }
     })
 
-    socketClient.connect((url) => {
+    client.connect((url, thisClientID) => {
         console.log('connect: ' + url)
+        if (thisClientID) {
+            clientID = thisClientID
+            eventListener.emit('setClientID')
+        }
     })
 
-    socketClient.disconnect((url) => {
+    client.disconnect((url, thisClientID) => {
         console.log('disconnect: ' + url)
     })
 
-    setTimeout(() => {
-        clientData.value = Math.floor(Math.random() * 10)
-        updater(clientData)
-        socketClient.sendSyncObject(socketRoot, syncObject)
-    }, 2000)
 
-    socketClient.receiveSyncObject(socketRoot, (syncObjects) => {
-        console.log(syncObjects)
-        socketClient.log(socketRoot, syncObjects)
+    client.receiveSyncObject((syncObjects) => {
+        receive(syncObjects)
     })
 
-    let syncObject = {
-        time: new Date(Date.now() + 1000).getTime(),
-        events: ['serval'],
-        position: {
-            x: 0,
-            y: 0
-        }
+    client.getSyncObjectBuffer((syncObjects) => {
+        console.log('buffer', syncObjects)
+        receive(syncObjects)
+    })
+
+    function receive(syncObjects) {
+        syncObjects.forEach((syncObject) => {
+            client.log(syncObject)
+            if ('clientPosition' in syncObject.events) {
+                sound.updateSpeakerPosition(syncObject.clientData.user, syncObject.position)
+            }
+        })
     }
+}
+
+eventListener.on('setClientID', () => {
+})
+
+},{"./../connect.js":145,"./Call":152,"./Job/cron.js":153,"./SyncTone/soundManager.js":156,"./webAR/proto.js":167,"./webSocket/socketClient.js":178}],160:[function(require,module,exports){
+/**
+ * @author mrdoob / http://mrdoob.com/
+ */
+
+
+
+
+var Stats = function () {
+
+	var startTime = Date.now(), prevTime = startTime;
+	var ms = 0, msMin = Infinity, msMax = 0;
+	var fps = 0, fpsMin = Infinity, fpsMax = 0;
+	var frames = 0, mode = 0;
+
+	var container = document.createElement( 'div' );
+	container.id = 'stats';
+	container.addEventListener( 'mousedown', function ( event ) { event.preventDefault(); setMode( ++ mode % 2 ) }, false );
+	container.style.cssText = 'width:80px;opacity:0.9;cursor:pointer';
+
+	var fpsDiv = document.createElement( 'div' );
+	fpsDiv.id = 'fps';
+	fpsDiv.style.cssText = 'padding:0 0 3px 3px;text-align:left;background-color:#002';
+	container.appendChild( fpsDiv );
+
+	var fpsText = document.createElement( 'div' );
+	fpsText.id = 'fpsText';
+	fpsText.style.cssText = 'color:#0ff;font-family:Helvetica,Arial,sans-serif;font-size:9px;font-weight:bold;line-height:15px';
+	fpsText.innerHTML = 'FPS';
+	fpsDiv.appendChild( fpsText );
+
+	var fpsGraph = document.createElement( 'div' );
+	fpsGraph.id = 'fpsGraph';
+	fpsGraph.style.cssText = 'position:relative;width:74px;height:30px;background-color:#0ff';
+	fpsDiv.appendChild( fpsGraph );
+
+	while ( fpsGraph.children.length < 74 ) {
+
+		var bar = document.createElement( 'span' );
+		bar.style.cssText = 'width:1px;height:30px;float:left;background-color:#113';
+		fpsGraph.appendChild( bar );
+
+	}
+
+	var msDiv = document.createElement( 'div' );
+	msDiv.id = 'ms';
+	msDiv.style.cssText = 'padding:0 0 3px 3px;text-align:left;background-color:#020;display:none';
+	container.appendChild( msDiv );
+
+	var msText = document.createElement( 'div' );
+	msText.id = 'msText';
+	msText.style.cssText = 'color:#0f0;font-family:Helvetica,Arial,sans-serif;font-size:9px;font-weight:bold;line-height:15px';
+	msText.innerHTML = 'MS';
+	msDiv.appendChild( msText );
+
+	var msGraph = document.createElement( 'div' );
+	msGraph.id = 'msGraph';
+	msGraph.style.cssText = 'position:relative;width:74px;height:30px;background-color:#0f0';
+	msDiv.appendChild( msGraph );
+
+	while ( msGraph.children.length < 74 ) {
+
+		var bar = document.createElement( 'span' );
+		bar.style.cssText = 'width:1px;height:30px;float:left;background-color:#131';
+		msGraph.appendChild( bar );
+
+	}
+
+	var setMode = function ( value ) {
+
+		mode = value;
+
+		switch ( mode ) {
+
+			case 0:
+				fpsDiv.style.display = 'block';
+				msDiv.style.display = 'none';
+				break;
+			case 1:
+				fpsDiv.style.display = 'none';
+				msDiv.style.display = 'block';
+				break;
+		}
+
+	};
+
+	var updateGraph = function ( dom, value ) {
+
+		var child = dom.appendChild( dom.firstChild );
+		child.style.height = value + 'px';
+
+	};
+
+	return {
+
+		REVISION: 12,
+
+		domElement: container,
+
+		setMode: setMode,
+
+		begin: function () {
+
+			startTime = Date.now();
+
+		},
+
+		end: function () {
+
+			var time = Date.now();
+
+			ms = time - startTime;
+			msMin = Math.min( msMin, ms );
+			msMax = Math.max( msMax, ms );
+
+			msText.textContent = ms + ' MS (' + msMin + '-' + msMax + ')';
+			updateGraph( msGraph, Math.min( 30, 30 - ( ms / 200 ) * 30 ) );
+
+			frames ++;
+
+			if ( time > prevTime + 1000 ) {
+
+				fps = Math.round( ( frames * 1000 ) / ( time - prevTime ) );
+				fpsMin = Math.min( fpsMin, fps );
+				fpsMax = Math.max( fpsMax, fps );
+
+				fpsText.textContent = fps + ' FPS (' + fpsMin + '-' + fpsMax + ')';
+				updateGraph( fpsGraph, Math.min( 30, 30 - ( fps / 100 ) * 30 ) );
+
+				prevTime = time;
+				frames = 0;
+
+			}
+
+			return time;
+
+		},
+
+		update: function () {
+
+			startTime = this.end();
+
+		}
+
+	}
+
+};
+
+if ( typeof module === 'object' ) {
+
+	module.exports = Stats;
 
 }
 
-},{"./../connect.js":145,"./Call":152,"./SyncTone/soundManager.js":155,"./webSocket/socketClient.js":168}],159:[function(require,module,exports){
+module.exports = Stats;
+
+},{}],161:[function(require,module,exports){
+arguments[4][147][0].apply(exports,arguments)
+},{"./CallOperator.js":163,"./CallbackChild.js":164,"dup":147}],162:[function(require,module,exports){
+arguments[4][148][0].apply(exports,arguments)
+},{"dup":148}],163:[function(require,module,exports){
+arguments[4][149][0].apply(exports,arguments)
+},{"dup":149}],164:[function(require,module,exports){
+arguments[4][150][0].apply(exports,arguments)
+},{"./CallMeasure.js":162,"./CallOperator.js":163,"dup":150}],165:[function(require,module,exports){
+module.exports = require('./Call.js')()
+
+
+// exports.MultiCall = (...Call) => {
+//     return require('./MultiCall.js')(Call)
+// }
+
+// exports.exCall = () => {
+//     return require('./exCall')()
+// }
+
+},{"./Call.js":161}],166:[function(require,module,exports){
+let geometry = new THREE.Geometry()
+geometry.vertices.push(new THREE.Vector3(0, 0, 1))
+geometry.vertices.push(new THREE.Vector3(1, 0, 0))
+geometry.vertices.push(new THREE.Vector3(0, -1, 0))
+geometry.vertices.push(new THREE.Vector3(-1, 0, 0))
+geometry.vertices.push(new THREE.Vector3(0, 1, 0))
+geometry.vertices.push(new THREE.Vector3(0, 0, -1))
+
+// Face3(a, b, c, normal, color, materialIndex)
+geometry.faces.push(new THREE.Face3(0, 2, 1))
+geometry.faces.push(new THREE.Face3(0, 3, 2))
+geometry.faces.push(new THREE.Face3(0, 4, 3))
+geometry.faces.push(new THREE.Face3(0, 1, 4))
+geometry.faces.push(new THREE.Face3(5, 1, 2))
+geometry.faces.push(new THREE.Face3(5, 2, 3))
+geometry.faces.push(new THREE.Face3(5, 3, 4))
+geometry.faces.push(new THREE.Face3(5, 4, 1))
+
+// 法線ベクトル　自動計算＆セット
+geometry.computeFaceNormals()
+// 滑らかなシェーディング
+geometry.computeVertexNormals()
+
+
+exports.mesh = () => {
+    //八面体のメッシュ作成
+    var material = new THREE.MeshNormalMaterial()
+    //var material = new THREE.MeshPhongMaterial({color: 0x88FFFF})
+    var mesh = new THREE.Mesh(geometry, material)
+    return mesh
+}
+
+exports.meshWire = () => {
+    // //ワイヤーフレームのメッシュ作成
+    var wire = new THREE.MeshBasicMaterial({
+        color: 0x8888cc,
+        wireframe: true
+    })
+    var wireMesh = new THREE.Mesh(geometry, wire)
+    return wireMesh
+}
+
+exports.group = () => {
+    let group = new THREE.Group()
+    group.add(module.exports.mesh())
+    group.add(module.exports.meshWire())
+    return group
+}
+
+},{}],167:[function(require,module,exports){
+let vrDisplay
+let vrFrameData
+let vrControls
+let arView
+
+let canvas
+let camera
+let scene
+let renderer
+let cube
+let box, wire
+let width, height
+
+let colors = [
+    new THREE.Color(0xffffff),
+    new THREE.Color(0xffff00),
+    new THREE.Color(0xff00ff),
+    new THREE.Color(0xff0000),
+    new THREE.Color(0x00ffff),
+    new THREE.Color(0x00ff00),
+    new THREE.Color(0x0000ff),
+    new THREE.Color(0x000000)
+]
+
+let property = require('./../webSocket/property')
+let MeshProto = require('./proto-mesh.js')
+let eventCall = require('./eventCall')
+
+// view FPS  in update() write stats.update()
+let Stats = require('./Stats.js')
+let stats = new Stats()
+
+let isAR = false
+let client
+let sound
+
+/**
+ * Use the `getARDisplay()` utility to leverage the WebVR API
+ * to see if there are any AR-capable WebVR VRDisplays. Returns
+ * a valid display if found. Otherwise, display the unsupported
+ * browser message.
+ */
+
+exports.start = (_client, _sound) => {
+    client = _client
+    sound = _sound
+    THREE.ARUtils.getARDisplay().then(function(display) {
+        if (display) {
+            isAR = true
+            vrFrameData = new VRFrameData()
+            vrDisplay = display
+            init()
+            client.log('Device: ' + vrDisplay.displayName)
+        } else {
+            // THREE.ARUtils.displayUnsupportedMessage()
+            client.log('This device can not use webAR')
+            require('./protoVR.js').initVR(client, sound)
+        }
+    })
+}
+
+function init() {
+    // Turn on the debugging panel
+    let arDebug = new THREE.ARDebug(vrDisplay)
+    document.body.appendChild(arDebug.getElement())
+
+    // Setup the three.js rendering environment
+    renderer = new THREE.WebGLRenderer({
+        alpha: true
+    })
+    renderer.setPixelRatio(window.devicePixelRatio)
+    renderer.setSize(window.innerWidth, window.innerHeight)
+    renderer.autoClear = false
+    canvas = renderer.domElement
+    document.body.appendChild(canvas)
+    document.body.appendChild(stats.domElement)
+
+    // step.2 scene
+    scene = new THREE.Scene()
+
+    // Creating the ARView, which is the object that handles
+    // the rendering of the camera stream behind the three.js
+    // scene
+    arView = new THREE.ARView(vrDisplay, renderer)
+
+    // The ARPerspectiveCamera is very similar to THREE.PerspectiveCamera,
+    // except when using an AR-capable browser, the camera uses
+    // the projection matrix provided from the device, so that the
+    // perspective camera's depth planes and field of view matches
+    // the physical camera on the device.
+    // step.3 camera
+    camera = new THREE.ARPerspectiveCamera(
+        vrDisplay,
+        60,
+        window.innerWidth / window.innerHeight,
+        vrDisplay.depthNear,
+        vrDisplay.depthFar
+    )
+
+
+    // VRControls is a utility from three.js that applies the device's
+    // orientation/position to the perspective camera, keeping our
+    // real world and virtual world in sync.
+    vrControls = new THREE.VRControls(camera)
+
+    // step.4 mesh
+    initMesh()
+
+    // Bind our event handlers
+    window.addEventListener('resize', onWindowResize, false)
+    canvas.addEventListener('touchstart', onClick, false)
+    // canvas.addEventListener('click', onClick, false)
+
+    // Kick off the render loop!
+    update()
+}
+
+function initMesh() {
+    cube = MeshProto.group()
+    cube.scale.set(0.05, 0.05, 0.05)
+    cube.position.set(0, 0, -0.5)
+    scene.add(cube)
+
+
+    let localTime = Date.now()
+    let syncStart = false
+    let syncAudio
+    setTimeout(() => {
+        syncStart = true
+    }, 10000)
+    eventCall.on('animation', (operator, time) => {
+        let st = property.get('startTime', null)
+        // syncStart
+        if (st && syncStart) {
+            syncStart = false
+            sound.finishLoad('pizz_melody', () => {
+                syncAudio = sound.play('pizz_melody', {
+                    offset: (Date.now() - st) / 1000,
+                    loop: true
+                })
+                syncAudio.applyDBAP(true)
+                syncAudio.finished = () => {
+                    syncAudio = sound.play('pizz_melody', {
+                        startDateTime: st
+                    })
+                }
+            })
+        }
+
+
+        time = Date.now() - (st || localTime)
+        let r = (Math.PI * 2 / 5000) * time
+        let position = {
+            x: Math.cos(r),
+            y: 0,
+            z: Math.sin(r) - 1
+        }
+        cube.rotation.x += 0.01
+        cube.rotation.y = Math.cos(r) * Math.PI
+        cube.position.copy(position)
+
+        if(syncAudio){
+            let p = {}
+            p[Date.now() + 10] = position
+            syncAudio.update(p)
+        }
+    })
+
+    client.sendSyncObject({
+        time: Date.now(),
+        position: {
+            x: 0,
+            y: 0,
+            z: 0
+        },
+        events: {
+            clientPosition: true,
+            buffer: true
+        },
+        clientData: true
+    })
+}
+
+/**
+ * The render loop, called once per frame. Handles updating
+ * our scene and rendering.
+ */
+let startTime = null
+
+function update(time) {
+    if (!time) {
+        if (!startTime) {
+            startTime = Date.now()
+        }
+        time = Date.now() - startTime
+    }
+
+    // Render the device's camera stream on screen first of all.
+    // It allows to get the right pose synchronized with the right frame.
+    arView.render()
+
+    // Update our camera projection matrix in the event that
+    // the near or far planes have updated
+    camera.updateProjectionMatrix()
+
+    // From the WebVR API, populate `vrFrameData` with
+    // updated information for the frame
+    vrDisplay.getFrameData(vrFrameData)
+
+    // Update our perspective camera's positioning
+    vrControls.update()
+
+
+    // Render our three.js virtual scene
+    renderer.clearDepth()
+
+    eventCall.emit('animation', time)
+    stats.update()
+
+
+    renderer.render(scene, camera)
+
+    // Kick off the requestAnimationFrame to call this function
+    // on the next frame
+    requestAnimationFrame(update)
+
+    // client.log('develop/', vrDisplay)
+}
+
+/**
+ * On window resize, update the perspective camera's aspect ratio,
+ * and call `updateProjectionMatrix` so that we can get the latest
+ * projection matrix provided from the device
+ */
+function onWindowResize() {
+    console.log('setRenderer size', window.innerWidth, window.innerHeight)
+    camera.aspect = window.innerWidth / window.innerHeight
+    camera.updateProjectionMatrix()
+    renderer.setSize(window.innerWidth, window.innerHeight)
+}
+
+/**
+ * When clicking on the screen, create a cube at the user's
+ * current position.
+ */
+function onClick() {
+    sound.play('pizz_7')
+    // Fetch the pose data from the current frame
+    let pose = vrFrameData.pose
+
+    // Convert the pose orientation and position into
+    // THREE.Quaternion and THREE.Vector3 respectively
+    let ori = new THREE.Quaternion(
+        pose.orientation[0],
+        pose.orientation[1],
+        pose.orientation[2],
+        pose.orientation[3]
+    )
+
+    let pos = new THREE.Vector3(
+        pose.position[0],
+        pose.position[1],
+        pose.position[2]
+    )
+
+    let dirMtx = new THREE.Matrix4()
+    dirMtx.makeRotationFromQuaternion(ori)
+
+    let push = new THREE.Vector3(0, 0, -1.0)
+    push.transformDirection(dirMtx)
+    pos.addScaledVector(push, 0.125)
+
+    // Clone our cube object and place it at the camera's
+    // current position
+    let clone = cube.clone()
+    scene.add(clone)
+    clone.position.copy(pos)
+    clone.quaternion.copy(ori)
+
+}
+
+},{"./../webSocket/property":176,"./Stats.js":160,"./eventCall":165,"./proto-mesh.js":166,"./protoVR.js":168}],168:[function(require,module,exports){
+let vrDisplay
+let vrFrameData
+let vrControls
+let arView
+
+let canvas
+let camera
+let scene
+let renderer
+let cube
+let box, wire
+let width, height
+
+let colors = [
+    new THREE.Color(0xffffff),
+    new THREE.Color(0xffff00),
+    new THREE.Color(0xff00ff),
+    new THREE.Color(0xff0000),
+    new THREE.Color(0x00ffff),
+    new THREE.Color(0x00ff00),
+    new THREE.Color(0x0000ff),
+    new THREE.Color(0x000000)
+]
+
+let property = require('./../webSocket/property')
+let MeshProto = require('./proto-mesh.js')
+let eventCall = require('./eventCall')
+
+// view FPS  in update() write stats.update()
+let Stats = require('./Stats.js')
+let stats = new Stats()
+
+let client
+let sound
+
+exports.initVR = (_client, _sound) => {
+    client = _client
+    sound = _sound
+
+    width = window.innerWidth || 800
+    height = window.innerHeight || 600
+
+    // step.1 renderer
+    renderer = new THREE.WebGLRenderer()
+    // renderer.setPixelRatio(window.devicePixelRatio)
+    renderer.setSize(width, height)
+    // renderer.autoClear = false
+    canvas = renderer.domElement
+    document.body.appendChild(canvas)
+    document.body.appendChild(stats.domElement)
+
+
+    // step.2 scene
+    scene = new THREE.Scene()
+
+    // step.3 camera
+    camera = new THREE.PerspectiveCamera(60, width / height, 0.01, 10000)
+    camera.position.set(0, 0, 1)
+    // camera.zoom()
+
+
+    // step.4 mesh
+    initMesh()
+
+
+    // step.5 light
+    const directionalLight = new THREE.DirectionalLight(0xFFFFFF)
+    directionalLight.position.set(0, 0, 0.5)
+    scene.add(directionalLight)
+
+    update()
+
+    canvas.addEventListener('click', onClick, false)
+}
+
+function initMesh() {
+    cube = MeshProto.group()
+    cube.scale.set(0.05, 0.05, 0.05)
+    cube.position.set(0, 0, -2)
+    scene.add(cube)
+
+
+    let localTime = Date.now()
+    let syncStart = false
+    let syncAudio
+    setTimeout(() => {
+        syncStart = true
+    }, 10000)
+    eventCall.on('animation', (operator, time) => {
+        let st = property.get('startTime', null)
+        // syncStart
+        if (st && syncStart) {
+            syncStart = false
+            sound.finishLoad('pizz_melody', () => {
+                syncAudio = sound.play('pizz_melody', {
+                    offset: (Date.now() - st) / 1000,
+                    loop: true
+                })
+                syncAudio.applyDBAP(true)
+                syncAudio.finished = () => {
+                    syncAudio = sound.play('pizz_melody', {
+                        startDateTime: st
+                    })
+                }
+            })
+        }
+
+
+        time = Date.now() - (st || localTime)
+        let r = (Math.PI * 2 / 5000) * time
+        let position = {
+            x: Math.cos(r),
+            y: 0,
+            z: Math.sin(r) - 1
+        }
+        cube.rotation.x += 0.01
+        cube.rotation.y = Math.cos(r) * Math.PI
+        cube.position.copy(position)
+
+        if(syncAudio){
+            let p = {}
+            p[Date.now() + 2] = position
+            syncAudio.update(p)
+        }
+    })
+
+    client.sendSyncObject({
+        time: Date.now(),
+        position: {
+            x: 0,
+            y: 0,
+            z: -2
+        },
+        events: {
+            clientPosition: true,
+            buffer: true
+        },
+        clientData: true
+    })
+}
+
+let startTime = null
+
+function update(time) {
+    time = null
+    if (!time) {
+        if (!startTime) {
+            startTime = Date.now()
+        }
+        time = Date.now() - startTime
+    }
+    eventCall.emit('animation', time)
+    stats.update()
+
+    renderer.render(scene, camera)
+
+    requestAnimationFrame(update)
+
+}
+
+function onClick() {
+    // Fetch the pose data from the current frame
+
+    // Convert the pose orientation and position into
+    // THREE.Quaternion and THREE.Vector3 respectively
+    let w = Math.random() - 0.5
+    let h = Math.random() - 0.5
+    let pos = new THREE.Vector3(w, h, -200)
+
+    // Clone our cube object and place it at the camera's
+    // current position
+    let mesh = MeshProto.group()
+    mesh.scale.set(0.05, 0.05, 0.05)
+    mesh.position.set(w, h, -1)
+    scene.add(mesh)
+
+    let x = Math.random() / 10 - 0.05
+    let y = Math.random() / 10 - 0.05
+
+    update()
+
+    function update() {
+        requestAnimationFrame(update)
+        mesh.rotation.x += 0.01 + x
+        mesh.rotation.y += 0.01 + y
+
+        // renderer.render(scene, camera)
+    }
+}
+
+/**
+ * On window resize, update the perspective camera's aspect ratio,
+ * and call `updateProjectionMatrix` so that we can get the latest
+ * projection matrix provided from the device
+ */
+function onWindowResize() {
+    console.log('setRenderer size', window.innerWidth, window.innerHeight)
+    camera.aspect = window.innerWidth / window.innerHeight
+    camera.updateProjectionMatrix()
+    renderer.setSize(window.innerWidth, window.innerHeight)
+}
+
+},{"./../webSocket/property":176,"./Stats.js":160,"./eventCall":165,"./proto-mesh.js":166}],169:[function(require,module,exports){
 const CronJob = require('cron').CronJob
 
 // onTick  Dateクラス
@@ -23151,27 +23685,17 @@ module.exports = (onTick, callback, start = true) => {
     })
 }
 
-},{"cron":179}],160:[function(require,module,exports){
+},{"cron":189}],170:[function(require,module,exports){
 arguments[4][147][0].apply(exports,arguments)
-},{"./CallOperator.js":162,"./CallbackChild.js":163,"dup":147}],161:[function(require,module,exports){
+},{"./CallOperator.js":172,"./CallbackChild.js":173,"dup":147}],171:[function(require,module,exports){
 arguments[4][148][0].apply(exports,arguments)
-},{"dup":148}],162:[function(require,module,exports){
+},{"dup":148}],172:[function(require,module,exports){
 arguments[4][149][0].apply(exports,arguments)
-},{"dup":149}],163:[function(require,module,exports){
+},{"dup":149}],173:[function(require,module,exports){
 arguments[4][150][0].apply(exports,arguments)
-},{"./CallMeasure.js":161,"./CallOperator.js":162,"dup":150}],164:[function(require,module,exports){
-module.exports = require('./Call.js')()
-
-
-// exports.MultiCall = (...Call) => {
-//     return require('./MultiCall.js')(Call)
-// }
-
-// exports.exCall = () => {
-//     return require('./exCall')()
-// }
-
-},{"./Call.js":160}],165:[function(require,module,exports){
+},{"./CallMeasure.js":171,"./CallOperator.js":172,"dup":150}],174:[function(require,module,exports){
+arguments[4][165][0].apply(exports,arguments)
+},{"./Call.js":170,"dup":165}],175:[function(require,module,exports){
 /**
  * @overview 時刻同期処理 socketを使用
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -23324,7 +23848,7 @@ let smoothing = (obj) => {
             temp_delay: obj.delay,
             offset: average_offset,
             delay: average_delay,
-            correctionTime: obj.catchTime - module.exports.correctionServerTime(obj.st)
+            correctionTime: obj.catchTime - module.exports.toServerTime(obj.st)
         })
     })
 }
@@ -23383,7 +23907,7 @@ let emit = () => {
     }, 300 * 1 + Math.floor((Math.random() * 200)))
 }
 
-},{}],166:[function(require,module,exports){
+},{}],176:[function(require,module,exports){
 /**
  * @overview SystemProperty serverとのやりとりで決定する
  * @module webSocket/property
@@ -23395,7 +23919,7 @@ let property = {}
 exports.init = (socket, socketRoot) => {
     socket.on(socketRoot + 'system/property/receive', (prop) => {
         console.log('system/property/receive', prop)
-        for(let key in prop){
+        for (let key in prop) {
             property[key] = prop[key]
         }
     })
@@ -23406,16 +23930,21 @@ exports.init = (socket, socketRoot) => {
  * @param  {string} key          [description]
  * @param  {} defaultValue  値がない場合，この値を返す　参照渡しにするので更新されたら変わる
  */
-exports.get = (key, defaultValue) => {
-    if(key in property){
+exports.get = (key, defaultValue = null) => {
+    if (key in property) {
         return property[key]
-    }else {
+    } else {
         property[key] = defaultValue
         return property[key]
     }
 }
 
-},{}],167:[function(require,module,exports){
+exports.set = (key, value) => {
+    console.log('property', key, value)
+    property[key] = value
+}
+
+},{}],177:[function(require,module,exports){
 /**
  * @overview socketを接続 config.json - socketUrl
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -23449,9 +23978,11 @@ let registrationConfirm = false
 // register/confirm
 const spec = require('./spec')
 const property = require('./property')
+let thisClientID
 
 exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {}) => {
     let clientID = uuid.v4()
+    thisClientID = clientID
 
     console.log('register.js clientID: ' + clientID)
     if (typeof group != 'string') {
@@ -23462,11 +23993,8 @@ exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {})
         console.log('register.js register confirm', response)
         if (response.ok) {
             registrationConfirm = true
-            setTimeout(() => {
-                spec.init(socket, socketRoot)
-                property.init(socket, socketRoot)
-            }, 1000)
-
+            property.init(socket, socketRoot)
+            spec.init(socket, socketRoot)
         }
     })
 
@@ -23511,7 +24039,6 @@ exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {})
             }
         }
         console.log('register.js update', list)
-
     })
 
 
@@ -23529,6 +24056,14 @@ exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {})
         socket.emit(socketRoot + 'register/update', data)
     }
     return updater
+}
+
+/**
+ * @see {@link module:webSocket/socketClient} socketClient.register
+ * @param  {callback} [callback=(] {...clientID: clientData}
+ */
+exports.getClientID = () => {
+    return thisClientID
 }
 
 
@@ -23564,7 +24099,7 @@ exports.updateClientEvent = (callback = () => {}) => {
     updateClientEvent = callback
 }
 
-},{"./property":166,"./spec":169,"node-uuid":204}],168:[function(require,module,exports){
+},{"./property":176,"./spec":179,"node-uuid":214}],178:[function(require,module,exports){
 /**
  * @overview このファイルがwebSocket全体のモジュールとなっている
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -23573,12 +24108,14 @@ exports.updateClientEvent = (callback = () => {}) => {
  * @see {@link module:webSocket/register}
  * @see {@link module:webSocket/ntpClient}
  * @see {@link module:webSocket/sync}
+ * @see {@link module:webSocket/property}
  */
 
 let ntp = require('./ntp-client')
 let register = require('./register')
 let sync = require('./sync')
 let call = require('./eventCall')
+let property = require('./property') // server.startTime
 
 let url = 'http://192.168.144.142:8001'
 try {
@@ -23592,6 +24129,7 @@ if (!window.io) {
     socket = io.connect(url)
 }
 let socketRoot = ''
+let thisClientID
 
 let isConnect = false
 let isConnecting = true
@@ -23626,7 +24164,9 @@ exports.register = register
 
 exports.initRegister = (_socketRoot = '', group, clientData = {}) => {
     socketRoot = _socketRoot
-    return register.init(socket, connect, disconnect, socketRoot, group, clientData)
+    let updater = register.init(socket, connect, disconnect, socketRoot, group, clientData)
+    thisClientID = register.getClientID()
+    return updater
 }
 
 
@@ -23648,6 +24188,20 @@ exports.receiveSyncObject = (callback) => {
     sync.receiveSyncObject(socket, ntp, socketRoot, callback)
 }
 
+/**
+ * @param  {callback} callback syncObject[]
+ */
+exports.getSyncObjectBuffer = (callback) => {
+    sync.getSyncObjectBuffer(socket, ntp, socketRoot, callback)
+}
+// module: property
+
+/**
+ * @see {@link module:webSocket/property}
+ */
+
+exports.property = property
+
 
 
 // socket
@@ -23658,7 +24212,7 @@ exports.receiveSyncObject = (callback) => {
 
 exports.connecting = (callback = () => {}) => {
     if (isConnecting) {
-        callback(url)
+        callback(url, thisClientID)
     }
 }
 
@@ -23672,7 +24226,7 @@ exports.connect = (callback = () => {}) => {
     }
     call.on('connect', () => {
         isConnecting = false
-        callback(url)
+        callback(url, thisClientID)
     })
 }
 let connect = exports.connect
@@ -23684,10 +24238,10 @@ let connect = exports.connect
 
 exports.disconnect = (callback = () => {}) => {
     if (!isConnect && !isConnecting) {
-        callback(url)
+        callback(url, thisClientID)
     }
     call.on('disconnect', () => {
-        callback(url)
+        callback(url, thisClientID)
     })
 }
 let disconnect = exports.disconnect
@@ -23727,6 +24281,16 @@ socket.on('connect', () => {
     // ntp
     ntp.setSocket(socket)
 
+    // server startTime
+    socket.on(socketRoot + 'system/time/receive', (time) => {
+        if ('startTime' in time) {
+            let st = time.startTime
+            property.set('startTime', ntp.toClientTime(st))
+            ntp.checkShiftTime(() => {
+                property.set('startTime', ntp.toClientTime(st))
+            })
+        }
+    })
     // デバック
     // ntp.checkShiftTime((dif) => {
     //     let text = 'offset time: ' + (dif.offset).toFixed(1) + 'ms  　trans delay: ' + (dif.delay).toFixed(1) + 'ms<br>'
@@ -23741,7 +24305,7 @@ socket.on('disconnect', () => {
     call.emit('disconnect', url)
 })
 
-},{"./../config.json":156,"./eventCall":164,"./ntp-client":165,"./register":167,"./sync":170,"socket.io-client":208}],169:[function(require,module,exports){
+},{"./../config.json":157,"./eventCall":174,"./ntp-client":175,"./property":176,"./register":177,"./sync":180,"socket.io-client":218}],179:[function(require,module,exports){
 /**
  * @overview SystemProperty 計算能力を簡易的に測って，serverに送る
  * @module webSocket/spec
@@ -23749,6 +24313,7 @@ socket.on('disconnect', () => {
  */
 
 exports.init = (socket, socketRoot) => {
+
     let st = Date.now()
     let timeout = 500
     let max = 1000000
@@ -23766,20 +24331,22 @@ exports.init = (socket, socketRoot) => {
         })
     }
 
+    setTimeout(() => {
+        st = Date.now()
+        for (let n = 1; n < max; n++) {
+            // power
+            let a = Math.pow(Math.sin(n))
 
-    for (let n = 1; n < max; n++) {
-        // power
-        let a = Math.pow(Math.sin(n))
-
-        if (Date.now() - st > timeout) {
-            finish(n)
-            break
+            if (Date.now() - st > timeout) {
+                finish(n)
+                break
+            }
         }
-    }
-    finish(max)
+        finish(max)
+    }, 500)
 }
 
-},{}],170:[function(require,module,exports){
+},{}],180:[function(require,module,exports){
 /**
  * @overview webSocket経由でデータ共有する処理
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -23796,16 +24363,16 @@ let syncObjectBuffer = []
  * syncObject
  * @typedef {Object} syncObject
  * @property {stirng|number} time
- * @property {string[]} [events]
- * @property {string[]} [types]
+ * @property {Object} [events]
+ * @property {Object} [types]
  * @property {Object} [position]
  * @property {Object} [data]
  */
 
 let syncObjectTemplate = {
     time: 'UTCmillis',
-    events: [],
-    types: [],
+    events: {},
+    types: {},
     position: {
         x: 0,
         y: 0,
@@ -23837,7 +24404,7 @@ exports.sendSyncObject = (socket, ntp, socketRoot, syncObject, options = {}) => 
         syncObjectBuffer.push(syncObject)
 
         // eventsがあればそれまでのbuffer含めてすぐに送る
-        if (syncObject.events.length >= 1) {
+        if (Object.keys(syncObject.events).length >= 1) {
             socket.emit(socketRoot + 'sync/send', {
                 array: syncObjectBuffer
             })
@@ -23898,34 +24465,67 @@ exports.receiveSyncObject = (socket, ntp, socketRoot, callback = () => {}) => {
     })
 }
 
+/**
+ * [getSyncObjectBuffer description]
+ * @param  {Object} socket
+ * @param  {Object} ntp          [description]
+ * @param  {string} socketRoot
+ * @param  {callback} callback   param syncObject[]
+ */
+exports.getSyncObjectBuffer = (socket, ntp, socketRoot, callback = () => {}) => {
+    socket.emit(socketRoot + 'sync/buffer/get')
+    socket.on(socketRoot + 'sync/buffer/receive', (syncObjects) => {
+        syncObjects = syncObjects.array || syncObjects
+        // check
+        let remove = []
+        syncObjects.forEach((syncObject, i) => {
+            checkSyncObject(syncObject)
+            if (!syncObject) {
+                remove.unshift(i)
+                return
+            } else {
+                syncObject.time = ntp.toClientTime(syncObject.time)
+                if (isNaN(syncObject.time)) {
+                    remove.unshift(i)
+                }
+            }
+        })
+        // remove
+        remove.forEach((n) => {
+            syncObjects.splice(n, 1)
+        })
+
+        // callback
+        if (syncObjects.length >= 1) {
+            callback(syncObjects)
+        }
+    })
+}
+
 let checkSyncObject = (syncObject) => {
     if (!syncObject || !syncObject.time) {
         return false
     }
-    if (!Array.isArray(syncObject.events)) {
-        if (typeof syncObject.events == 'string') {
-            syncObject.events = [syncObject.events]
-        } else {
-            syncObject.events = []
-        }
+
+    if (typeof syncObject.events != 'object') {
+        syncObject.events = {}
     }
-    if (!Array.isArray(syncObject.types)) {
-        if (typeof syncObject.types == 'string') {
-            syncObject.types = [syncObject.types]
-        } else {
-            syncObject.types = []
-        }
+
+    if (typeof syncObject.types != 'object') {
+        syncObject.types = {}
     }
+
     if (typeof syncObject.position != 'object') {
         syncObject.position = {}
     }
+
     if (typeof syncObject.data != 'object') {
         syncObject.data = {}
     }
     return syncObject
 }
 
-},{"./cron.js":159}],171:[function(require,module,exports){
+},{"./cron.js":169}],181:[function(require,module,exports){
 module.exports = after
 
 function after(count, callback, err_cb) {
@@ -23955,7 +24555,7 @@ function after(count, callback, err_cb) {
 
 function noop() {}
 
-},{}],172:[function(require,module,exports){
+},{}],182:[function(require,module,exports){
 /**
  * An abstraction for slicing an arraybuffer even when
  * ArrayBuffer.prototype.slice is not supported
@@ -23986,7 +24586,7 @@ module.exports = function(arraybuffer, start, end) {
   return result.buffer;
 };
 
-},{}],173:[function(require,module,exports){
+},{}],183:[function(require,module,exports){
 
 /**
  * Expose `Backoff`.
@@ -24073,7 +24673,7 @@ Backoff.prototype.setJitter = function(jitter){
 };
 
 
-},{}],174:[function(require,module,exports){
+},{}],184:[function(require,module,exports){
 /*
  * base64-arraybuffer
  * https://github.com/niklasvh/base64-arraybuffer
@@ -24142,7 +24742,7 @@ Backoff.prototype.setJitter = function(jitter){
   };
 })();
 
-},{}],175:[function(require,module,exports){
+},{}],185:[function(require,module,exports){
 (function (global){
 /**
  * Create a blob builder even when vendor prefixes exist
@@ -24242,7 +24842,7 @@ module.exports = (function() {
 })();
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],176:[function(require,module,exports){
+},{}],186:[function(require,module,exports){
 /**
  * Slice reference.
  */
@@ -24267,7 +24867,7 @@ module.exports = function(obj, fn){
   }
 };
 
-},{}],177:[function(require,module,exports){
+},{}],187:[function(require,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -24432,7 +25032,7 @@ Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
 };
 
-},{}],178:[function(require,module,exports){
+},{}],188:[function(require,module,exports){
 
 module.exports = function(a, b){
   var fn = function(){};
@@ -24440,7 +25040,7 @@ module.exports = function(a, b){
   a.prototype = new fn;
   a.prototype.constructor = a;
 };
-},{}],179:[function(require,module,exports){
+},{}],189:[function(require,module,exports){
 (function (root, factory) {
 	if (typeof define === 'function' && define.amd) {
 		define(['moment-timezone'], factory);
@@ -24982,7 +25582,7 @@ return exports;
 
 }));
 
-},{"child_process":44,"moment-timezone":200}],180:[function(require,module,exports){
+},{"child_process":44,"moment-timezone":210}],190:[function(require,module,exports){
 (function (process){
 /**
  * This is the web browser implementation of `debug()`.
@@ -25171,7 +25771,7 @@ function localstorage() {
 }
 
 }).call(this,require('_process'))
-},{"./debug":181,"_process":111}],181:[function(require,module,exports){
+},{"./debug":191,"_process":111}],191:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -25375,11 +25975,11 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":203}],182:[function(require,module,exports){
+},{"ms":213}],192:[function(require,module,exports){
 
 module.exports = require('./lib/index');
 
-},{"./lib/index":183}],183:[function(require,module,exports){
+},{"./lib/index":193}],193:[function(require,module,exports){
 
 module.exports = require('./socket');
 
@@ -25391,7 +25991,7 @@ module.exports = require('./socket');
  */
 module.exports.parser = require('engine.io-parser');
 
-},{"./socket":184,"engine.io-parser":192}],184:[function(require,module,exports){
+},{"./socket":194,"engine.io-parser":202}],194:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -26139,7 +26739,7 @@ Socket.prototype.filterUpgrades = function (upgrades) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./transport":185,"./transports/index":186,"component-emitter":177,"debug":180,"engine.io-parser":192,"indexof":197,"parsejson":205,"parseqs":206,"parseuri":207}],185:[function(require,module,exports){
+},{"./transport":195,"./transports/index":196,"component-emitter":187,"debug":190,"engine.io-parser":202,"indexof":207,"parsejson":215,"parseqs":216,"parseuri":217}],195:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -26298,7 +26898,7 @@ Transport.prototype.onClose = function () {
   this.emit('close');
 };
 
-},{"component-emitter":177,"engine.io-parser":192}],186:[function(require,module,exports){
+},{"component-emitter":187,"engine.io-parser":202}],196:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies
@@ -26355,7 +26955,7 @@ function polling (opts) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling-jsonp":187,"./polling-xhr":188,"./websocket":190,"xmlhttprequest-ssl":191}],187:[function(require,module,exports){
+},{"./polling-jsonp":197,"./polling-xhr":198,"./websocket":200,"xmlhttprequest-ssl":201}],197:[function(require,module,exports){
 (function (global){
 
 /**
@@ -26590,7 +27190,7 @@ JSONPPolling.prototype.doWrite = function (data, fn) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":189,"component-inherit":178}],188:[function(require,module,exports){
+},{"./polling":199,"component-inherit":188}],198:[function(require,module,exports){
 (function (global){
 /**
  * Module requirements.
@@ -27007,7 +27607,7 @@ function unloadHandler () {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":189,"component-emitter":177,"component-inherit":178,"debug":180,"xmlhttprequest-ssl":191}],189:[function(require,module,exports){
+},{"./polling":199,"component-emitter":187,"component-inherit":188,"debug":190,"xmlhttprequest-ssl":201}],199:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -27254,7 +27854,7 @@ Polling.prototype.uri = function () {
   return schema + '://' + (ipv6 ? '[' + this.hostname + ']' : this.hostname) + port + this.path + query;
 };
 
-},{"../transport":185,"component-inherit":178,"debug":180,"engine.io-parser":192,"parseqs":206,"xmlhttprequest-ssl":191,"yeast":217}],190:[function(require,module,exports){
+},{"../transport":195,"component-inherit":188,"debug":190,"engine.io-parser":202,"parseqs":216,"xmlhttprequest-ssl":201,"yeast":227}],200:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -27544,7 +28144,7 @@ WS.prototype.check = function () {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../transport":185,"component-inherit":178,"debug":180,"engine.io-parser":192,"parseqs":206,"ws":18,"yeast":217}],191:[function(require,module,exports){
+},{"../transport":195,"component-inherit":188,"debug":190,"engine.io-parser":202,"parseqs":216,"ws":18,"yeast":227}],201:[function(require,module,exports){
 (function (global){
 // browser shim for xmlhttprequest module
 
@@ -27585,7 +28185,7 @@ module.exports = function (opts) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"has-cors":196}],192:[function(require,module,exports){
+},{"has-cors":206}],202:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -28195,7 +28795,7 @@ exports.decodePayloadAsBinary = function (data, binaryType, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./keys":193,"./utf8":194,"after":171,"arraybuffer.slice":172,"base64-arraybuffer":174,"blob":175,"has-binary2":195}],193:[function(require,module,exports){
+},{"./keys":203,"./utf8":204,"after":181,"arraybuffer.slice":182,"base64-arraybuffer":184,"blob":185,"has-binary2":205}],203:[function(require,module,exports){
 
 /**
  * Gets the keys for an object.
@@ -28216,7 +28816,7 @@ module.exports = Object.keys || function keys (obj){
   return arr;
 };
 
-},{}],194:[function(require,module,exports){
+},{}],204:[function(require,module,exports){
 (function (global){
 /*! https://mths.be/utf8js v2.1.2 by @mathias */
 ;(function(root) {
@@ -28475,7 +29075,7 @@ module.exports = Object.keys || function keys (obj){
 }(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],195:[function(require,module,exports){
+},{}],205:[function(require,module,exports){
 (function (global){
 /* global Blob File */
 
@@ -28541,7 +29141,7 @@ function hasBinary (obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"isarray":198}],196:[function(require,module,exports){
+},{"isarray":208}],206:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -28560,11 +29160,11 @@ try {
   module.exports = false;
 }
 
-},{}],197:[function(require,module,exports){
+},{}],207:[function(require,module,exports){
 arguments[4][93][0].apply(exports,arguments)
-},{"dup":93}],198:[function(require,module,exports){
+},{"dup":93}],208:[function(require,module,exports){
 arguments[4][96][0].apply(exports,arguments)
-},{"dup":96}],199:[function(require,module,exports){
+},{"dup":96}],209:[function(require,module,exports){
 module.exports={
 	"version": "2017b",
 	"zones": [
@@ -29165,11 +29765,11 @@ module.exports={
 		"Pacific/Tarawa|Pacific/Wallis"
 	]
 }
-},{}],200:[function(require,module,exports){
+},{}],210:[function(require,module,exports){
 var moment = module.exports = require("./moment-timezone");
 moment.tz.load(require('./data/packed/latest.json'));
 
-},{"./data/packed/latest.json":199,"./moment-timezone":201}],201:[function(require,module,exports){
+},{"./data/packed/latest.json":209,"./moment-timezone":211}],211:[function(require,module,exports){
 //! moment-timezone.js
 //! version : 0.5.13
 //! Copyright (c) JS Foundation and other contributors
@@ -29772,7 +30372,7 @@ moment.tz.load(require('./data/packed/latest.json'));
 	return moment;
 }));
 
-},{"moment":202}],202:[function(require,module,exports){
+},{"moment":212}],212:[function(require,module,exports){
 //! moment.js
 //! version : 2.18.1
 //! authors : Tim Wood, Iskren Chernev, Moment.js contributors
@@ -34237,7 +34837,7 @@ return hooks;
 
 })));
 
-},{}],203:[function(require,module,exports){
+},{}],213:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -34391,7 +34991,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],204:[function(require,module,exports){
+},{}],214:[function(require,module,exports){
 (function (Buffer){
 //     uuid.js
 //
@@ -34667,7 +35267,7 @@ function plural(ms, n, name) {
 })('undefined' !== typeof window ? window : null);
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":46,"crypto":55}],205:[function(require,module,exports){
+},{"buffer":46,"crypto":55}],215:[function(require,module,exports){
 (function (global){
 /**
  * JSON parse.
@@ -34702,7 +35302,7 @@ module.exports = function parsejson(data) {
   }
 };
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],206:[function(require,module,exports){
+},{}],216:[function(require,module,exports){
 /**
  * Compiles a querystring
  * Returns string representation of the object
@@ -34741,7 +35341,7 @@ exports.decode = function(qs){
   return qry;
 };
 
-},{}],207:[function(require,module,exports){
+},{}],217:[function(require,module,exports){
 /**
  * Parses an URI
  *
@@ -34782,7 +35382,7 @@ module.exports = function parseuri(str) {
     return uri;
 };
 
-},{}],208:[function(require,module,exports){
+},{}],218:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -34878,7 +35478,7 @@ exports.connect = lookup;
 exports.Manager = require('./manager');
 exports.Socket = require('./socket');
 
-},{"./manager":209,"./socket":211,"./url":212,"debug":180,"socket.io-parser":214}],209:[function(require,module,exports){
+},{"./manager":219,"./socket":221,"./url":222,"debug":190,"socket.io-parser":224}],219:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -35453,7 +36053,7 @@ Manager.prototype.onreconnect = function () {
   this.emitAll('reconnect', attempt);
 };
 
-},{"./on":210,"./socket":211,"backo2":173,"component-bind":176,"component-emitter":177,"debug":180,"engine.io-client":182,"indexof":197,"socket.io-parser":214}],210:[function(require,module,exports){
+},{"./on":220,"./socket":221,"backo2":183,"component-bind":186,"component-emitter":187,"debug":190,"engine.io-client":192,"indexof":207,"socket.io-parser":224}],220:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -35479,7 +36079,7 @@ function on (obj, ev, fn) {
   };
 }
 
-},{}],211:[function(require,module,exports){
+},{}],221:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -35899,7 +36499,7 @@ Socket.prototype.compress = function (compress) {
   return this;
 };
 
-},{"./on":210,"component-bind":176,"component-emitter":177,"debug":180,"parseqs":206,"socket.io-parser":214,"to-array":216}],212:[function(require,module,exports){
+},{"./on":220,"component-bind":186,"component-emitter":187,"debug":190,"parseqs":216,"socket.io-parser":224,"to-array":226}],222:[function(require,module,exports){
 (function (global){
 
 /**
@@ -35978,7 +36578,7 @@ function url (uri, loc) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"debug":180,"parseuri":207}],213:[function(require,module,exports){
+},{"debug":190,"parseuri":217}],223:[function(require,module,exports){
 (function (global){
 /*global Blob,File*/
 
@@ -36123,7 +36723,7 @@ exports.removeBlobs = function(data, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./is-buffer":215,"isarray":198}],214:[function(require,module,exports){
+},{"./is-buffer":225,"isarray":208}],224:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -36525,7 +37125,7 @@ function error() {
   };
 }
 
-},{"./binary":213,"./is-buffer":215,"component-emitter":177,"debug":180,"has-binary2":195}],215:[function(require,module,exports){
+},{"./binary":223,"./is-buffer":225,"component-emitter":187,"debug":190,"has-binary2":205}],225:[function(require,module,exports){
 (function (global){
 
 module.exports = isBuf;
@@ -36542,7 +37142,7 @@ function isBuf(obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],216:[function(require,module,exports){
+},{}],226:[function(require,module,exports){
 module.exports = toArray
 
 function toArray(list, index) {
@@ -36557,7 +37157,7 @@ function toArray(list, index) {
     return array
 }
 
-},{}],217:[function(require,module,exports){
+},{}],227:[function(require,module,exports){
 'use strict';
 
 var alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_'.split('')
@@ -36627,4 +37227,408 @@ yeast.encode = encode;
 yeast.decode = decode;
 module.exports = yeast;
 
-},{}]},{},[157]);
+},{}],228:[function(require,module,exports){
+'use strict';
+var token = '%[a-f0-9]{2}';
+var singleMatcher = new RegExp(token, 'gi');
+var multiMatcher = new RegExp('(' + token + ')+', 'gi');
+
+function decodeComponents(components, split) {
+	try {
+		// Try to decode the entire string first
+		return decodeURIComponent(components.join(''));
+	} catch (err) {
+		// Do nothing
+	}
+
+	if (components.length === 1) {
+		return components;
+	}
+
+	split = split || 1;
+
+	// Split the array in 2 parts
+	var left = components.slice(0, split);
+	var right = components.slice(split);
+
+	return Array.prototype.concat.call([], decodeComponents(left), decodeComponents(right));
+}
+
+function decode(input) {
+	try {
+		return decodeURIComponent(input);
+	} catch (err) {
+		var tokens = input.match(singleMatcher);
+
+		for (var i = 1; i < tokens.length; i++) {
+			input = decodeComponents(tokens, i).join('');
+
+			tokens = input.match(singleMatcher);
+		}
+
+		return input;
+	}
+}
+
+function customDecodeURIComponent(input) {
+	// Keep track of all the replacements and prefill the map with the `BOM`
+	var replaceMap = {
+		'%FE%FF': '\uFFFD\uFFFD',
+		'%FF%FE': '\uFFFD\uFFFD'
+	};
+
+	var match = multiMatcher.exec(input);
+	while (match) {
+		try {
+			// Decode as big chunks as possible
+			replaceMap[match[0]] = decodeURIComponent(match[0]);
+		} catch (err) {
+			var result = decode(match[0]);
+
+			if (result !== match[0]) {
+				replaceMap[match[0]] = result;
+			}
+		}
+
+		match = multiMatcher.exec(input);
+	}
+
+	// Add `%C2` at the end of the map to make sure it does not replace the combinator before everything else
+	replaceMap['%C2'] = '\uFFFD';
+
+	var entries = Object.keys(replaceMap);
+
+	for (var i = 0; i < entries.length; i++) {
+		// Replace all decoded components
+		var key = entries[i];
+		input = input.replace(new RegExp(key, 'g'), replaceMap[key]);
+	}
+
+	return input;
+}
+
+module.exports = function (encodedURI) {
+	if (typeof encodedURI !== 'string') {
+		throw new TypeError('Expected `encodedURI` to be of type `string`, got `' + typeof encodedURI + '`');
+	}
+
+	try {
+		encodedURI = encodedURI.replace(/\+/g, ' ');
+
+		// Try the built in decoder first
+		return decodeURIComponent(encodedURI);
+	} catch (err) {
+		// Fallback to a more advanced decoder
+		return customDecodeURIComponent(encodedURI);
+	}
+};
+
+},{}],229:[function(require,module,exports){
+/*
+object-assign
+(c) Sindre Sorhus
+@license MIT
+*/
+
+'use strict';
+/* eslint-disable no-unused-vars */
+var getOwnPropertySymbols = Object.getOwnPropertySymbols;
+var hasOwnProperty = Object.prototype.hasOwnProperty;
+var propIsEnumerable = Object.prototype.propertyIsEnumerable;
+
+function toObject(val) {
+	if (val === null || val === undefined) {
+		throw new TypeError('Object.assign cannot be called with null or undefined');
+	}
+
+	return Object(val);
+}
+
+function shouldUseNative() {
+	try {
+		if (!Object.assign) {
+			return false;
+		}
+
+		// Detect buggy property enumeration order in older V8 versions.
+
+		// https://bugs.chromium.org/p/v8/issues/detail?id=4118
+		var test1 = new String('abc');  // eslint-disable-line no-new-wrappers
+		test1[5] = 'de';
+		if (Object.getOwnPropertyNames(test1)[0] === '5') {
+			return false;
+		}
+
+		// https://bugs.chromium.org/p/v8/issues/detail?id=3056
+		var test2 = {};
+		for (var i = 0; i < 10; i++) {
+			test2['_' + String.fromCharCode(i)] = i;
+		}
+		var order2 = Object.getOwnPropertyNames(test2).map(function (n) {
+			return test2[n];
+		});
+		if (order2.join('') !== '0123456789') {
+			return false;
+		}
+
+		// https://bugs.chromium.org/p/v8/issues/detail?id=3056
+		var test3 = {};
+		'abcdefghijklmnopqrst'.split('').forEach(function (letter) {
+			test3[letter] = letter;
+		});
+		if (Object.keys(Object.assign({}, test3)).join('') !==
+				'abcdefghijklmnopqrst') {
+			return false;
+		}
+
+		return true;
+	} catch (err) {
+		// We don't expect any of the above to throw, but better to be safe.
+		return false;
+	}
+}
+
+module.exports = shouldUseNative() ? Object.assign : function (target, source) {
+	var from;
+	var to = toObject(target);
+	var symbols;
+
+	for (var s = 1; s < arguments.length; s++) {
+		from = Object(arguments[s]);
+
+		for (var key in from) {
+			if (hasOwnProperty.call(from, key)) {
+				to[key] = from[key];
+			}
+		}
+
+		if (getOwnPropertySymbols) {
+			symbols = getOwnPropertySymbols(from);
+			for (var i = 0; i < symbols.length; i++) {
+				if (propIsEnumerable.call(from, symbols[i])) {
+					to[symbols[i]] = from[symbols[i]];
+				}
+			}
+		}
+	}
+
+	return to;
+};
+
+},{}],230:[function(require,module,exports){
+'use strict';
+var strictUriEncode = require('strict-uri-encode');
+var objectAssign = require('object-assign');
+var decodeComponent = require('decode-uri-component');
+
+function encoderForArrayFormat(opts) {
+	switch (opts.arrayFormat) {
+		case 'index':
+			return function (key, value, index) {
+				return value === null ? [
+					encode(key, opts),
+					'[',
+					index,
+					']'
+				].join('') : [
+					encode(key, opts),
+					'[',
+					encode(index, opts),
+					']=',
+					encode(value, opts)
+				].join('');
+			};
+
+		case 'bracket':
+			return function (key, value) {
+				return value === null ? encode(key, opts) : [
+					encode(key, opts),
+					'[]=',
+					encode(value, opts)
+				].join('');
+			};
+
+		default:
+			return function (key, value) {
+				return value === null ? encode(key, opts) : [
+					encode(key, opts),
+					'=',
+					encode(value, opts)
+				].join('');
+			};
+	}
+}
+
+function parserForArrayFormat(opts) {
+	var result;
+
+	switch (opts.arrayFormat) {
+		case 'index':
+			return function (key, value, accumulator) {
+				result = /\[(\d*)\]$/.exec(key);
+
+				key = key.replace(/\[\d*\]$/, '');
+
+				if (!result) {
+					accumulator[key] = value;
+					return;
+				}
+
+				if (accumulator[key] === undefined) {
+					accumulator[key] = {};
+				}
+
+				accumulator[key][result[1]] = value;
+			};
+
+		case 'bracket':
+			return function (key, value, accumulator) {
+				result = /(\[\])$/.exec(key);
+				key = key.replace(/\[\]$/, '');
+
+				if (!result) {
+					accumulator[key] = value;
+					return;
+				} else if (accumulator[key] === undefined) {
+					accumulator[key] = [value];
+					return;
+				}
+
+				accumulator[key] = [].concat(accumulator[key], value);
+			};
+
+		default:
+			return function (key, value, accumulator) {
+				if (accumulator[key] === undefined) {
+					accumulator[key] = value;
+					return;
+				}
+
+				accumulator[key] = [].concat(accumulator[key], value);
+			};
+	}
+}
+
+function encode(value, opts) {
+	if (opts.encode) {
+		return opts.strict ? strictUriEncode(value) : encodeURIComponent(value);
+	}
+
+	return value;
+}
+
+function keysSorter(input) {
+	if (Array.isArray(input)) {
+		return input.sort();
+	} else if (typeof input === 'object') {
+		return keysSorter(Object.keys(input)).sort(function (a, b) {
+			return Number(a) - Number(b);
+		}).map(function (key) {
+			return input[key];
+		});
+	}
+
+	return input;
+}
+
+exports.extract = function (str) {
+	return str.split('?')[1] || '';
+};
+
+exports.parse = function (str, opts) {
+	opts = objectAssign({arrayFormat: 'none'}, opts);
+
+	var formatter = parserForArrayFormat(opts);
+
+	// Create an object with no prototype
+	// https://github.com/sindresorhus/query-string/issues/47
+	var ret = Object.create(null);
+
+	if (typeof str !== 'string') {
+		return ret;
+	}
+
+	str = str.trim().replace(/^(\?|#|&)/, '');
+
+	if (!str) {
+		return ret;
+	}
+
+	str.split('&').forEach(function (param) {
+		var parts = param.replace(/\+/g, ' ').split('=');
+		// Firefox (pre 40) decodes `%3D` to `=`
+		// https://github.com/sindresorhus/query-string/pull/37
+		var key = parts.shift();
+		var val = parts.length > 0 ? parts.join('=') : undefined;
+
+		// missing `=` should be `null`:
+		// http://w3.org/TR/2012/WD-url-20120524/#collect-url-parameters
+		val = val === undefined ? null : decodeComponent(val);
+
+		formatter(decodeComponent(key), val, ret);
+	});
+
+	return Object.keys(ret).sort().reduce(function (result, key) {
+		var val = ret[key];
+		if (Boolean(val) && typeof val === 'object' && !Array.isArray(val)) {
+			// Sort object keys, not values
+			result[key] = keysSorter(val);
+		} else {
+			result[key] = val;
+		}
+
+		return result;
+	}, Object.create(null));
+};
+
+exports.stringify = function (obj, opts) {
+	var defaults = {
+		encode: true,
+		strict: true,
+		arrayFormat: 'none'
+	};
+
+	opts = objectAssign(defaults, opts);
+
+	var formatter = encoderForArrayFormat(opts);
+
+	return obj ? Object.keys(obj).sort().map(function (key) {
+		var val = obj[key];
+
+		if (val === undefined) {
+			return '';
+		}
+
+		if (val === null) {
+			return encode(key, opts);
+		}
+
+		if (Array.isArray(val)) {
+			var result = [];
+
+			val.slice().forEach(function (val2) {
+				if (val2 === undefined) {
+					return;
+				}
+
+				result.push(formatter(key, val2, result.length));
+			});
+
+			return result.join('&');
+		}
+
+		return encode(key, opts) + '=' + encode(val, opts);
+	}).filter(function (x) {
+		return x.length > 0;
+	}).join('&') : '';
+};
+
+},{"decode-uri-component":228,"object-assign":229,"strict-uri-encode":231}],231:[function(require,module,exports){
+'use strict';
+module.exports = function (str) {
+	return encodeURIComponent(str).replace(/[!'()*]/g, function (c) {
+		return '%' + c.charCodeAt(0).toString(16).toUpperCase();
+	});
+};
+
+},{}]},{},[158]);

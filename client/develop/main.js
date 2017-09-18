@@ -1,5 +1,8 @@
 // サーバ
-let socketClient = require('./webSocket/socketClient.js')
+const client = require('./webSocket/socketClient.js')
+
+// Sound
+const sound = require('./SyncTone/soundManager.js')
 
 // 共有
 // データ共有
@@ -10,43 +13,74 @@ let eventListener = require('./Call').Call()
 let socketRoot = 'develop/'
 let group = 'Serval'
 
-let syncTone = require('./SyncTone/soundManager.js')
+let Job = require('./Job/cron.js')
+
+let proto = require('./webAR/proto.js')
+let clientID = ''
+
+let audioList = {
+    '３音': 'lib/sound/notification-common.mp3',
+    '和風メロディ': 'lib/sound/wafuringtone.mp3',
+    'wind': 'lib/sound/wind8.mp3',
+    'pizz_melody': 'lib/sound/pizz2_melody.mp3',
+    'pizz_7': 'lib/sound/tone/pizz_C.mp3',
+}
 
 exports.start = (clientData) => {
 
-    // socketClient.ntp.repeat(60000)
-    let updater = socketClient.initRegister(socketRoot, group, clientData)
+    // client.ntp.repeat(60000)
+    let updater = client.initRegister(socketRoot, group, clientData)
 
-    socketClient.connecting((url) => {
+    sound.setAudioList(audioList)
+    sound.finishLoad('pizz_7', () => {
+        sound.play('pizz_7')
+    })
+
+    proto.start(client, sound)
+
+    sound.setSpeakerPosition(clientData.user, {})
+
+
+
+    client.connecting((url, thisClientID) => {
         console.log('connecting... ' + url)
+        if (thisClientID) {
+            clientID = thisClientID
+            eventListener.emit('setClientID')
+        }
     })
 
-    socketClient.connect((url) => {
+    client.connect((url, thisClientID) => {
         console.log('connect: ' + url)
+        if (thisClientID) {
+            clientID = thisClientID
+            eventListener.emit('setClientID')
+        }
     })
 
-    socketClient.disconnect((url) => {
+    client.disconnect((url, thisClientID) => {
         console.log('disconnect: ' + url)
     })
 
-    setTimeout(() => {
-        clientData.value = Math.floor(Math.random() * 10)
-        updater(clientData)
-        socketClient.sendSyncObject(socketRoot, syncObject)
-    }, 2000)
 
-    socketClient.receiveSyncObject(socketRoot, (syncObjects) => {
-        console.log(syncObjects)
-        socketClient.log(socketRoot, syncObjects)
+    client.receiveSyncObject((syncObjects) => {
+        receive(syncObjects)
     })
 
-    let syncObject = {
-        time: new Date(Date.now() + 1000).getTime(),
-        events: ['serval'],
-        position: {
-            x: 0,
-            y: 0
-        }
-    }
+    client.getSyncObjectBuffer((syncObjects) => {
+        console.log('buffer', syncObjects)
+        receive(syncObjects)
+    })
 
+    function receive(syncObjects) {
+        syncObjects.forEach((syncObject) => {
+            client.log(syncObject)
+            if ('clientPosition' in syncObject.events) {
+                sound.updateSpeakerPosition(syncObject.clientData.user, syncObject.position)
+            }
+        })
+    }
 }
+
+eventListener.on('setClientID', () => {
+})

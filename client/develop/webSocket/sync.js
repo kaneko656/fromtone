@@ -14,16 +14,16 @@ let syncObjectBuffer = []
  * syncObject
  * @typedef {Object} syncObject
  * @property {stirng|number} time
- * @property {string[]} [events]
- * @property {string[]} [types]
+ * @property {Object} [events]
+ * @property {Object} [types]
  * @property {Object} [position]
  * @property {Object} [data]
  */
 
 let syncObjectTemplate = {
     time: 'UTCmillis',
-    events: [],
-    types: [],
+    events: {},
+    types: {},
     position: {
         x: 0,
         y: 0,
@@ -55,7 +55,7 @@ exports.sendSyncObject = (socket, ntp, socketRoot, syncObject, options = {}) => 
         syncObjectBuffer.push(syncObject)
 
         // eventsがあればそれまでのbuffer含めてすぐに送る
-        if (syncObject.events.length >= 1) {
+        if (Object.keys(syncObject.events).length >= 1) {
             socket.emit(socketRoot + 'sync/send', {
                 array: syncObjectBuffer
             })
@@ -116,27 +116,60 @@ exports.receiveSyncObject = (socket, ntp, socketRoot, callback = () => {}) => {
     })
 }
 
+/**
+ * [getSyncObjectBuffer description]
+ * @param  {Object} socket
+ * @param  {Object} ntp          [description]
+ * @param  {string} socketRoot
+ * @param  {callback} callback   param syncObject[]
+ */
+exports.getSyncObjectBuffer = (socket, ntp, socketRoot, callback = () => {}) => {
+    socket.emit(socketRoot + 'sync/buffer/get')
+    socket.on(socketRoot + 'sync/buffer/receive', (syncObjects) => {
+        syncObjects = syncObjects.array || syncObjects
+        // check
+        let remove = []
+        syncObjects.forEach((syncObject, i) => {
+            checkSyncObject(syncObject)
+            if (!syncObject) {
+                remove.unshift(i)
+                return
+            } else {
+                syncObject.time = ntp.toClientTime(syncObject.time)
+                if (isNaN(syncObject.time)) {
+                    remove.unshift(i)
+                }
+            }
+        })
+        // remove
+        remove.forEach((n) => {
+            syncObjects.splice(n, 1)
+        })
+
+        // callback
+        if (syncObjects.length >= 1) {
+            callback(syncObjects)
+        }
+    })
+}
+
 let checkSyncObject = (syncObject) => {
     if (!syncObject || !syncObject.time) {
         return false
     }
-    if (!Array.isArray(syncObject.events)) {
-        if (typeof syncObject.events == 'string') {
-            syncObject.events = [syncObject.events]
-        } else {
-            syncObject.events = []
-        }
+
+    if (typeof syncObject.events != 'object') {
+        syncObject.events = {}
     }
-    if (!Array.isArray(syncObject.types)) {
-        if (typeof syncObject.types == 'string') {
-            syncObject.types = [syncObject.types]
-        } else {
-            syncObject.types = []
-        }
+
+    if (typeof syncObject.types != 'object') {
+        syncObject.types = {}
     }
+
     if (typeof syncObject.position != 'object') {
         syncObject.position = {}
     }
+
     if (typeof syncObject.data != 'object') {
         syncObject.data = {}
     }

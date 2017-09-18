@@ -150,7 +150,7 @@ let smoothing = (obj) => {
             temp_delay: obj.delay,
             offset: average_offset,
             delay: average_delay,
-            correctionTime: obj.catchTime - module.exports.correctionServerTime(obj.st)
+            correctionTime: obj.catchTime - module.exports.toServerTime(obj.st)
         })
     })
 }

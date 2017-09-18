@@ -158,7 +158,7 @@ function init() {
             home.setLink(url + 'demo', 'Demo')
             home.setLink(url + 'demo-user', 'Demo - User')
 
-            home.setLink(url + 'develop', 'Develop')
+            home.setLink(url + 'develop.html', 'Develop')
 
             home.setNameChangeButton(() => {
                 inputUserName.userNameCheck(null, (user) => {
