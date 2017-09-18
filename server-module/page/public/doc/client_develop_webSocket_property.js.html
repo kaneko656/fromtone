@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Source: client/develop/SyncTone/TimeValue.js</title>
+    <title>JSDoc: Source: client/develop/webSocket/property.js</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Source: client/develop/SyncTone/TimeValue.js</h1>
+    <h1 class="page-title">Source: client/develop/webSocket/property.js</h1>
 
     
 
@@ -27,86 +27,20 @@
     <section>
         <article>
             <pre class="prettyprint source linenums"><code>/**
- * @overview  一つの時系列データを持つクラス
- * @author {@link https://github.com/kaneko656 Shoma Kaneko}
- * @version 1.0.0
- * @module soundManager/TimeValue
- * @see {@link module:soundManager}
+ * @overview SystemProperty serverとのやりとりで決定する
+ * @module webSocket/property
+ * @see {@link module:webSocket/register}
  */
 
+let property = {}
+exports.init = (socket, socketRoot) => {
 
-/**
- * TimeValueクラスのコンストラクタ
- * @return {TimeValue} TimeValueのインスタンスを返す
- */
-
-module.exports = () => {
-    return new TimeValue()
 }
 
-/**
- * TimeValue 一つの時系列データを持つクラス
- * @class
- * @constructor
- */
-
-function TimeValue() {
-    this.values = {}
-    this.lock = true
-    this.lastTime = 0
-    this.lastValue = null
-}
-
-
-/**
- * [description]
- * @param  {Object} updateValues { time: value }
- */
-
-TimeValue.prototype.update = function(updateValues) {
-    if (this.lastValue &amp;&amp; this.lastTime &lt; Date.now()) {
-        updateValues[Date.now()] = this.lastValue
+exports.get = (key) => {
+    if(key in property){
+        return property[key]
     }
-    let length = Object.keys(updateValues).length
-    let count = 0
-    for (let time in updateValues) {
-        count++
-        // ロック
-        if (this.lock &amp;&amp; time &lt; this.lastTime) {
-            continue
-        }
-        // 時間切れ
-        if (time &lt; Date.now() &amp;&amp; count != length) {
-            continue
-        }
-
-        // Event
-        if (this.lastTime &amp;&amp; this.lastValue) {
-            // pre, next
-            this.updateEvent({
-                time: this.lastTime,
-                value: this.lastValue
-            }, {
-                time: time,
-                value: updateValues[time]
-            })
-        }
-
-        this.lastTime = time
-        this.lastValue = updateValues[time]
-    }
-}
-
-
-/**
- * update()で発火 時系列データが一つずつ降ってくるイベント
- * @event
- * @param  {Object} pre { time, value }
- * @param  {Object} next { time, value }
- */
-
-TimeValue.prototype.updateEvent = function(pre, next) {
-
 }
 </code></pre>
         </article>

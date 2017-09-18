@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Source: client/develop/SyncTone/TimeValue.js</title>
+    <title>JSDoc: Source: client/develop/webSocket/spec.js</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Source: client/develop/SyncTone/TimeValue.js</h1>
+    <h1 class="page-title">Source: client/develop/webSocket/spec.js</h1>
 
     
 
@@ -27,86 +27,40 @@
     <section>
         <article>
             <pre class="prettyprint source linenums"><code>/**
- * @overview  一つの時系列データを持つクラス
- * @author {@link https://github.com/kaneko656 Shoma Kaneko}
- * @version 1.0.0
- * @module soundManager/TimeValue
- * @see {@link module:soundManager}
+ * @overview SystemProperty 計算能力を簡易的に測って，serverに送る
+ * @module webSocket/spec
+ * @see {@link module:webSocket/register}
  */
 
+exports.init = (socket, socketRoot) => {
+    let st = Date.now()
+    let timeout = 500
+    let max = 1000000
+    let isFinish
 
-/**
- * TimeValueクラスのコンストラクタ
- * @return {TimeValue} TimeValueのインスタンスを返す
- */
-
-module.exports = () => {
-    return new TimeValue()
-}
-
-/**
- * TimeValue 一つの時系列データを持つクラス
- * @class
- * @constructor
- */
-
-function TimeValue() {
-    this.values = {}
-    this.lock = true
-    this.lastTime = 0
-    this.lastValue = null
-}
-
-
-/**
- * [description]
- * @param  {Object} updateValues { time: value }
- */
-
-TimeValue.prototype.update = function(updateValues) {
-    if (this.lastValue &amp;&amp; this.lastTime &lt; Date.now()) {
-        updateValues[Date.now()] = this.lastValue
+    let finish = (n) => {
+        if (isFinish) {
+            return
+        }
+        isFinish = true
+        let time = Date.now() - st
+        let spec = time / n
+        socket.emit(socketRoot + 'system/spec', {
+            spec: spec
+        })
     }
-    let length = Object.keys(updateValues).length
-    let count = 0
-    for (let time in updateValues) {
-        count++
-        // ロック
-        if (this.lock &amp;&amp; time &lt; this.lastTime) {
-            continue
-        }
-        // 時間切れ
-        if (time &lt; Date.now() &amp;&amp; count != length) {
-            continue
-        }
 
-        // Event
-        if (this.lastTime &amp;&amp; this.lastValue) {
-            // pre, next
-            this.updateEvent({
-                time: this.lastTime,
-                value: this.lastValue
-            }, {
-                time: time,
-                value: updateValues[time]
-            })
-        }
 
-        this.lastTime = time
-        this.lastValue = updateValues[time]
+    for (let n = 1; n &lt; max; n++) {
+        // power
+        let a = Math.pow(Math.sin(n))
+
+        if (Date.now() - st > timeout) {
+            finish(n)
+            break
+        }
     }
-}
-
-
-/**
- * update()で発火 時系列データが一つずつ降ってくるイベント
- * @event
- * @param  {Object} pre { time, value }
- * @param  {Object} next { time, value }
- */
-
-TimeValue.prototype.updateEvent = function(pre, next) {
-
+    finish(max)
 }
 </code></pre>
         </article>

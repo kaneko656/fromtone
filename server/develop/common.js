@@ -1,4 +1,5 @@
 let clientSpec = {}
+let clientProperty = {}
 
 exports.init = (socket, clientRegister, socketRoot, client) => {
 
@@ -26,7 +27,17 @@ exports.init = (socket, clientRegister, socketRoot, client) => {
     // spec
     socket.on(socketRoot + 'system/spec', (spec) => {
         console.log(spec)
+        setProperty({
+            groupMainClient: true
+        })
     })
+
+    let setProperty = (prop) => {
+        for(let key in prop){
+            clientProperty[key] = prop[key]
+        }
+        socket.emit(socketRoot + 'system/property/receive', clientProperty)
+    }
 
 
 

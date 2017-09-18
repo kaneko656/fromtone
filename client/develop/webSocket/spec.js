@@ -1,3 +1,9 @@
+/**
+ * @overview SystemProperty 計算能力を簡易的に測って，serverに送る
+ * @module webSocket/spec
+ * @see {@link module:webSocket/register}
+ */
+
 exports.init = (socket, socketRoot) => {
     let st = Date.now()
     let timeout = 500
@@ -27,6 +33,4 @@ exports.init = (socket, socketRoot) => {
         }
     }
     finish(max)
-
-
 }

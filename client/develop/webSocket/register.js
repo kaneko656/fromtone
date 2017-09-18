@@ -4,6 +4,8 @@
  * @version 1.0.0
  * @module webSocket/register
  * @see {@link module:webSocket/socketClient}
+ * @see {@link module:webSocket/property}
+ * @see {@link module:webSocket/spec}
  */
 
 const uuid = require('node-uuid')
@@ -28,6 +30,7 @@ let registrationConfirm = false
 
 // register/confirm
 const spec = require('./spec')
+const property = require('./property')
 
 exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {}) => {
     let clientID = uuid.v4()
@@ -43,6 +46,7 @@ exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {})
             registrationConfirm = true
             setTimeout(() => {
                 spec.init(socket, socketRoot)
+                property.init(socket, socketRoot)
             }, 1000)
 
         }
