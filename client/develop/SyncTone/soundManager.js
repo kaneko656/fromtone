@@ -187,7 +187,7 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
                 // gainNode.gain.linearRampToValueAtTime(power, atNextTime)
                 gainNode.gain.value = power
                 console.log('DBAP', 'power:', power.toFixed(3), 'time:', atNextTime.toFixed(3))
-                require('./../webSocket/socketClient').log(power)
+                // require('./../webSocket/socketClient').log(power)
             }
         }
         if (useDoppler) {

@@ -48,6 +48,7 @@ function init() {
         inputUserName.userNameCheck(config.user, (user) => {
             config.user = user
             let main = require('./main.js')
+            // require('./QR/index.js')
             main.start(config)
             // let game = require('./index.js')
             // game.start(document.getElementById('wrap'), webAudio, socket, ntp, config, shareData, eventListener)

@@ -14,6 +14,8 @@ let register = require('./register')
 let sync = require('./sync')
 let call = require('./eventCall')
 let property = require('./property') // server.startTime
+let syncParser = require('./syncParser')
+let syncParserReceive = require('./syncParserReceive')
 
 let url = 'http://192.168.144.142:8001'
 try {
@@ -92,6 +94,34 @@ exports.receiveSyncObject = (callback) => {
 exports.getSyncObjectBuffer = (callback) => {
     sync.getSyncObjectBuffer(socket, ntp, socketRoot, callback)
 }
+
+/**
+ * sendSyncObjectをparseする関数群
+ * @type {Object}
+ */
+exports.send = {}
+
+/**
+ * receiveSyncObjectをparseする関数群
+ * @type {Object}
+ */
+exports.receive = {}
+
+
+// module: syncParse
+syncParser.parseList().forEach((parseKey) => {
+    exports.send[parseKey] = (position, time) => {
+        syncParser[parseKey](this, position, time)
+    }
+})
+
+
+// module: syncParseReceive
+syncParserReceive.parseList().forEach((parseKey) => {
+    exports.receive[parseKey] = syncParserReceive[parseKey]
+})
+
+
 // module: property
 
 /**

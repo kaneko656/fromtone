@@ -55,6 +55,15 @@ exports.start = (clientData) => {
         if (thisClientID) {
             clientID = thisClientID
             eventListener.emit('setClientID')
+            client.send.position({
+                x: 0,
+                y: 1,
+                z: 0
+            })
+            client.receive.position((data)=>{
+                console.log(data)
+            })
+
         }
     })
 
@@ -72,15 +81,12 @@ exports.start = (clientData) => {
         receive(syncObjects)
     })
 
+
     function receive(syncObjects) {
         syncObjects.forEach((syncObject) => {
             client.log(syncObject)
-            if ('clientPosition' in syncObject.events) {
-                sound.updateSpeakerPosition(syncObject.clientData.user, syncObject.position)
-            }
         })
     }
 }
 
-eventListener.on('setClientID', () => {
-})
+eventListener.on('setClientID', () => {})

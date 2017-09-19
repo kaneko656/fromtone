@@ -71,6 +71,7 @@ exports.initVR = (_client, _sound) => {
     update()
 
     canvas.addEventListener('click', onClick, false)
+
 }
 
 function initMesh() {

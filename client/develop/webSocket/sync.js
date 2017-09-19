@@ -7,6 +7,7 @@
  */
 
 const Job = require('./cron.js')
+const parserReceive = require('./syncParserReceive.js')
 let bufferTime = 30
 let syncObjectBuffer = []
 
@@ -88,6 +89,9 @@ exports.sendSyncObject = (socket, ntp, socketRoot, syncObject, options = {}) => 
  */
 
 exports.receiveSyncObject = (socket, ntp, socketRoot, callback = () => {}) => {
+
+    let parseList = parserReceive.parseList()
+
     socket.on(socketRoot + 'sync/receive', (syncObjects) => {
         syncObjects = syncObjects.array || syncObjects
         // check
@@ -111,6 +115,18 @@ exports.receiveSyncObject = (socket, ntp, socketRoot, callback = () => {}) => {
 
         // callback
         if (syncObjects.length >= 1) {
+
+            // parseReceive
+            syncObjects.forEach((syncObject) => {
+                if (syncObject.events) {
+                    parseList.forEach((parseKey) => {
+                        if ('parse/' + parseKey in syncObject.events){
+                            parserReceive.emit('parse/' + parseKey, syncObject)
+                        }
+                    })
+                }
+            })
+
             callback(syncObjects)
         }
     })

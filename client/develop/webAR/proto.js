@@ -113,6 +113,7 @@ function init() {
 
     // Kick off the render loop!
     update()
+
 }
 
 function initMesh() {
