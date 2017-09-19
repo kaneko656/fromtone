@@ -14,15 +14,20 @@ exports.init = (socket, disconnect, clientRegister, socketRoot, client) => {
                 if (!syncObject.clientID) {
                     syncObject.clientID = client.id
                 }
-                if(syncObject.clientData){
+                if (syncObject.clientData) {
                     syncObject.clientData = client.data || {}
                 }
+
+                // @TODO bufferのTimeout
+                // buffer
                 if (syncObject.events && syncObject.events.buffer && client.group) {
                     if (!clientBuffer[client.group]) {
-                        clientBuffer[client.group] = []
+                        clientBuffer[client.group] = {}
                     }
-                    clientBuffer[client.group].push(syncObject)
-                    console.log('buffer', clientBuffer[client.group].length)
+                    let bufferName = syncObject.events.buffer
+                    bufferName = typeof bufferName == 'string' ? bufferName : 'default'
+                    clientBuffer[client.group][bufferName] = syncObject
+                    console.log('buffer', Object.keys(clientBuffer[client.group]).length)
                 }
             }
         })
@@ -34,10 +39,13 @@ exports.init = (socket, disconnect, clientRegister, socketRoot, client) => {
 
     // buffer
     socket.on(socketRoot + 'sync/buffer/get', (syncObjects) => {
-        console.log('on buffer')
-        if (client.group && clientBuffer[client.group] && clientBuffer[client.group].length >= 1) {
+        if (client.group && clientBuffer[client.group] && Object.keys(clientBuffer[client.group]).length >= 1) {
+            let array = []
+            for (let name in clientBuffer[client.group]) {
+                array.push(clientBuffer[client.group][name])
+            }
             socket.emit(socketRoot + 'sync/buffer/receive', {
-                array: clientBuffer[client.group]
+                array: array
             })
         }
     })
@@ -70,4 +78,5 @@ exports.init = (socket, disconnect, clientRegister, socketRoot, client) => {
         }
         socket.emit(socketRoot + 'system/property/receive', clientProperty)
     }
+
 }

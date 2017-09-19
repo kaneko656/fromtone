@@ -118,25 +118,20 @@ function initMesh() {
         cube.rotation.y = Math.cos(r) * Math.PI
         cube.position.copy(position)
 
-        if(syncAudio){
+        if (syncAudio) {
             let p = {}
             p[Date.now() + 2] = position
             syncAudio.update(p)
         }
     })
 
-    client.sendSyncObject({
-        time: Date.now(),
+    client.send.position({
+        user: client.data.user,
         position: {
             x: 0,
-            y: 0,
-            z: -2
-        },
-        events: {
-            clientPosition: true,
-            buffer: true
-        },
-        clientData: true
+            y: 2,
+            z: 0
+        }
     })
 }
 

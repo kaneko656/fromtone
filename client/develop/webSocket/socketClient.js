@@ -229,6 +229,12 @@ socket.on('connect', () => {
     // })
 })
 
+/**
+ * 自由にデータ
+ * @type {Object}
+ */
+exports.data = {}
+
 socket.on('disconnect', () => {
     isConnect = false
     call.emit('disconnect', url)

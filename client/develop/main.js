@@ -30,6 +30,7 @@ exports.start = (clientData) => {
 
     // client.ntp.repeat(60000)
     let updater = client.initRegister(socketRoot, group, clientData)
+    client.data = clientData
 
     sound.setAudioList(audioList)
     sound.finishLoad('pizz_7', () => {
@@ -55,11 +56,7 @@ exports.start = (clientData) => {
         if (thisClientID) {
             clientID = thisClientID
             eventListener.emit('setClientID')
-            client.send.position({
-                x: 0,
-                y: 1,
-                z: 0
-            })
+
             client.receive.position((data)=>{
                 console.log(data)
             })
@@ -77,7 +74,6 @@ exports.start = (clientData) => {
     })
 
     client.getSyncObjectBuffer((syncObjects) => {
-        console.log('buffer', syncObjects)
         receive(syncObjects)
     })
 

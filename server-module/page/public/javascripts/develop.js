@@ -22895,6 +22895,7 @@ exports.start = (clientData) => {
 
     // client.ntp.repeat(60000)
     let updater = client.initRegister(socketRoot, group, clientData)
+    client.data = clientData
 
     sound.setAudioList(audioList)
     sound.finishLoad('pizz_7', () => {
@@ -22920,11 +22921,7 @@ exports.start = (clientData) => {
         if (thisClientID) {
             clientID = thisClientID
             eventListener.emit('setClientID')
-            client.send.position({
-                x: 0,
-                y: 1,
-                z: 0
-            })
+
             client.receive.position((data)=>{
                 console.log(data)
             })
@@ -22942,7 +22939,6 @@ exports.start = (clientData) => {
     })
 
     client.getSyncObjectBuffer((syncObjects) => {
-        console.log('buffer', syncObjects)
         receive(syncObjects)
     })
 
@@ -23353,9 +23349,12 @@ function initMesh() {
     })
 
     client.send.position({
-        x: 0,
-        y: 0,
-        z: 0
+        user: client.data.user,
+        position: {
+            x: 0,
+            y: 2,
+            z: 0
+        }
     })
 }
 
@@ -23578,25 +23577,20 @@ function initMesh() {
         cube.rotation.y = Math.cos(r) * Math.PI
         cube.position.copy(position)
 
-        if(syncAudio){
+        if (syncAudio) {
             let p = {}
             p[Date.now() + 2] = position
             syncAudio.update(p)
         }
     })
 
-    client.sendSyncObject({
-        time: Date.now(),
+    client.send.position({
+        user: client.data.user,
         position: {
             x: 0,
-            y: 0,
-            z: -2
-        },
-        events: {
-            clientPosition: true,
-            buffer: true
-        },
-        clientData: true
+            y: 2,
+            z: 0
+        }
     })
 }
 
@@ -24332,6 +24326,12 @@ socket.on('connect', () => {
     // })
 })
 
+/**
+ * 自由にデータ
+ * @type {Object}
+ */
+exports.data = {}
+
 socket.on('disconnect', () => {
     isConnect = false
     call.emit('disconnect', url)
@@ -24501,7 +24501,7 @@ exports.receiveSyncObject = (socket, ntp, socketRoot, callback = () => {}) => {
             syncObjects.forEach((syncObject) => {
                 if (syncObject.events) {
                     parseList.forEach((parseKey) => {
-                        if ('parse/' + parseKey in syncObject.events){
+                        if ('parse/' + parseKey in syncObject.events) {
                             parserReceive.emit('parse/' + parseKey, syncObject)
                         }
                     })
@@ -24521,6 +24521,9 @@ exports.receiveSyncObject = (socket, ntp, socketRoot, callback = () => {}) => {
  * @param  {callback} callback   param syncObject[]
  */
 exports.getSyncObjectBuffer = (socket, ntp, socketRoot, callback = () => {}) => {
+
+    let parseList = parserReceive.parseList()
+
     socket.emit(socketRoot + 'sync/buffer/get')
     socket.on(socketRoot + 'sync/buffer/receive', (syncObjects) => {
         syncObjects = syncObjects.array || syncObjects
@@ -24545,6 +24548,19 @@ exports.getSyncObjectBuffer = (socket, ntp, socketRoot, callback = () => {}) => 
 
         // callback
         if (syncObjects.length >= 1) {
+
+            // parseReceive
+            syncObjects.forEach((syncObject) => {
+                if (syncObject.events) {
+                    parseList.forEach((parseKey) => {
+                        if ('parse/' + parseKey in syncObject.events) {
+                            parserReceive.emit('parse/' + parseKey, syncObject)
+                        }
+                    })
+                }
+            })
+
+
             callback(syncObjects)
         }
     })
@@ -24594,22 +24610,20 @@ exports.parseList = () => {
 
 /**
  * [position description]
- * @param  {object} client   [description]
- * @param  {object} position [description]
- * @param  {string|number} time   [description]
+ * @param  {object} body {user, position, [time]}
  */
 
-exports.position = (client, position, time) => {
+exports.position = (client, body = {}) => {
     let defaultPosition = {
         x: 0,
         y: 0,
         z: 0
     }
     client.sendSyncObject({
-        time: time || Date.now(),
-        position: position || defaultPosition,
+        time: body.time || Date.now(),
+        position: body.position || defaultPosition,
         events: {
-            buffer: true,
+            buffer: 'position/' + body.user,
             'parse/position': true
         },
         clientData: true

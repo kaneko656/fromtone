@@ -120,7 +120,7 @@ exports.receiveSyncObject = (socket, ntp, socketRoot, callback = () => {}) => {
             syncObjects.forEach((syncObject) => {
                 if (syncObject.events) {
                     parseList.forEach((parseKey) => {
-                        if ('parse/' + parseKey in syncObject.events){
+                        if ('parse/' + parseKey in syncObject.events) {
                             parserReceive.emit('parse/' + parseKey, syncObject)
                         }
                     })
@@ -140,6 +140,9 @@ exports.receiveSyncObject = (socket, ntp, socketRoot, callback = () => {}) => {
  * @param  {callback} callback   param syncObject[]
  */
 exports.getSyncObjectBuffer = (socket, ntp, socketRoot, callback = () => {}) => {
+
+    let parseList = parserReceive.parseList()
+
     socket.emit(socketRoot + 'sync/buffer/get')
     socket.on(socketRoot + 'sync/buffer/receive', (syncObjects) => {
         syncObjects = syncObjects.array || syncObjects
@@ -164,6 +167,19 @@ exports.getSyncObjectBuffer = (socket, ntp, socketRoot, callback = () => {}) => 
 
         // callback
         if (syncObjects.length >= 1) {
+
+            // parseReceive
+            syncObjects.forEach((syncObject) => {
+                if (syncObject.events) {
+                    parseList.forEach((parseKey) => {
+                        if ('parse/' + parseKey in syncObject.events) {
+                            parserReceive.emit('parse/' + parseKey, syncObject)
+                        }
+                    })
+                }
+            })
+
+
             callback(syncObjects)
         }
     })
