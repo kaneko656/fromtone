@@ -23345,25 +23345,17 @@ function initMesh() {
         cube.rotation.y = Math.cos(r) * Math.PI
         cube.position.copy(position)
 
-        if(syncAudio){
+        if (syncAudio) {
             let p = {}
             p[Date.now() + 10] = position
             syncAudio.update(p)
         }
     })
 
-    client.sendSyncObject({
-        time: Date.now(),
-        position: {
-            x: 0,
-            y: 0,
-            z: 0
-        },
-        events: {
-            clientPosition: true,
-            buffer: true
-        },
-        clientData: true
+    client.send.position({
+        x: 0,
+        y: 0,
+        z: 0
     })
 }
 
@@ -24221,8 +24213,9 @@ exports.receive = {}
 
 // module: syncParse
 syncParser.parseList().forEach((parseKey) => {
-    exports.send[parseKey] = (position, time) => {
-        syncParser[parseKey](this, position, time)
+    exports.send[parseKey] = (...arg) => {
+        arg.unshift(this)
+        syncParser[parseKey].apply(this, arg)
     }
 })
 
@@ -24581,6 +24574,15 @@ let checkSyncObject = (syncObject) => {
 }
 
 },{"./cron.js":169,"./syncParserReceive.js":182}],181:[function(require,module,exports){
+/**
+ * @overview
+ * @author {@link https://github.com/kaneko656 Shoma Kaneko}
+ * @version 1.0.0
+ * @module webSocket/syncParser
+ * @see {@link module:webSocket/socketClient}
+ * @see {@link module:webSocket/sync}
+ */
+
 
 // exports.~~
 let parseList = ['position']
@@ -24589,6 +24591,13 @@ exports.parseList = () => {
     return parseList
 }
 
+
+/**
+ * [position description]
+ * @param  {object} client   [description]
+ * @param  {object} position [description]
+ * @param  {string|number} time   [description]
+ */
 
 exports.position = (client, position, time) => {
     let defaultPosition = {
@@ -24608,6 +24617,16 @@ exports.position = (client, position, time) => {
 }
 
 },{}],182:[function(require,module,exports){
+/**
+ * @overview 
+ * @author {@link https://github.com/kaneko656 Shoma Kaneko}
+ * @version 1.0.0
+ * @module webSocket/syncParserReceive
+ * @see {@link module:webSocket/socketClient}
+ * @see {@link module:webSocket/sync}
+ */
+
+
 let eventCall = require('./eventCall')
 
 // exports.~~

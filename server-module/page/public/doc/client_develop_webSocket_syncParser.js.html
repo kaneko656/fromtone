@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>JSDoc: Source: client/develop/html/switchButton.js</title>
+    <title>JSDoc: Source: client/develop/webSocket/syncParser.js</title>
 
     <script src="scripts/prettify/prettify.js"> </script>
     <script src="scripts/prettify/lang-css.js"> </script>
@@ -17,7 +17,7 @@
 
 <div id="main">
 
-    <h1 class="page-title">Source: client/develop/html/switchButton.js</h1>
+    <h1 class="page-title">Source: client/develop/webSocket/syncParser.js</h1>
 
     
 
@@ -26,86 +26,44 @@
     
     <section>
         <article>
-            <pre class="prettyprint source linenums"><code>module.exports = (element) => {
-    let s = new SwitchButton(element)
-    s.create()
-    return s
+            <pre class="prettyprint source linenums"><code>/**
+ * @overview
+ * @author {@link https://github.com/kaneko656 Shoma Kaneko}
+ * @version 1.0.0
+ * @module webSocket/syncParser
+ * @see {@link module:webSocket/socketClient}
+ * @see {@link module:webSocket/sync}
+ */
+
+
+// exports.~~
+let parseList = ['position']
+
+exports.parseList = () => {
+    return parseList
 }
 
-function SwitchButton(element) {
-    this.element = element
-    this.callGyro = () => {}
-    this.callDoppler = () => {}
-    this.gyroButton
-    this.dopplerButton
-}
-
-SwitchButton.prototype.create = function() {
-
-    let my = this
-
-    /**
-     * gyroButton
-     */
-
-    // let gyroSwitch = true
-    // let p1 = document.createElement('p')
-    // let gyroButton = document.createElement('button')
-    // gyroButton.setAttribute('class', 'btn btn-default')
-    // gyroButton.innerHTML = 'Gyro On -> Off'
-    // p1.appendChild(gyroButton)
-    // my.element.appendChild(p1)
-    //
-    // gyroButton.onclick = () => {
-    //     if (gyroSwitch) {
-    //         gyroButton.innerHTML = 'Gyro Off -> On'
-    //         gyroSwitch = false
-    //     } else if (!gyroSwitch) {
-    //         gyroButton.innerHTML = 'Gyro On -> Off'
-    //         gyroSwitch = true
-    //     }
-    //     my.callGyro(gyroSwitch)
-    // }
-    // my.gyroButton = gyroButton
-
-
-
-
-    /**
-     * dopplerButton
-     */
-
-    let h = document.createElement('h5')
-    h.innerHTML = 'Doppler'
-    let p2 = document.createElement('p')
-    let dopplerSwitch = true
-    let dopplerButton = document.createElement('button')
-    dopplerButton.setAttribute('class', 'btn btn-info')
-    dopplerButton.innerHTML = '&lt;big>On&lt;/big>&lt;small> -> Off&lt;/small>'
-    p2.appendChild(h)
-    p2.appendChild(dopplerButton)
-    my.element.appendChild(p2)
-
-    dopplerButton.onclick = () => {
-        if (dopplerSwitch) {
-            dopplerButton.innerHTML = '&lt;big>Off&lt;/big>&lt;small> -> On&lt;/small>'
-            dopplerSwitch = false
-        } else if (!dopplerSwitch) {
-            dopplerButton.innerHTML = '&lt;big>On&lt;/big>&lt;small> -> Off&lt;/small>'
-            dopplerSwitch = true
-        }
-        my.callDoppler(dopplerSwitch)
+/**
+ * [position description]
+ * @param  {object} client   [description]
+ * @param  {object} position [description]
+ * @param  {string|number} time   [description]
+ */
+exports.position = (client, position, time) => {
+    let defaultPosition = {
+        x: 0,
+        y: 0,
+        z: 0
     }
-    my.dopplerButton = dopplerButton
-}
-
-
-SwitchButton.prototype.onGyroSwitch = function(callback = () => {}) {
-    this.callGyro = callback
-}
-
-SwitchButton.prototype.onDopplerSwitch = function(callback = () => {}) {
-    this.callDoppler = callback
+    client.sendSyncObject({
+        time: time || Date.now(),
+        position: position || defaultPosition,
+        events: {
+            buffer: true,
+            'parse/position': true
+        },
+        clientData: true
+    })
 }
 </code></pre>
         </article>

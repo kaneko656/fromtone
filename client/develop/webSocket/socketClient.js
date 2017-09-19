@@ -110,8 +110,9 @@ exports.receive = {}
 
 // module: syncParse
 syncParser.parseList().forEach((parseKey) => {
-    exports.send[parseKey] = (position, time) => {
-        syncParser[parseKey](this, position, time)
+    exports.send[parseKey] = (...arg) => {
+        arg.unshift(this)
+        syncParser[parseKey].apply(this, arg)
     }
 })
 

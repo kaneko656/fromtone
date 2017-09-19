@@ -62,6 +62,7 @@ let finishInit = false
 // WebAudioAPI
 let webAudio = null
 let buffer = {}
+let bufferLoadCall = {}
 
 try {
     window.AudioContext = window.AudioContext || window.webkitAudioContext
@@ -76,6 +77,10 @@ let canUseModules = () => {
         return true
     }
     return false
+}
+
+exports.interactionStart = () => {
+    webAudio.createBufferSource().start(0)
 }
 
 
@@ -131,9 +136,23 @@ exports.setAudioList = (audioUrlList) => {
         decodeAudioData(buf, (decodedBuffer) => {
             console.log('load: ' + key)
             buffer[key] = decodedBuffer
+            if (key in bufferLoadCall &amp;&amp; typeof bufferLoadCall[key] == 'function') {
+                bufferLoadCall[key]()
+            }
         })
     })
+}
 
+/**
+ * bufferのロードが終わったとき呼ばれる　すでにロードされているときはすぐにコールバックする
+ * @param  {string} audioName    [description]
+ * @param  {callback} [callback=(] [description]
+ */
+exports.finishLoad = (audioName, callback = () => {}) => {
+    if (buffer[audioName]) {
+        callback()
+    }
+    bufferLoadCall[audioName] = callback
 }
 
 /**
@@ -146,6 +165,7 @@ exports.setSpeakerPosition = (id, _speakerPosition) => {
     if (id) {
         mySpeakerID = id
     }
+    console.log(mySpeakerID, speakerPosition)
 }
 
 /**
@@ -155,6 +175,7 @@ exports.setSpeakerPosition = (id, _speakerPosition) => {
  */
 exports.updateSpeakerPosition = (id, position) => {
     speakerPosition[id] = position
+    console.log(speakerPosition)
 }
 
 /**
@@ -189,8 +210,13 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
         if (useDBAP) {
             let nextDBAP = DBAP(next.value)
             let power = nextDBAP[mySpeakerID]
-            gainNode.gain.linearRampToValueAtTime(power, atNextTime)
-            console.log('DBAP', 'power:', power.toFixed(3), 'time:', atNextTime.toFixed(3))
+            // console.log(power)
+            if (power) {
+                // gainNode.gain.linearRampToValueAtTime(power, atNextTime)
+                gainNode.gain.value = power
+                console.log('DBAP', 'power:', power.toFixed(3), 'time:', atNextTime.toFixed(3))
+                // require('./../webSocket/socketClient').log(power)
+            }
         }
         if (useDoppler) {
             let rate = Doppler(pre.time, pre.value, next.time, next.value)
@@ -254,9 +280,11 @@ let DBAP = exports.DBAP = (soundPosition, rolloff = 6.02 * 10) => {
     for (let name in speakerPosition) {
         let spX = speakerPosition[name].x
         let spY = speakerPosition[name].y
+        let spZ = speakerPosition[name].z || 0
         let aX = soundPosition.x
         let aY = soundPosition.y
-        let dist = Math.sqrt((aX - spX) * (aX - spX) + (aY - spY) * (aY - spY) + speakerRadius * speakerRadius)
+        let aZ = soundPosition.z || 0
+        let dist = Math.sqrt((aX - spX) * (aX - spX) + (aY - spY) * (aY - spY) + (aZ - spZ) * (aZ - spZ) + speakerRadius * speakerRadius)
         let rDist = Math.pow(dist, -rolloff / 20 * Math.log10(2))
         let p = rDist * rDist
         // エネルギーなので２乗
@@ -303,13 +331,13 @@ let culculateDist = (a, b) => {
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-soundManager.html">soundManager</a></li><li><a href="module-soundManager_SyncAudio.html">soundManager/SyncAudio</a></li><li><a href="module-soundManager_TimeValue.html">soundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_property.html">webSocket/property</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li><li><a href="module-webSocket_spec.html">webSocket/spec</a></li><li><a href="module-webSocket_sync.html">webSocket/sync</a></li></ul><h3>Classes</h3><ul><li><a href="module-soundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-soundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-soundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#onClick">onClick</a></li><li><a href="global.html#onWindowResize">onWindowResize</a></li><li><a href="global.html#start">start</a></li><li><a href="global.html#startTime">startTime</a></li><li><a href="global.html#Stats">Stats</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-soundManager.html">soundManager</a></li><li><a href="module-soundManager_SyncAudio.html">soundManager/SyncAudio</a></li><li><a href="module-soundManager_TimeValue.html">soundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_property.html">webSocket/property</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li><li><a href="module-webSocket_spec.html">webSocket/spec</a></li><li><a href="module-webSocket_sync.html">webSocket/sync</a></li><li><a href="module-webSocket_syncParser.html">webSocket/syncParser</a></li><li><a href="module-webSocket_syncParserReceive.html">webSocket/syncParserReceive</a></li></ul><h3>Classes</h3><ul><li><a href="module-soundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-soundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-soundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#onClick">onClick</a></li><li><a href="global.html#onWindowResize">onWindowResize</a></li><li><a href="global.html#start">start</a></li><li><a href="global.html#startTime">startTime</a></li><li><a href="global.html#Stats">Stats</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Tue Sep 19 2017 01:14:01 GMT+0900 (JST)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Wed Sep 20 2017 00:28:28 GMT+0900 (JST)
 </footer>
 
 <script> prettyPrint(); </script>

@@ -1,3 +1,13 @@
+/**
+ * @overview 
+ * @author {@link https://github.com/kaneko656 Shoma Kaneko}
+ * @version 1.0.0
+ * @module webSocket/syncParserReceive
+ * @see {@link module:webSocket/socketClient}
+ * @see {@link module:webSocket/sync}
+ */
+
+
 let eventCall = require('./eventCall')
 
 // exports.~~
