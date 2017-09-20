@@ -186,7 +186,7 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
             if (power) {
                 // gainNode.gain.linearRampToValueAtTime(power, atNextTime)
                 gainNode.gain.value = power
-                console.log('DBAP', 'power:', power.toFixed(3), 'time:', atNextTime.toFixed(3))
+                // console.log('DBAP', 'power:', power.toFixed(3), 'time:', atNextTime.toFixed(3))
                 // require('./../webSocket/socketClient').log(power)
             }
         }

@@ -75,7 +75,6 @@ function SyncAudio(webAudio, buffer, options = {}) {
  * @param {string} status 終了条件（end, stop）
  */
 SyncAudio.prototype.finished = function(){
-  console.log('ff')
 }
 
 /**

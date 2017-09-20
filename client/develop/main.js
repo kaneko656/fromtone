@@ -56,11 +56,6 @@ exports.start = (clientData) => {
         if (thisClientID) {
             clientID = thisClientID
             eventListener.emit('setClientID')
-
-            client.receive.position((data)=>{
-                console.log(data)
-            })
-
         }
     })
 
@@ -80,7 +75,7 @@ exports.start = (clientData) => {
 
     function receive(syncObjects) {
         syncObjects.forEach((syncObject) => {
-            client.log(syncObject)
+            // client.log(syncObject)
         })
     }
 }

@@ -27,7 +27,7 @@ exports.init = (socket, disconnect, clientRegister, socketRoot, client) => {
                     let bufferName = syncObject.events.buffer
                     bufferName = typeof bufferName == 'string' ? bufferName : 'default'
                     clientBuffer[client.group][bufferName] = syncObject
-                    console.log('buffer', Object.keys(clientBuffer[client.group]).length)
+                    // console.log('buffer', Object.keys(clientBuffer[client.group]).length)
                 }
             }
         })

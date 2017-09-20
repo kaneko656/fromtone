@@ -18,7 +18,7 @@ exports.parseList = () => {
 
 /**
  * [position description]
- * @param  {object} body {user, position, [time]}
+ * @param  {object} body {id, position, rotation, [time]}
  */
 
 exports.position = (client, body = {}) => {
@@ -27,11 +27,18 @@ exports.position = (client, body = {}) => {
         y: 0,
         z: 0
     }
+    let defaultRotation = {
+        x: 0,
+        y: 0,
+        z: 0
+    }
     client.sendSyncObject({
         time: body.time || Date.now(),
         position: body.position || defaultPosition,
+        rotation: body.rotation || defaultRotation,
+        orientation: body.orientation || {},
         events: {
-            buffer: 'position/' + body.user,
+            buffer: 'position/' + body.id,
             'parse/position': true
         },
         clientData: true

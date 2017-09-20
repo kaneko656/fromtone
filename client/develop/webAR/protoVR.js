@@ -32,6 +32,7 @@ let stats = new Stats()
 
 let client
 let sound
+let deviceMesh = {}
 
 exports.initVR = (_client, _sound) => {
     client = _client
@@ -55,8 +56,8 @@ exports.initVR = (_client, _sound) => {
 
     // step.3 camera
     camera = new THREE.PerspectiveCamera(60, width / height, 0.01, 10000)
-    camera.position.set(0, 0, 1)
-    // camera.zoom()
+    camera.position.set(0, 0, 0.5)
+    // camera.zoom(2)
 
 
     // step.4 mesh
@@ -125,15 +126,45 @@ function initMesh() {
         }
     })
 
-    client.send.position({
-        user: client.data.user,
-        position: {
-            x: 0,
-            y: 2,
-            z: 0
+    // client.send.position({
+    //     id: client.data.user,
+    //     position: {
+    //         x: -0.1,
+    //         y: 0,
+    //         z: 0
+    //     }
+    // })
+
+    // device Position
+    client.receive.position((body) => {
+        let id = body.id
+        if (client.data.user == id) {
+            return
+        }
+        if (!deviceMesh[id]) {
+            let mesh = MeshProto.group()
+            mesh.scale.set(0.05, 0.05, 0.03)
+            mesh.position.copy(body.position)
+            scene.add(mesh)
+            deviceMesh[id] = mesh
+        }
+        deviceMesh[id].position.copy(body.position)
+        if (body.orientation) {
+            let quaternion = new THREE.Quaternion(
+                body.orientation[0],
+                body.orientation[1],
+                body.orientation[2],
+                body.orientation[3]
+            )
+            deviceMesh[id].quaternion.copy(quaternion)
         }
     })
+
 }
+
+
+
+
 
 let startTime = null
 

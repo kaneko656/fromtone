@@ -8,7 +8,9 @@
 
 const Job = require('./cron.js')
 const parserReceive = require('./syncParserReceive.js')
-let bufferTime = 30
+let bufferTime = 33
+let lastTime = 0
+let jobTimes = 10
 let syncObjectBuffer = []
 
 /**
@@ -56,26 +58,47 @@ exports.sendSyncObject = (socket, ntp, socketRoot, syncObject, options = {}) => 
         syncObjectBuffer.push(syncObject)
 
         // eventsがあればそれまでのbuffer含めてすぐに送る
-        if (Object.keys(syncObject.events).length >= 1) {
-            socket.emit(socketRoot + 'sync/send', {
-                array: syncObjectBuffer
-            })
-            syncObjectBuffer = []
+        // if (Object.keys(syncObject.events).length >= 1) {
+        //     socket.emit(socketRoot + 'sync/send', {
+        //         array: syncObjectBuffer
+        //     })
+        //     syncObjectBuffer = []
+        // }
+
+        // startJob
+        let now = Date.now()
+        if (now > lastTime + bufferTime * jobTimes) {
+            lastTime = now
+            require('./socketClient.js').log('send Buffer start' + lastTime)
+            for (let n = 1; n <= jobTimes; n++) {
+                let date = new Date(now + bufferTime * n)
+                Job(date, () => {
+                    if (syncObjectBuffer.length >= 1) {
+                        socket.emit(socketRoot + 'sync/send', {
+                            array: syncObjectBuffer
+                        })
+                        syncObjectBuffer = []
+                    }
+                })
+            }
         }
 
+
         // そうでなければbufferTime後にまとめて送る
-        let startJob = (syncObjectBuffer.length == 1)
-        if (startJob) {
-            let date = new Date(Date.now() + bufferTime)
-            Job(date, () => {
-                if (syncObjectBuffer.length >= 1) {
-                    socket.emit(socketDir + 'sync/send', {
-                        array: syncObjectBuffer
-                    })
-                    syncObjectBuffer = []
-                }
-            })
-        }
+        // let startJob = (syncObjectBuffer.length <= 1)
+        // if (startJob) {
+        //     let date1 = new Date(Date.now() + bufferTime)
+        //     let date2 = new Date(Date.now() + bufferTime * 2)
+        //     Job(date1, () => {
+        //         require('./socketClient.js').log('send Buffer' + syncObjectBuffer.length)
+        //         if (syncObjectBuffer.length >= 1) {
+        //             socket.emit(socketRoot + 'sync/send', {
+        //                 array: syncObjectBuffer
+        //             })
+        //             syncObjectBuffer = []
+        //         }
+        //     })
+        // }
     }
 }
 

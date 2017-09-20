@@ -22286,7 +22286,6 @@ function SyncAudio(webAudio, buffer, options = {}) {
  * @param {string} status 終了条件（end, stop）
  */
 SyncAudio.prototype.finished = function(){
-  console.log('ff')
 }
 
 /**
@@ -22690,7 +22689,7 @@ exports.play = (audioName, audioOptions = {}, syncOptions = {}) => {
             if (power) {
                 // gainNode.gain.linearRampToValueAtTime(power, atNextTime)
                 gainNode.gain.value = power
-                console.log('DBAP', 'power:', power.toFixed(3), 'time:', atNextTime.toFixed(3))
+                // console.log('DBAP', 'power:', power.toFixed(3), 'time:', atNextTime.toFixed(3))
                 // require('./../webSocket/socketClient').log(power)
             }
         }
@@ -22921,11 +22920,6 @@ exports.start = (clientData) => {
         if (thisClientID) {
             clientID = thisClientID
             eventListener.emit('setClientID')
-
-            client.receive.position((data)=>{
-                console.log(data)
-            })
-
         }
     })
 
@@ -22945,7 +22939,7 @@ exports.start = (clientData) => {
 
     function receive(syncObjects) {
         syncObjects.forEach((syncObject) => {
-            client.log(syncObject)
+            // client.log(syncObject)
         })
     }
 }
@@ -23214,6 +23208,7 @@ let stats = new Stats()
 let isAR = false
 let client
 let sound
+let deviceMesh = {}
 
 /**
  * Use the `getARDisplay()` utility to leverage the WebVR API
@@ -23300,7 +23295,7 @@ function init() {
 function initMesh() {
     cube = MeshProto.group()
     cube.scale.set(0.05, 0.05, 0.05)
-    cube.position.set(0, 0, -0.5)
+    cube.position.set(0, 0, 0)
     scene.add(cube)
 
 
@@ -23329,7 +23324,6 @@ function initMesh() {
             })
         }
 
-
         time = Date.now() - (st || localTime)
         let r = (Math.PI * 2 / 5000) * time
         let position = {
@@ -23348,15 +23342,52 @@ function initMesh() {
         }
     })
 
-    client.send.position({
-        user: client.data.user,
-        position: {
-            x: 0,
-            y: 2,
-            z: 0
+
+
+    eventCall.on('animation', (operator, time) => {
+        let pose = vrFrameData.pose
+        let position = {
+            x: pose.position[0] || 0,
+            y: pose.position[1] || 0,
+            z: pose.position[2] || 0
+        }
+        let orientation = pose.orientation
+        client.send.position({
+            id: client.data.user,
+            position: position,
+            orientation: orientation
+        })
+    })
+
+    // device Position
+    client.receive.position((body) => {
+        let id = body.id
+        if (client.data.user == id) {
+            return
+        }
+        if (!deviceMesh[id]) {
+            let mesh = MeshProto.group()
+            mesh.scale.set(0.05, 0.05, 0.03)
+            mesh.position.copy(body.position)
+            scene.add(mesh)
+            deviceMesh[id] = mesh
+        }
+        deviceMesh[id].position.copy(body.position)
+        if (body.orientation) {
+            let quaternion = new THREE.Quaternion(
+                body.orientation[0],
+                body.orientation[1],
+                body.orientation[2],
+                body.orientation[3]
+            )
+            deviceMesh[id].quaternion.copy(quaternion)
         }
     })
+
 }
+
+
+
 
 /**
  * The render loop, called once per frame. Handles updating
@@ -23440,19 +23471,19 @@ function onClick() {
         pose.position[2]
     )
 
-    let dirMtx = new THREE.Matrix4()
-    dirMtx.makeRotationFromQuaternion(ori)
-
-    let push = new THREE.Vector3(0, 0, -1.0)
-    push.transformDirection(dirMtx)
-    pos.addScaledVector(push, 0.125)
-
-    // Clone our cube object and place it at the camera's
-    // current position
-    let clone = cube.clone()
-    scene.add(clone)
-    clone.position.copy(pos)
-    clone.quaternion.copy(ori)
+    // let dirMtx = new THREE.Matrix4()
+    // dirMtx.makeRotationFromQuaternion(ori)
+    //
+    // let push = new THREE.Vector3(0, 0, -1.0)
+    // push.transformDirection(dirMtx)
+    // pos.addScaledVector(push, 0.125)
+    //
+    // // Clone our cube object and place it at the camera's
+    // // current position
+    // let clone = cube.clone()
+    // scene.add(clone)
+    // clone.position.copy(pos)
+    // clone.quaternion.copy(ori)
 
 }
 
@@ -23491,6 +23522,7 @@ let stats = new Stats()
 
 let client
 let sound
+let deviceMesh = {}
 
 exports.initVR = (_client, _sound) => {
     client = _client
@@ -23514,8 +23546,8 @@ exports.initVR = (_client, _sound) => {
 
     // step.3 camera
     camera = new THREE.PerspectiveCamera(60, width / height, 0.01, 10000)
-    camera.position.set(0, 0, 1)
-    // camera.zoom()
+    camera.position.set(0, 0, 0.5)
+    // camera.zoom(2)
 
 
     // step.4 mesh
@@ -23584,15 +23616,45 @@ function initMesh() {
         }
     })
 
-    client.send.position({
-        user: client.data.user,
-        position: {
-            x: 0,
-            y: 2,
-            z: 0
+    // client.send.position({
+    //     id: client.data.user,
+    //     position: {
+    //         x: -0.1,
+    //         y: 0,
+    //         z: 0
+    //     }
+    // })
+
+    // device Position
+    client.receive.position((body) => {
+        let id = body.id
+        if (client.data.user == id) {
+            return
+        }
+        if (!deviceMesh[id]) {
+            let mesh = MeshProto.group()
+            mesh.scale.set(0.05, 0.05, 0.03)
+            mesh.position.copy(body.position)
+            scene.add(mesh)
+            deviceMesh[id] = mesh
+        }
+        deviceMesh[id].position.copy(body.position)
+        if (body.orientation) {
+            let quaternion = new THREE.Quaternion(
+                body.orientation[0],
+                body.orientation[1],
+                body.orientation[2],
+                body.orientation[3]
+            )
+            deviceMesh[id].quaternion.copy(quaternion)
         }
     })
+
 }
+
+
+
+
 
 let startTime = null
 
@@ -24389,7 +24451,9 @@ exports.init = (socket, socketRoot) => {
 
 const Job = require('./cron.js')
 const parserReceive = require('./syncParserReceive.js')
-let bufferTime = 30
+let bufferTime = 33
+let lastTime = 0
+let jobTimes = 10
 let syncObjectBuffer = []
 
 /**
@@ -24437,26 +24501,47 @@ exports.sendSyncObject = (socket, ntp, socketRoot, syncObject, options = {}) => 
         syncObjectBuffer.push(syncObject)
 
         // eventsがあればそれまでのbuffer含めてすぐに送る
-        if (Object.keys(syncObject.events).length >= 1) {
-            socket.emit(socketRoot + 'sync/send', {
-                array: syncObjectBuffer
-            })
-            syncObjectBuffer = []
+        // if (Object.keys(syncObject.events).length >= 1) {
+        //     socket.emit(socketRoot + 'sync/send', {
+        //         array: syncObjectBuffer
+        //     })
+        //     syncObjectBuffer = []
+        // }
+
+        // startJob
+        let now = Date.now()
+        if (now > lastTime + bufferTime * jobTimes) {
+            lastTime = now
+            require('./socketClient.js').log('send Buffer start' + lastTime)
+            for (let n = 1; n <= jobTimes; n++) {
+                let date = new Date(now + bufferTime * n)
+                Job(date, () => {
+                    if (syncObjectBuffer.length >= 1) {
+                        socket.emit(socketRoot + 'sync/send', {
+                            array: syncObjectBuffer
+                        })
+                        syncObjectBuffer = []
+                    }
+                })
+            }
         }
 
+
         // そうでなければbufferTime後にまとめて送る
-        let startJob = (syncObjectBuffer.length == 1)
-        if (startJob) {
-            let date = new Date(Date.now() + bufferTime)
-            Job(date, () => {
-                if (syncObjectBuffer.length >= 1) {
-                    socket.emit(socketDir + 'sync/send', {
-                        array: syncObjectBuffer
-                    })
-                    syncObjectBuffer = []
-                }
-            })
-        }
+        // let startJob = (syncObjectBuffer.length <= 1)
+        // if (startJob) {
+        //     let date1 = new Date(Date.now() + bufferTime)
+        //     let date2 = new Date(Date.now() + bufferTime * 2)
+        //     Job(date1, () => {
+        //         require('./socketClient.js').log('send Buffer' + syncObjectBuffer.length)
+        //         if (syncObjectBuffer.length >= 1) {
+        //             socket.emit(socketRoot + 'sync/send', {
+        //                 array: syncObjectBuffer
+        //             })
+        //             syncObjectBuffer = []
+        //         }
+        //     })
+        // }
     }
 }
 
@@ -24589,7 +24674,7 @@ let checkSyncObject = (syncObject) => {
     return syncObject
 }
 
-},{"./cron.js":169,"./syncParserReceive.js":182}],181:[function(require,module,exports){
+},{"./cron.js":169,"./socketClient.js":178,"./syncParserReceive.js":182}],181:[function(require,module,exports){
 /**
  * @overview
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -24610,7 +24695,7 @@ exports.parseList = () => {
 
 /**
  * [position description]
- * @param  {object} body {user, position, [time]}
+ * @param  {object} body {id, position, rotation, [time]}
  */
 
 exports.position = (client, body = {}) => {
@@ -24619,11 +24704,18 @@ exports.position = (client, body = {}) => {
         y: 0,
         z: 0
     }
+    let defaultRotation = {
+        x: 0,
+        y: 0,
+        z: 0
+    }
     client.sendSyncObject({
         time: body.time || Date.now(),
         position: body.position || defaultPosition,
+        rotation: body.rotation || defaultRotation,
+        orientation: body.orientation || {},
         events: {
-            buffer: 'position/' + body.user,
+            buffer: 'position/' + body.id,
             'parse/position': true
         },
         clientData: true
@@ -24632,7 +24724,7 @@ exports.position = (client, body = {}) => {
 
 },{}],182:[function(require,module,exports){
 /**
- * @overview 
+ * @overview
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
  * @version 1.0.0
  * @module webSocket/syncParserReceive
@@ -24657,7 +24749,9 @@ exports.position = (callback = () => {}) => {
         callback({
             id: syncObject.clientData.user,
             position: syncObject.position,
-            time: syncObject.time
+            rotation: syncObject.rotation,
+            orientation: syncObject.orientation,
+            time: syncObject.time,
         })
     })
 }

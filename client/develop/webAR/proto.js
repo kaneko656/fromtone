@@ -33,6 +33,7 @@ let stats = new Stats()
 let isAR = false
 let client
 let sound
+let deviceMesh = {}
 
 /**
  * Use the `getARDisplay()` utility to leverage the WebVR API
@@ -119,7 +120,7 @@ function init() {
 function initMesh() {
     cube = MeshProto.group()
     cube.scale.set(0.05, 0.05, 0.05)
-    cube.position.set(0, 0, -0.5)
+    cube.position.set(0, 0, 0)
     scene.add(cube)
 
 
@@ -148,7 +149,6 @@ function initMesh() {
             })
         }
 
-
         time = Date.now() - (st || localTime)
         let r = (Math.PI * 2 / 5000) * time
         let position = {
@@ -167,15 +167,52 @@ function initMesh() {
         }
     })
 
-    client.send.position({
-        user: client.data.user,
-        position: {
-            x: 0,
-            y: 2,
-            z: 0
+
+
+    eventCall.on('animation', (operator, time) => {
+        let pose = vrFrameData.pose
+        let position = {
+            x: pose.position[0] || 0,
+            y: pose.position[1] || 0,
+            z: pose.position[2] || 0
+        }
+        let orientation = pose.orientation
+        client.send.position({
+            id: client.data.user,
+            position: position,
+            orientation: orientation
+        })
+    })
+
+    // device Position
+    client.receive.position((body) => {
+        let id = body.id
+        if (client.data.user == id) {
+            return
+        }
+        if (!deviceMesh[id]) {
+            let mesh = MeshProto.group()
+            mesh.scale.set(0.05, 0.05, 0.03)
+            mesh.position.copy(body.position)
+            scene.add(mesh)
+            deviceMesh[id] = mesh
+        }
+        deviceMesh[id].position.copy(body.position)
+        if (body.orientation) {
+            let quaternion = new THREE.Quaternion(
+                body.orientation[0],
+                body.orientation[1],
+                body.orientation[2],
+                body.orientation[3]
+            )
+            deviceMesh[id].quaternion.copy(quaternion)
         }
     })
+
 }
+
+
+
 
 /**
  * The render loop, called once per frame. Handles updating
@@ -259,18 +296,18 @@ function onClick() {
         pose.position[2]
     )
 
-    let dirMtx = new THREE.Matrix4()
-    dirMtx.makeRotationFromQuaternion(ori)
-
-    let push = new THREE.Vector3(0, 0, -1.0)
-    push.transformDirection(dirMtx)
-    pos.addScaledVector(push, 0.125)
-
-    // Clone our cube object and place it at the camera's
-    // current position
-    let clone = cube.clone()
-    scene.add(clone)
-    clone.position.copy(pos)
-    clone.quaternion.copy(ori)
+    // let dirMtx = new THREE.Matrix4()
+    // dirMtx.makeRotationFromQuaternion(ori)
+    //
+    // let push = new THREE.Vector3(0, 0, -1.0)
+    // push.transformDirection(dirMtx)
+    // pos.addScaledVector(push, 0.125)
+    //
+    // // Clone our cube object and place it at the camera's
+    // // current position
+    // let clone = cube.clone()
+    // scene.add(clone)
+    // clone.position.copy(pos)
+    // clone.quaternion.copy(ori)
 
 }

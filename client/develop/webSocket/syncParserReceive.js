@@ -1,5 +1,5 @@
 /**
- * @overview 
+ * @overview
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
  * @version 1.0.0
  * @module webSocket/syncParserReceive
@@ -24,7 +24,9 @@ exports.position = (callback = () => {}) => {
         callback({
             id: syncObject.clientData.user,
             position: syncObject.position,
-            time: syncObject.time
+            rotation: syncObject.rotation,
+            orientation: syncObject.orientation,
+            time: syncObject.time,
         })
     })
 }
