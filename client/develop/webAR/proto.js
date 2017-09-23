@@ -62,8 +62,8 @@ exports.start = (_client, _sound) => {
 
 function init() {
     // Turn on the debugging panel
-    let arDebug = new THREE.ARDebug(vrDisplay)
-    document.body.appendChild(arDebug.getElement())
+    // let arDebug = new THREE.ARDebug(vrDisplay)
+    // document.body.appendChild(arDebug.getElement())
 
     // Setup the three.js rendering environment
     renderer = new THREE.WebGLRenderer({
@@ -71,7 +71,7 @@ function init() {
     })
     renderer.setPixelRatio(window.devicePixelRatio)
     renderer.setSize(window.innerWidth, window.innerHeight)
-    renderer.autoClear = false
+    // renderer.autoClear = false
     canvas = renderer.domElement
     document.body.appendChild(canvas)
     document.body.appendChild(stats.domElement)
@@ -83,6 +83,9 @@ function init() {
     // the rendering of the camera stream behind the three.js
     // scene
     arView = new THREE.ARView(vrDisplay, renderer)
+
+    // let videoRenderer = new ARVideoRenderer(vrDisplay, renderer.context)
+    // client.log(videoRenderer)
 
     // The ARPerspectiveCamera is very similar to THREE.PerspectiveCamera,
     // except when using an AR-capable browser, the camera uses
@@ -104,17 +107,258 @@ function init() {
     // real world and virtual world in sync.
     vrControls = new THREE.VRControls(camera)
 
+
     // step.4 mesh
     initMesh()
-
-    // Bind our event handlers
+    //
+    // // Bind our event handlers
     window.addEventListener('resize', onWindowResize, false)
     canvas.addEventListener('touchstart', onClick, false)
-    // canvas.addEventListener('click', onClick, false)
-
-    // Kick off the render loop!
+    // // canvas.addEventListener('click', onClick, false)
+    //
+    // // Kick off the render loop!
     update()
+    //
+    // client.log(vrFrameData.pose)
+    //
+    guiView()
+    //
+    setTimeout(() => {
+        // hitting()
+    }, 500)
 
+    setTimeout(() => {
+        // client.log(vrDisplay)
+        // client.log(vrFrameData)
+    }, 5000)
+
+}
+
+let viewAnchorId = []
+
+let anchorModel = new THREE.Matrix4()
+let tempAnchorPos = new THREE.Vector3()
+let tempAnchorQuat = new THREE.Quaternion()
+let tempAnchorScale = new THREE.Vector3()
+
+function anchorView(anchor) {
+    // 三角の線を引く
+    if (viewAnchorId.indexOf(anchor.identifier) == -1) {
+        let applyOrientation = true
+        let easing = 1
+
+        anchorModel.fromArray(anchor.modelMatrix)
+        anchorModel.decompose(tempAnchorPos, tempAnchorQuat, tempAnchorScale)
+
+        let vert = anchor.vertices
+        let material = new THREE.LineBasicMaterial({
+            linewidth: 3,
+            color: 0xcccc00
+        })
+        let geometry = new THREE.Geometry()
+        geometry.vertices.push(new THREE.Vector3(vert[0], vert[1], vert[2]))
+        geometry.vertices.push(new THREE.Vector3(vert[3], vert[4], vert[5]))
+        geometry.vertices.push(new THREE.Vector3(vert[6], vert[7], vert[8]))
+        geometry.vertices.push(new THREE.Vector3(vert[9], vert[10], vert[11]))
+        geometry.vertices.push(new THREE.Vector3(vert[0], vert[1], vert[2]))
+        let obj = new THREE.Line(geometry, material)
+
+        if (easing === 1) {
+            obj.position.copy(tempAnchorPos)
+            if (applyOrientation) {
+                obj.quaternion.copy(tempAnchorQuat)
+            }
+        } else {
+            obj.position.lerp(tempAnchorPos, easing)
+            if (applyOrientation) {
+                obj.quaternion.slerp(tempAnchorQuat, easing)
+            }
+        }
+
+        scene.add(obj)
+        viewAnchorId.push(anchor.identifier)
+        client.log({
+            position: tempAnchorPos
+        })
+
+    }
+}
+
+function guiView() {
+    let positionItem = []
+    let folder = null
+    let lastTime = 0
+    let refreshTime = 100
+    eventCall.on('animation', (operator, time) => {
+        if (Date.now() - lastTime < refreshTime) {
+            return
+        }
+        lastTime = Date.now()
+        if (positionItem.length == 3) {
+            folder.remove(positionItem[0])
+            folder.remove(positionItem[1])
+            folder.remove(positionItem[2])
+            positionItem = []
+        }
+        if (client.gui) {
+            if (!folder) {
+                folder = client.gui.addFolder('position')
+                // folder.open()
+            }
+            let position = {}
+            position.x = vrFrameData.pose.position[0]
+            position.y = vrFrameData.pose.position[1]
+            position.z = vrFrameData.pose.position[2]
+            positionItem[0] = folder.add(position, 'x')
+            positionItem[1] = folder.add(position, 'y')
+            positionItem[2] = folder.add(position, 'z')
+        }
+    })
+
+}
+
+function hitting() {
+    // let c = vrDisplay.getPassThroughCamera()
+    // client.log(c)
+    // THREE.SceneUtils.traverseHierarchy( object, function ( object ) { object.visible = false; } );
+    let geometry = new THREE.PlaneGeometry(0.02, 0.02) // width, height, widthSegments, heightSegments
+    let material = new THREE.MeshBasicMaterial({
+        color: 0x45ff45,
+        side: THREE.DoubleSide
+    })
+    let plane = new THREE.Mesh(geometry, material)
+    plane.position.set(0, 0, -0.5)
+    plane.rotation.set(Math.PI / 2, 0, 0)
+    plane.visible = true
+    scene.add(plane)
+    // atHit
+    let pointMesh = []
+    let pointMax = 300
+    for (let i = 0; i < pointMax; i++) {
+        pointMesh[i] = plane.clone()
+        // pointMesh[i].scale.set(0.03, 0.03, 0.03)
+        pointMesh[i].position.set(0, 0, -0.2)
+        pointMesh[i].visible = false
+        scene.add(pointMesh[i])
+    }
+    // 320: 524
+
+    let range = 30
+    let n = 0
+    let lastTime = 50
+    let refreshTime = 2500
+    let isHit = false
+    eventCall.on('animation', (operator, time) => {
+        if (Date.now() - lastTime < refreshTime) {
+            return
+        }
+
+        lastTime = Date.now()
+        n = 0
+        for (let i = 0; i < pointMax; i++) {
+            pointMesh[i].visible = false
+        }
+        // placeHit(0.5, 0.5)
+        let height = window.innerHeight
+        let width = window.innerWidth
+        for (let y = range; y < window.innerHeight; y += range) {
+            for (let x = range; x < window.innerWidth; x += range) {
+                let hitX = x / width
+                let hitY = y / height
+                if (placeHit(hitX, hitY, n)) {
+                    n++
+                    if (n > pointMax) {
+                        break
+                    }
+                }
+            }
+        }
+        // if (!isHit) {
+        //     hit = placeHit(0.5, 0.5, 0)
+        //     if (hit) {
+        //         isHit = true
+        //     }
+        // }
+        // let pos = toScreen(pointMesh[0].position)
+        // client.log({
+        //     a: pointMesh[0].position,
+        //     b: pos
+        // })
+    })
+
+    function toScreen(position) {
+        let widthHalf = window.innerWidth / 2
+        let heightHalf = window.innerWidth / 2
+
+        let sPos = position.clone()
+        sPos.project(camera)
+        sPos.x = (sPos.x * widthHalf) + widthHalf
+        sPos.y = -(sPos.y * heightHalf) + heightHalf
+        sPos.z = 0
+        return sPos
+    }
+
+
+    let model = new THREE.Matrix4()
+    let tempPos = new THREE.Vector3()
+    let tempQuat = new THREE.Quaternion()
+    let tempScale = new THREE.Vector3()
+
+    function placeObjectAtHit(object, hit) {
+        let easing = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 1;
+        let applyOrientation = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : true;
+
+        if (!hit || !hit.modelMatrix) {
+            throw new Error('placeObjectAtHit requires a VRHit object');
+        }
+
+        model.fromArray(hit.modelMatrix);
+
+        model.decompose(tempPos, tempQuat, tempScale)
+        // client.log(tempPos)
+        if (object) {
+
+            if (easing === 1) {
+                object.position.copy(tempPos);
+                if (applyOrientation) {
+                    object.quaternion.copy(tempQuat);
+                }
+            } else {
+                object.position.lerp(tempPos, easing);
+                if (applyOrientation) {
+                    object.quaternion.slerp(tempQuat, easing);
+                }
+            }
+            object.visible = true
+            object.rotation.x += Math.PI / 2
+
+        }
+    }
+
+    function placeHit(x, y, n = 0) {
+        // client.log({
+        //     x: x,
+        //     y: y
+        // })
+        if (vrDisplay && vrDisplay.hitTest) {
+            let hits = vrDisplay.hitTest(x, y)
+
+            if (hits && hits.length) {
+                // client.log(hits)
+                let hit = hits[0]
+                placeObjectAtHit(pointMesh[n], hit, true, 1)
+
+
+                // THREE.ARUtils.placeObjectAtHit(pointMesh[n], // The object to place
+                //     hit, // The VRHit object to move the cube to
+                //     true, // Whether or not we also apply orientation
+                //     1); // Easing value from 0 to 1; we want to move
+                // the cube directly to the hit position
+                return true
+            }
+        }
+        return false
+    }
 }
 
 function initMesh() {
@@ -184,6 +428,8 @@ function initMesh() {
         })
     })
 
+
+
     // device Position
     client.receive.position((body) => {
         let id = body.id
@@ -249,6 +495,14 @@ function update(time) {
 
     eventCall.emit('animation', time)
     stats.update()
+
+    if (vrDisplay && vrDisplay['anchors_'] && vrDisplay['anchors_'].length >= 1) {
+        vrDisplay['anchors_'].forEach((anchor) => {
+            anchorView(anchor)
+        })
+
+    }
+
 
 
     renderer.render(scene, camera)

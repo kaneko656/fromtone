@@ -94,6 +94,12 @@ exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {})
         console.log('register.js update', list)
     })
 
+    // debug  if user == 'debug'
+    socket.on(socketRoot + 'debug/log', (log) => {
+        console.log(' >>>')
+        console.log(log)
+    })
+
 
     connect(() => {
         // console.log(socketRoot + 'register')

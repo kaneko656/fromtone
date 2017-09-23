@@ -17,7 +17,7 @@ let property = require('./property') // server.startTime
 let syncParser = require('./syncParser')
 let syncParserReceive = require('./syncParserReceive')
 
-let url = 'http://192.168.144.142:8001'
+let url = 'https://ad44ac79.ngrok.io'
 try {
     url = require('./../config.json').socketUrl
 } catch (e) {}

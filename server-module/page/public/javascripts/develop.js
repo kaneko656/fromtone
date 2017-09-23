@@ -22799,7 +22799,7 @@ let culculateDist = (a, b) => {
 
 },{"./SyncAudio.js":154,"./TimeValue.js":155}],157:[function(require,module,exports){
 module.exports={
-  "socketUrl": "http://192.168.144.142:8001"
+  "socketUrl": "https://ad44ac79.ngrok.io"
 }
 
 },{}],158:[function(require,module,exports){
@@ -22896,6 +22896,13 @@ exports.start = (clientData) => {
     let updater = client.initRegister(socketRoot, group, clientData)
     client.data = clientData
 
+    if(clientData.user == 'debug'){
+      return
+    }
+
+  
+    // client.gui = gui
+
     sound.setAudioList(audioList)
     sound.finishLoad('pizz_7', () => {
         sound.play('pizz_7')
@@ -22903,7 +22910,39 @@ exports.start = (clientData) => {
 
     proto.start(client, sound)
 
+
     sound.setSpeakerPosition(clientData.user, {})
+
+    // ? 非同期にすると入る
+    setTimeout(() => {
+        let data = {
+            x: 0,
+            y: 0,
+            z: 0
+        }
+        let gui = new dat.GUI() // {width: 300}
+        client.gui = gui
+        // let folder = gui.addFolder('position')
+        //folder.add( データを保持するインスタンス, 'インスタンスのプロパティ名', 最小値, 最大値 ).onChange( 変更時のイベント);
+        // folder.add(data, 'x', -10.0, 10.0).step(0.001).onChange(generate)
+        // folder.add(data, 'y', -100, 100).step(5).onChange(generate)
+        // folder.add(data, 'z', -50, 50).options(0, 10, 20).onChange(generate)
+        // folder.open()
+        // console.log(folder)
+
+        function generate() {
+            let position = {
+                x: data.x,
+                y: data.y,
+                z: data.z
+            }
+            console.log(position)
+        }
+    }, 10)
+
+
+
+    // proto.start(client, sound)
 
 
 
@@ -23237,8 +23276,8 @@ exports.start = (_client, _sound) => {
 
 function init() {
     // Turn on the debugging panel
-    let arDebug = new THREE.ARDebug(vrDisplay)
-    document.body.appendChild(arDebug.getElement())
+    // let arDebug = new THREE.ARDebug(vrDisplay)
+    // document.body.appendChild(arDebug.getElement())
 
     // Setup the three.js rendering environment
     renderer = new THREE.WebGLRenderer({
@@ -23246,7 +23285,7 @@ function init() {
     })
     renderer.setPixelRatio(window.devicePixelRatio)
     renderer.setSize(window.innerWidth, window.innerHeight)
-    renderer.autoClear = false
+    // renderer.autoClear = false
     canvas = renderer.domElement
     document.body.appendChild(canvas)
     document.body.appendChild(stats.domElement)
@@ -23258,6 +23297,9 @@ function init() {
     // the rendering of the camera stream behind the three.js
     // scene
     arView = new THREE.ARView(vrDisplay, renderer)
+
+    // let videoRenderer = new ARVideoRenderer(vrDisplay, renderer.context)
+    // client.log(videoRenderer)
 
     // The ARPerspectiveCamera is very similar to THREE.PerspectiveCamera,
     // except when using an AR-capable browser, the camera uses
@@ -23279,17 +23321,258 @@ function init() {
     // real world and virtual world in sync.
     vrControls = new THREE.VRControls(camera)
 
+
     // step.4 mesh
     initMesh()
-
-    // Bind our event handlers
+    //
+    // // Bind our event handlers
     window.addEventListener('resize', onWindowResize, false)
     canvas.addEventListener('touchstart', onClick, false)
-    // canvas.addEventListener('click', onClick, false)
-
-    // Kick off the render loop!
+    // // canvas.addEventListener('click', onClick, false)
+    //
+    // // Kick off the render loop!
     update()
+    //
+    // client.log(vrFrameData.pose)
+    //
+    guiView()
+    //
+    setTimeout(() => {
+        // hitting()
+    }, 500)
 
+    setTimeout(() => {
+        // client.log(vrDisplay)
+        // client.log(vrFrameData)
+    }, 5000)
+
+}
+
+let viewAnchorId = []
+
+let anchorModel = new THREE.Matrix4()
+let tempAnchorPos = new THREE.Vector3()
+let tempAnchorQuat = new THREE.Quaternion()
+let tempAnchorScale = new THREE.Vector3()
+
+function anchorView(anchor) {
+    // 三角の線を引く
+    if (viewAnchorId.indexOf(anchor.identifier) == -1) {
+        let applyOrientation = true
+        let easing = 1
+
+        anchorModel.fromArray(anchor.modelMatrix)
+        anchorModel.decompose(tempAnchorPos, tempAnchorQuat, tempAnchorScale)
+
+        let vert = anchor.vertices
+        let material = new THREE.LineBasicMaterial({
+            linewidth: 3,
+            color: 0xcccc00
+        })
+        let geometry = new THREE.Geometry()
+        geometry.vertices.push(new THREE.Vector3(vert[0], vert[1], vert[2]))
+        geometry.vertices.push(new THREE.Vector3(vert[3], vert[4], vert[5]))
+        geometry.vertices.push(new THREE.Vector3(vert[6], vert[7], vert[8]))
+        geometry.vertices.push(new THREE.Vector3(vert[9], vert[10], vert[11]))
+        geometry.vertices.push(new THREE.Vector3(vert[0], vert[1], vert[2]))
+        let obj = new THREE.Line(geometry, material)
+
+        if (easing === 1) {
+            obj.position.copy(tempAnchorPos)
+            if (applyOrientation) {
+                obj.quaternion.copy(tempAnchorQuat)
+            }
+        } else {
+            obj.position.lerp(tempAnchorPos, easing)
+            if (applyOrientation) {
+                obj.quaternion.slerp(tempAnchorQuat, easing)
+            }
+        }
+
+        scene.add(obj)
+        viewAnchorId.push(anchor.identifier)
+        client.log({
+            position: tempAnchorPos
+        })
+
+    }
+}
+
+function guiView() {
+    let positionItem = []
+    let folder = null
+    let lastTime = 0
+    let refreshTime = 100
+    eventCall.on('animation', (operator, time) => {
+        if (Date.now() - lastTime < refreshTime) {
+            return
+        }
+        lastTime = Date.now()
+        if (positionItem.length == 3) {
+            folder.remove(positionItem[0])
+            folder.remove(positionItem[1])
+            folder.remove(positionItem[2])
+            positionItem = []
+        }
+        if (client.gui) {
+            if (!folder) {
+                folder = client.gui.addFolder('position')
+                // folder.open()
+            }
+            let position = {}
+            position.x = vrFrameData.pose.position[0]
+            position.y = vrFrameData.pose.position[1]
+            position.z = vrFrameData.pose.position[2]
+            positionItem[0] = folder.add(position, 'x')
+            positionItem[1] = folder.add(position, 'y')
+            positionItem[2] = folder.add(position, 'z')
+        }
+    })
+
+}
+
+function hitting() {
+    // let c = vrDisplay.getPassThroughCamera()
+    // client.log(c)
+    // THREE.SceneUtils.traverseHierarchy( object, function ( object ) { object.visible = false; } );
+    let geometry = new THREE.PlaneGeometry(0.02, 0.02) // width, height, widthSegments, heightSegments
+    let material = new THREE.MeshBasicMaterial({
+        color: 0x45ff45,
+        side: THREE.DoubleSide
+    })
+    let plane = new THREE.Mesh(geometry, material)
+    plane.position.set(0, 0, -0.5)
+    plane.rotation.set(Math.PI / 2, 0, 0)
+    plane.visible = true
+    scene.add(plane)
+    // atHit
+    let pointMesh = []
+    let pointMax = 300
+    for (let i = 0; i < pointMax; i++) {
+        pointMesh[i] = plane.clone()
+        // pointMesh[i].scale.set(0.03, 0.03, 0.03)
+        pointMesh[i].position.set(0, 0, -0.2)
+        pointMesh[i].visible = false
+        scene.add(pointMesh[i])
+    }
+    // 320: 524
+
+    let range = 30
+    let n = 0
+    let lastTime = 50
+    let refreshTime = 2500
+    let isHit = false
+    eventCall.on('animation', (operator, time) => {
+        if (Date.now() - lastTime < refreshTime) {
+            return
+        }
+
+        lastTime = Date.now()
+        n = 0
+        for (let i = 0; i < pointMax; i++) {
+            pointMesh[i].visible = false
+        }
+        // placeHit(0.5, 0.5)
+        let height = window.innerHeight
+        let width = window.innerWidth
+        for (let y = range; y < window.innerHeight; y += range) {
+            for (let x = range; x < window.innerWidth; x += range) {
+                let hitX = x / width
+                let hitY = y / height
+                if (placeHit(hitX, hitY, n)) {
+                    n++
+                    if (n > pointMax) {
+                        break
+                    }
+                }
+            }
+        }
+        // if (!isHit) {
+        //     hit = placeHit(0.5, 0.5, 0)
+        //     if (hit) {
+        //         isHit = true
+        //     }
+        // }
+        // let pos = toScreen(pointMesh[0].position)
+        // client.log({
+        //     a: pointMesh[0].position,
+        //     b: pos
+        // })
+    })
+
+    function toScreen(position) {
+        let widthHalf = window.innerWidth / 2
+        let heightHalf = window.innerWidth / 2
+
+        let sPos = position.clone()
+        sPos.project(camera)
+        sPos.x = (sPos.x * widthHalf) + widthHalf
+        sPos.y = -(sPos.y * heightHalf) + heightHalf
+        sPos.z = 0
+        return sPos
+    }
+
+
+    let model = new THREE.Matrix4()
+    let tempPos = new THREE.Vector3()
+    let tempQuat = new THREE.Quaternion()
+    let tempScale = new THREE.Vector3()
+
+    function placeObjectAtHit(object, hit) {
+        let easing = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 1;
+        let applyOrientation = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : true;
+
+        if (!hit || !hit.modelMatrix) {
+            throw new Error('placeObjectAtHit requires a VRHit object');
+        }
+
+        model.fromArray(hit.modelMatrix);
+
+        model.decompose(tempPos, tempQuat, tempScale)
+        // client.log(tempPos)
+        if (object) {
+
+            if (easing === 1) {
+                object.position.copy(tempPos);
+                if (applyOrientation) {
+                    object.quaternion.copy(tempQuat);
+                }
+            } else {
+                object.position.lerp(tempPos, easing);
+                if (applyOrientation) {
+                    object.quaternion.slerp(tempQuat, easing);
+                }
+            }
+            object.visible = true
+            object.rotation.x += Math.PI / 2
+
+        }
+    }
+
+    function placeHit(x, y, n = 0) {
+        // client.log({
+        //     x: x,
+        //     y: y
+        // })
+        if (vrDisplay && vrDisplay.hitTest) {
+            let hits = vrDisplay.hitTest(x, y)
+
+            if (hits && hits.length) {
+                // client.log(hits)
+                let hit = hits[0]
+                placeObjectAtHit(pointMesh[n], hit, true, 1)
+
+
+                // THREE.ARUtils.placeObjectAtHit(pointMesh[n], // The object to place
+                //     hit, // The VRHit object to move the cube to
+                //     true, // Whether or not we also apply orientation
+                //     1); // Easing value from 0 to 1; we want to move
+                // the cube directly to the hit position
+                return true
+            }
+        }
+        return false
+    }
 }
 
 function initMesh() {
@@ -23359,6 +23642,8 @@ function initMesh() {
         })
     })
 
+
+
     // device Position
     client.receive.position((body) => {
         let id = body.id
@@ -23424,6 +23709,14 @@ function update(time) {
 
     eventCall.emit('animation', time)
     stats.update()
+
+    if (vrDisplay && vrDisplay['anchors_'] && vrDisplay['anchors_'].length >= 1) {
+        vrDisplay['anchors_'].forEach((anchor) => {
+            anchorView(anchor)
+        })
+
+    }
+
 
 
     renderer.render(scene, camera)
@@ -23496,6 +23789,7 @@ let arView
 let canvas
 let camera
 let scene
+let controls
 let renderer
 let cube
 let box, wire
@@ -23519,7 +23813,9 @@ let eventCall = require('./eventCall')
 // view FPS  in update() write stats.update()
 let Stats = require('./Stats.js')
 let stats = new Stats()
-
+setTimeout(() => {
+    document.body.appendChild(stats.domElement)
+}, 1000)
 let client
 let sound
 let deviceMesh = {}
@@ -23536,9 +23832,9 @@ exports.initVR = (_client, _sound) => {
     // renderer.setPixelRatio(window.devicePixelRatio)
     renderer.setSize(width, height)
     // renderer.autoClear = false
+
     canvas = renderer.domElement
     document.body.appendChild(canvas)
-    document.body.appendChild(stats.domElement)
 
 
     // step.2 scene
@@ -23549,6 +23845,8 @@ exports.initVR = (_client, _sound) => {
     camera.position.set(0, 0, 0.5)
     // camera.zoom(2)
 
+    // step.3.1
+    controls = new THREE.OrbitControls(camera, canvas)
 
     // step.4 mesh
     initMesh()
@@ -23562,13 +23860,33 @@ exports.initVR = (_client, _sound) => {
     update()
 
     canvas.addEventListener('click', onClick, false)
+    window.addEventListener('resize', onWindowResize, false)
+
+    hitting()
 
 }
 
+function hitting() {
+    // THREE.SceneUtils.traverseHierarchy( object, function ( object ) { object.visible = false; } );
+    var geometry = new THREE.PlaneGeometry(0.1, 0.1) // width, height, widthSegments, heightSegments
+    var material = new THREE.MeshBasicMaterial({
+        color: 0x45ff45,
+        side: THREE.DoubleSide
+    });
+    var plane = new THREE.Mesh(geometry, material)
+    plane.position.set(0, 0, 0)
+    plane.rotation.set(Math.PI/2,0,0)
+
+    plane.visible = true
+    scene.add(plane)
+}
+
 function initMesh() {
+
+    // VR/AR
     cube = MeshProto.group()
     cube.scale.set(0.05, 0.05, 0.05)
-    cube.position.set(0, 0, -2)
+    cube.position.set(0, 0, 0)
     scene.add(cube)
 
 
@@ -23609,6 +23927,20 @@ function initMesh() {
         cube.rotation.y = Math.cos(r) * Math.PI
         cube.position.copy(position)
 
+        // console.log(toScreen(cube.position))
+        // toScreen(cube.position)
+        function toScreen(position) {
+            let widthHalf = window.innerWidth / 2
+            let heightHalf = window.innerWidth / 2
+
+            var sPos = position.clone()
+            sPos.project(camera)
+            sPos.x = (sPos.x * widthHalf) + widthHalf
+            sPos.y = -(sPos.y * heightHalf) + heightHalf
+            sPos.z = 0
+            return sPos
+        }
+
         if (syncAudio) {
             let p = {}
             p[Date.now() + 2] = position
@@ -23616,6 +23948,7 @@ function initMesh() {
         }
     })
 
+    // only VR  positionを共有しない
     // client.send.position({
     //     id: client.data.user,
     //     position: {
@@ -23625,6 +23958,7 @@ function initMesh() {
     //     }
     // })
 
+    // VR/AR
     // device Position
     client.receive.position((body) => {
         let id = body.id
@@ -23650,9 +23984,17 @@ function initMesh() {
         }
     })
 
+    // only VR
+    let center = cube.clone()
+    scene.add(center)
+
+    setTimeout(() => {
+        let folder = client.gui.addFolder('position')
+        console.log('folder', folder)
+
+    }, 100)
+
 }
-
-
 
 
 
@@ -23667,6 +24009,7 @@ function update(time) {
         time = Date.now() - startTime
     }
     eventCall.emit('animation', time)
+    controls.update()
     stats.update()
 
     renderer.render(scene, camera)
@@ -23704,6 +24047,61 @@ function onClick() {
         // renderer.render(scene, camera)
     }
 }
+//
+// let moveAccel = 0
+// let moveVelocity = 0
+// let moveAccelValue = 0.0002
+// let lastTime = 0
+//
+// function keyDown(e) {
+//     // keyCode キーに対応する番号
+//     // shiftKey shiftキーの押下状態
+//     // ctrlKey ctrlキーの押下状態
+//     // altKey altキーの押下状態
+//
+//     // - 左 右　+
+//     // - 下 上　+
+//     // - 奥 前　+
+//
+//     // TODO Controlerを使う
+//
+//     // initial
+//     if (Date.now() - lastTime > 100) {
+//         moveAccel = 0
+//         moveVelocity = 0
+//         if (moveVelocity < 0.001) {
+//             moveVelocity = 0
+//         }
+//     }
+//     lastTime = Date.now()
+//
+//     moveAccel += moveAccelValue
+//     moveVelocity += moveAccel
+//     let moveValue = moveVelocity
+//     // ← Left
+//     if (e.keyCode == 37) {
+//         camera.position.x -= moveValue
+//     }
+//     // ↑ UP
+//     else if (e.keyCode == 38) {
+//         camera.position.z -= moveValue
+//     }
+//     // → Right
+//     else if (e.keyCode == 39) {
+//         camera.position.x += moveValue
+//     }
+//     // ↓ Down
+//     else if (e.keyCode == 40) {
+//         camera.position.z += moveValue
+//     }
+//
+//
+//
+//     console.log(e.keyCode)
+//
+// }
+//
+
 
 /**
  * On window resize, update the perspective camera's aspect ratio,
@@ -24098,6 +24496,12 @@ exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {})
         console.log('register.js update', list)
     })
 
+    // debug  if user == 'debug'
+    socket.on(socketRoot + 'debug/log', (log) => {
+        console.log(' >>>')
+        console.log(log)
+    })
+
 
     connect(() => {
         // console.log(socketRoot + 'register')
@@ -24176,7 +24580,7 @@ let property = require('./property') // server.startTime
 let syncParser = require('./syncParser')
 let syncParserReceive = require('./syncParserReceive')
 
-let url = 'http://192.168.144.142:8001'
+let url = 'https://ad44ac79.ngrok.io'
 try {
     url = require('./../config.json').socketUrl
 } catch (e) {}
@@ -24512,7 +24916,7 @@ exports.sendSyncObject = (socket, ntp, socketRoot, syncObject, options = {}) => 
         let now = Date.now()
         if (now > lastTime + bufferTime * jobTimes) {
             lastTime = now
-            require('./socketClient.js').log('send Buffer start' + lastTime)
+            // require('./socketClient.js').log('send Buffer start' + lastTime)
             for (let n = 1; n <= jobTimes; n++) {
                 let date = new Date(now + bufferTime * n)
                 Job(date, () => {
@@ -24674,7 +25078,7 @@ let checkSyncObject = (syncObject) => {
     return syncObject
 }
 
-},{"./cron.js":169,"./socketClient.js":178,"./syncParserReceive.js":182}],181:[function(require,module,exports){
+},{"./cron.js":169,"./syncParserReceive.js":182}],181:[function(require,module,exports){
 /**
  * @overview
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}

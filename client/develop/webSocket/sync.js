@@ -69,7 +69,7 @@ exports.sendSyncObject = (socket, ntp, socketRoot, syncObject, options = {}) => 
         let now = Date.now()
         if (now > lastTime + bufferTime * jobTimes) {
             lastTime = now
-            require('./socketClient.js').log('send Buffer start' + lastTime)
+            // require('./socketClient.js').log('send Buffer start' + lastTime)
             for (let n = 1; n <= jobTimes; n++) {
                 let date = new Date(now + bufferTime * n)
                 Job(date, () => {

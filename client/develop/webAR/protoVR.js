@@ -6,6 +6,7 @@ let arView
 let canvas
 let camera
 let scene
+let controls
 let renderer
 let cube
 let box, wire
@@ -29,7 +30,9 @@ let eventCall = require('./eventCall')
 // view FPS  in update() write stats.update()
 let Stats = require('./Stats.js')
 let stats = new Stats()
-
+setTimeout(() => {
+    document.body.appendChild(stats.domElement)
+}, 1000)
 let client
 let sound
 let deviceMesh = {}
@@ -46,9 +49,9 @@ exports.initVR = (_client, _sound) => {
     // renderer.setPixelRatio(window.devicePixelRatio)
     renderer.setSize(width, height)
     // renderer.autoClear = false
+
     canvas = renderer.domElement
     document.body.appendChild(canvas)
-    document.body.appendChild(stats.domElement)
 
 
     // step.2 scene
@@ -59,6 +62,8 @@ exports.initVR = (_client, _sound) => {
     camera.position.set(0, 0, 0.5)
     // camera.zoom(2)
 
+    // step.3.1
+    controls = new THREE.OrbitControls(camera, canvas)
 
     // step.4 mesh
     initMesh()
@@ -72,13 +77,33 @@ exports.initVR = (_client, _sound) => {
     update()
 
     canvas.addEventListener('click', onClick, false)
+    window.addEventListener('resize', onWindowResize, false)
+
+    hitting()
 
 }
 
+function hitting() {
+    // THREE.SceneUtils.traverseHierarchy( object, function ( object ) { object.visible = false; } );
+    var geometry = new THREE.PlaneGeometry(0.1, 0.1) // width, height, widthSegments, heightSegments
+    var material = new THREE.MeshBasicMaterial({
+        color: 0x45ff45,
+        side: THREE.DoubleSide
+    });
+    var plane = new THREE.Mesh(geometry, material)
+    plane.position.set(0, 0, 0)
+    plane.rotation.set(Math.PI/2,0,0)
+
+    plane.visible = true
+    scene.add(plane)
+}
+
 function initMesh() {
+
+    // VR/AR
     cube = MeshProto.group()
     cube.scale.set(0.05, 0.05, 0.05)
-    cube.position.set(0, 0, -2)
+    cube.position.set(0, 0, 0)
     scene.add(cube)
 
 
@@ -119,6 +144,20 @@ function initMesh() {
         cube.rotation.y = Math.cos(r) * Math.PI
         cube.position.copy(position)
 
+        // console.log(toScreen(cube.position))
+        // toScreen(cube.position)
+        function toScreen(position) {
+            let widthHalf = window.innerWidth / 2
+            let heightHalf = window.innerWidth / 2
+
+            var sPos = position.clone()
+            sPos.project(camera)
+            sPos.x = (sPos.x * widthHalf) + widthHalf
+            sPos.y = -(sPos.y * heightHalf) + heightHalf
+            sPos.z = 0
+            return sPos
+        }
+
         if (syncAudio) {
             let p = {}
             p[Date.now() + 2] = position
@@ -126,6 +165,7 @@ function initMesh() {
         }
     })
 
+    // only VR  positionを共有しない
     // client.send.position({
     //     id: client.data.user,
     //     position: {
@@ -135,6 +175,7 @@ function initMesh() {
     //     }
     // })
 
+    // VR/AR
     // device Position
     client.receive.position((body) => {
         let id = body.id
@@ -160,9 +201,17 @@ function initMesh() {
         }
     })
 
+    // only VR
+    let center = cube.clone()
+    scene.add(center)
+
+    setTimeout(() => {
+        let folder = client.gui.addFolder('position')
+        console.log('folder', folder)
+
+    }, 100)
+
 }
-
-
 
 
 
@@ -177,6 +226,7 @@ function update(time) {
         time = Date.now() - startTime
     }
     eventCall.emit('animation', time)
+    controls.update()
     stats.update()
 
     renderer.render(scene, camera)
@@ -214,6 +264,61 @@ function onClick() {
         // renderer.render(scene, camera)
     }
 }
+//
+// let moveAccel = 0
+// let moveVelocity = 0
+// let moveAccelValue = 0.0002
+// let lastTime = 0
+//
+// function keyDown(e) {
+//     // keyCode キーに対応する番号
+//     // shiftKey shiftキーの押下状態
+//     // ctrlKey ctrlキーの押下状態
+//     // altKey altキーの押下状態
+//
+//     // - 左 右　+
+//     // - 下 上　+
+//     // - 奥 前　+
+//
+//     // TODO Controlerを使う
+//
+//     // initial
+//     if (Date.now() - lastTime > 100) {
+//         moveAccel = 0
+//         moveVelocity = 0
+//         if (moveVelocity < 0.001) {
+//             moveVelocity = 0
+//         }
+//     }
+//     lastTime = Date.now()
+//
+//     moveAccel += moveAccelValue
+//     moveVelocity += moveAccel
+//     let moveValue = moveVelocity
+//     // ← Left
+//     if (e.keyCode == 37) {
+//         camera.position.x -= moveValue
+//     }
+//     // ↑ UP
+//     else if (e.keyCode == 38) {
+//         camera.position.z -= moveValue
+//     }
+//     // → Right
+//     else if (e.keyCode == 39) {
+//         camera.position.x += moveValue
+//     }
+//     // ↓ Down
+//     else if (e.keyCode == 40) {
+//         camera.position.z += moveValue
+//     }
+//
+//
+//
+//     console.log(e.keyCode)
+//
+// }
+//
+
 
 /**
  * On window resize, update the perspective camera's aspect ratio,

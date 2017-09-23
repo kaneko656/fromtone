@@ -1,53 +1,62 @@
+let video = document.createElement('video')
+video.id = 'video'
+video.autoplay = ''
+video.playsinline = ''
+document.body.appendChild(video)
+// video.width = 320;
+// video.height = 240;
 
-// if (!navigator.webkitGetUserMedia)
-// {
-//  window.alert("ごめんなさい。Chrome専用なんです。");
-//    return
+// ios11 safari
+// const medias = {
+//     audio: false,
+//     video: true
+// }
+// let video = document.getElementById("video")
+
+// navigator.getUserMedia(medias, successCallback, errorCallback);
+//
+// function successCallback(stream) {
+//     video.srcObject = stream;
 // }
 //
-// navigator.webkitGetUserMedia({ audio:false, video:true }, function(stream){
-//  var video = document.getElementById("v");
-//    video.src = webkitURL.createObjectURL(stream);
-// },function(error){
-//     window.alert("エラーが出て、Webカメラが使えないみたいです。。。。\n\n" + error.toString());
-// })
-// <video id="v" autoplay="" style="width: 360px; width: 270px;"></video>
+// function errorCallback(err) {
+//     alert(err)
+// }
 
-var video = document.createElement('video');
-video.width = 320;
-video.height = 240;
 
 var getUserMedia = function(t, onsuccess, onerror) {
-  if (navigator.getUserMedia) {
-    return navigator.getUserMedia(t, onsuccess, onerror);
-  } else if (navigator.webkitGetUserMedia) {
-    return navigator.webkitGetUserMedia(t, onsuccess, onerror);
-  } else if (navigator.mozGetUserMedia) {
-    return navigator.mozGetUserMedia(t, onsuccess, onerror);
-  } else if (navigator.msGetUserMedia) {
-    return navigator.msGetUserMedia(t, onsuccess, onerror);
-  } else {
-    onerror(new Error("No getUserMedia implementation found."));
-  }
-};
+    if (navigator.getUserMedia) {
+        return navigator.getUserMedia(t, onsuccess, onerror);
+    } else if (navigator.webkitGetUserMedia) {
+        return navigator.webkitGetUserMedia(t, onsuccess, onerror);
+    } else if (navigator.mozGetUserMedia) {
+        return navigator.mozGetUserMedia(t, onsuccess, onerror);
+    } else if (navigator.msGetUserMedia) {
+        return navigator.msGetUserMedia(t, onsuccess, onerror);
+    } else {
+        onerror(new Error("No getUserMedia implementation found."));
+    }
+}
 
 var URL = window.URL || window.webkitURL;
 var createObjectURL = URL.createObjectURL || webkitURL.createObjectURL;
 if (!createObjectURL) {
-  throw new Error("URL.createObjectURL not found.");
+    throw new Error("URL.createObjectURL not found.");
 }
 
 
 // httpsに対応している必要
-getUserMedia({'video': true},
-  function(stream) {
-    var url = createObjectURL(stream);
-    video.src = url;
-  },
-  function(error) {
-    console.log(error)
-    alert("Couldn't access webcam." + error);
-  }
+getUserMedia({
+        'video': true
+    },
+    function(stream) {
+        var url = createObjectURL(stream);
+        video.src = url
+    },
+    function(error) {
+        console.log(error)
+        alert("Couldn't access webcam." + error);
+    }
 )
 
 exports.process = (canvas, data) => {

@@ -213,6 +213,27 @@ exports.emitGroupClient = (group, emitKey, emitData, options = {}) => {
 let emitGroupClient = exports.emitGroupClient
 
 /**
+ * clientList
+ * @param  {string} group        [description]
+ * @param  {string} name        client.data.user
+ * @param  {string} emitKey      [description]
+ * @param  {Object} emitData     [description]
+ */
+
+exports.emitToClient = (group, name, emitKey, emitData) => {
+    // console.log(emitKey, group, emitData)
+    if (group in clientList) {
+        for(let id in clientList[group]) {
+            let client = clientList[group][id]
+            if(client.data && client.data.user == name){
+                client.socket.emit(emitKey, emitData)
+            }
+        }
+    }
+}
+let emitToClient = exports.emitToClient
+
+/**
  * clientData
  * [getAllClientData description]
  * @param  {Object} [options={}] removeClient/Group [...id]

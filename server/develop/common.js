@@ -61,6 +61,7 @@ exports.init = (socket, disconnect, clientRegister, socketRoot, client) => {
         }
         console.log(log)
         console.log('')
+        clientRegister.emitToClient(client.group, 'debug', socketRoot + 'debug/log', log)
     })
 
 

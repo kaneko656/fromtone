@@ -8,6 +8,8 @@ let server = app.initialize(8001)
 let io = socketio.listen(server.server)
 page.init(server.app)
 console.log(localAddress.toURL(8001))
+console.log('ngrok', 'https://ad44ac79.ngrok.io')
+
 
 io.sockets.on('connection', (clientSocket) => {
     const develop = require('./develop.js')
