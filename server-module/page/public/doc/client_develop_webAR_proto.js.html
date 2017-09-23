@@ -79,15 +79,6 @@ exports.start = (_client, _sound) => {
             vrFrameData = new VRFrameData()
             vrDisplay = display
             init()
-            setTimeout(() => {
-                client.log(display)
-            }, 4000)
-            setTimeout(() => {
-                client.log(display)
-            }, 8000)
-            setTimeout(() => {
-                client.log(display)
-            }, 12000)
             client.log('Device: ' + vrDisplay.displayName)
         } else {
             // THREE.ARUtils.displayUnsupportedMessage()
@@ -121,7 +112,6 @@ function init() {
     // scene
     arView = new THREE.ARView(vrDisplay, renderer)
 
-    client.log(renderer.context)
     // let videoRenderer = new ARVideoRenderer(vrDisplay, renderer.context)
     // client.log(videoRenderer)
 
@@ -162,19 +152,64 @@ function init() {
     guiView()
     //
     setTimeout(() => {
-        hitting()
+        // hitting()
     }, 500)
 
     setTimeout(() => {
-        window.webkit.messageHandlers.WebARonARKit.postMessage(
-            "hideCameraFeed:"
-        );
+        // client.log(vrDisplay)
+        // client.log(vrFrameData)
     }, 5000)
-    setTimeout(() => {
-        window.webkit.messageHandlers.WebARonARKit.postMessage(
-            "showCameraFeed:"
-        );
-    }, 6000)
+
+}
+
+let viewAnchorId = []
+
+let anchorModel = new THREE.Matrix4()
+let tempAnchorPos = new THREE.Vector3()
+let tempAnchorQuat = new THREE.Quaternion()
+let tempAnchorScale = new THREE.Vector3()
+
+function anchorView(anchor) {
+    // 三角の線を引く
+    if (viewAnchorId.indexOf(anchor.identifier) == -1) {
+        let applyOrientation = true
+        let easing = 1
+
+        anchorModel.fromArray(anchor.modelMatrix)
+        anchorModel.decompose(tempAnchorPos, tempAnchorQuat, tempAnchorScale)
+
+        let vert = anchor.vertices
+        let material = new THREE.LineBasicMaterial({
+            linewidth: 3,
+            color: 0xcccc00
+        })
+        let geometry = new THREE.Geometry()
+        geometry.vertices.push(new THREE.Vector3(vert[0], vert[1], vert[2]))
+        geometry.vertices.push(new THREE.Vector3(vert[3], vert[4], vert[5]))
+        geometry.vertices.push(new THREE.Vector3(vert[6], vert[7], vert[8]))
+        geometry.vertices.push(new THREE.Vector3(vert[9], vert[10], vert[11]))
+        geometry.vertices.push(new THREE.Vector3(vert[0], vert[1], vert[2]))
+        let obj = new THREE.Line(geometry, material)
+
+        if (easing === 1) {
+            obj.position.copy(tempAnchorPos)
+            if (applyOrientation) {
+                obj.quaternion.copy(tempAnchorQuat)
+            }
+        } else {
+            obj.position.lerp(tempAnchorPos, easing)
+            if (applyOrientation) {
+                obj.quaternion.slerp(tempAnchorQuat, easing)
+            }
+        }
+
+        scene.add(obj)
+        viewAnchorId.push(anchor.identifier)
+        client.log({
+            position: tempAnchorPos
+        })
+
+    }
 }
 
 function guiView() {
@@ -214,12 +249,12 @@ function hitting() {
     // let c = vrDisplay.getPassThroughCamera()
     // client.log(c)
     // THREE.SceneUtils.traverseHierarchy( object, function ( object ) { object.visible = false; } );
-    var geometry = new THREE.PlaneGeometry(0.02, 0.02) // width, height, widthSegments, heightSegments
-    var material = new THREE.MeshBasicMaterial({
+    let geometry = new THREE.PlaneGeometry(0.02, 0.02) // width, height, widthSegments, heightSegments
+    let material = new THREE.MeshBasicMaterial({
         color: 0x45ff45,
         side: THREE.DoubleSide
     })
-    var plane = new THREE.Mesh(geometry, material)
+    let plane = new THREE.Mesh(geometry, material)
     plane.position.set(0, 0, -0.5)
     plane.rotation.set(Math.PI / 2, 0, 0)
     plane.visible = true
@@ -245,6 +280,7 @@ function hitting() {
         if (Date.now() - lastTime &lt; refreshTime) {
             return
         }
+
         lastTime = Date.now()
         n = 0
         for (let i = 0; i &lt; pointMax; i++) {
@@ -282,7 +318,7 @@ function hitting() {
         let widthHalf = window.innerWidth / 2
         let heightHalf = window.innerWidth / 2
 
-        var sPos = position.clone()
+        let sPos = position.clone()
         sPos.project(camera)
         sPos.x = (sPos.x * widthHalf) + widthHalf
         sPos.y = -(sPos.y * heightHalf) + heightHalf
@@ -291,14 +327,14 @@ function hitting() {
     }
 
 
-    var model = new THREE.Matrix4()
-    var tempPos = new THREE.Vector3()
-    var tempQuat = new THREE.Quaternion()
-    var tempScale = new THREE.Vector3()
+    let model = new THREE.Matrix4()
+    let tempPos = new THREE.Vector3()
+    let tempQuat = new THREE.Quaternion()
+    let tempScale = new THREE.Vector3()
 
     function placeObjectAtHit(object, hit) {
-        var easing = arguments.length > 2 &amp;&amp; arguments[2] !== undefined ? arguments[2] : 1;
-        var applyOrientation = arguments.length > 3 &amp;&amp; arguments[3] !== undefined ? arguments[3] : false;
+        let easing = arguments.length > 2 &amp;&amp; arguments[2] !== undefined ? arguments[2] : 1;
+        let applyOrientation = arguments.length > 3 &amp;&amp; arguments[3] !== undefined ? arguments[3] : true;
 
         if (!hit || !hit.modelMatrix) {
             throw new Error('placeObjectAtHit requires a VRHit object');
@@ -488,6 +524,14 @@ function update(time) {
     eventCall.emit('animation', time)
     stats.update()
 
+    if (vrDisplay &amp;&amp; vrDisplay['anchors_'] &amp;&amp; vrDisplay['anchors_'].length >= 1) {
+        vrDisplay['anchors_'].forEach((anchor) => {
+            anchorView(anchor)
+        })
+
+    }
+
+
 
     renderer.render(scene, camera)
 
@@ -565,7 +609,7 @@ function onClick() {
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Sat Sep 23 2017 13:46:31 GMT+0900 (JST)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Sat Sep 23 2017 15:36:32 GMT+0900 (JST)
 </footer>
 
 <script> prettyPrint(); </script>

@@ -8,7 +8,7 @@ let camera
 let scene
 let renderer
 let cube
-let box, wire
+let box, wire, triangle
 let width, height
 
 let colors = [
@@ -24,7 +24,9 @@ let colors = [
 
 let property = require('./../webSocket/property')
 let MeshProto = require('./proto-mesh.js')
-let eventCall = require('./eventCall')
+const events = require('events')
+let eventEmitter = new events.EventEmitter()
+
 
 // view FPS  in update() write stats.update()
 let Stats = require('./Stats.js')
@@ -109,7 +111,8 @@ function init() {
 
 
     // step.4 mesh
-    initMesh()
+    // initMesh()
+    initTriangle()
     //
     // // Bind our event handlers
     window.addEventListener('resize', onWindowResize, false)
@@ -132,6 +135,20 @@ function init() {
         // client.log(vrFrameData)
     }, 5000)
 
+}
+
+function initTriangle() {
+    let material = new THREE.LineBasicMaterial({
+        linewidth: 2,
+        color: 0xcccc00
+    })
+    let geometry = new THREE.Geometry()
+    geometry.vertices.push(new THREE.Vector3(0, 0, 2 / 3))
+    geometry.vertices.push(new THREE.Vector3(1 / 2, 0, -1 / 3))
+    geometry.vertices.push(new THREE.Vector3(-1 / 2, 0, -1 / 3))
+    geometry.vertices.push(new THREE.Vector3(0, 0, 2 / 3))
+    triangle = new THREE.Line(geometry, material)
+    triangle.scale.set(0.05, 0.05, 0.05)
 }
 
 let viewAnchorId = []
@@ -185,33 +202,34 @@ function anchorView(anchor) {
 }
 
 function guiView() {
-    let positionItem = []
+    let item = {}
+    let position = {
+        x: 0,
+        y: 0,
+        z: 0
+    }
     let folder = null
     let lastTime = 0
-    let refreshTime = 100
-    eventCall.on('animation', (operator, time) => {
+    let refreshTime = 10
+    eventEmitter.on('animation', (operator, time) => {
         if (Date.now() - lastTime < refreshTime) {
             return
         }
         lastTime = Date.now()
-        if (positionItem.length == 3) {
-            folder.remove(positionItem[0])
-            folder.remove(positionItem[1])
-            folder.remove(positionItem[2])
-            positionItem = []
-        }
         if (client.gui) {
             if (!folder) {
                 folder = client.gui.addFolder('position')
-                // folder.open()
+                item.x = folder.add(position, 'x').step(0.001)
+                item.y = folder.add(position, 'y').step(0.001)
+                item.z = folder.add(position, 'z').step(0.001)
             }
-            let position = {}
+            client.log(position)
             position.x = vrFrameData.pose.position[0]
             position.y = vrFrameData.pose.position[1]
             position.z = vrFrameData.pose.position[2]
-            positionItem[0] = folder.add(position, 'x')
-            positionItem[1] = folder.add(position, 'y')
-            positionItem[2] = folder.add(position, 'z')
+            item.x.updateDisplay()
+            item.y.updateDisplay()
+            item.z.updateDisplay()
         }
     })
 
@@ -247,32 +265,43 @@ function hitting() {
     let n = 0
     let lastTime = 50
     let refreshTime = 2500
+    let times = 0
     let isHit = false
-    eventCall.on('animation', (operator, time) => {
+    eventEmitter.on('animation', (operator, time) => {
         if (Date.now() - lastTime < refreshTime) {
             return
         }
-
-        lastTime = Date.now()
-        n = 0
-        for (let i = 0; i < pointMax; i++) {
-            pointMesh[i].visible = false
+        times++
+        if (times > 5) {
+            return
         }
-        // placeHit(0.5, 0.5)
-        let height = window.innerHeight
-        let width = window.innerWidth
-        for (let y = range; y < window.innerHeight; y += range) {
-            for (let x = range; x < window.innerWidth; x += range) {
-                let hitX = x / width
-                let hitY = y / height
-                if (placeHit(hitX, hitY, n)) {
-                    n++
-                    if (n > pointMax) {
-                        break
-                    }
+        lastTime = Date.now()
+
+        // 非同期処理
+        setTimeout(() => {
+            n = 0
+            for (let i = 0; i < pointMax; i++) {
+                pointMesh[i].visible = false
+            }
+            // placeHit(0.5, 0.5)
+            let height = window.innerHeight
+            let width = window.innerWidth
+            for (let y = range; y < window.innerHeight; y += range) {
+                for (let x = range; x < window.innerWidth; x += range) {
+                    let hitX = x / width
+                    let hitY = y / height
+                    setTimeout(() => {
+                        if (n > pointMax) {
+                            return
+                        }
+                        if (placeHit(hitX, hitY, n)) {
+                            n++
+                        }
+                    }, 1)
                 }
             }
-        }
+        }, 1)
+
         // if (!isHit) {
         //     hit = placeHit(0.5, 0.5, 0)
         //     if (hit) {
@@ -374,7 +403,7 @@ function initMesh() {
     setTimeout(() => {
         syncStart = true
     }, 10000)
-    eventCall.on('animation', (operator, time) => {
+    eventEmitter.on('animation', (operator, time) => {
         let st = property.get('startTime', null)
         // syncStart
         if (st && syncStart) {
@@ -413,7 +442,7 @@ function initMesh() {
 
 
 
-    eventCall.on('animation', (operator, time) => {
+    eventEmitter.on('animation', (operator, time) => {
         let pose = vrFrameData.pose
         let position = {
             x: pose.position[0] || 0,
@@ -465,14 +494,31 @@ function initMesh() {
  * our scene and rendering.
  */
 let startTime = null
+let frameStartTime = 0
+let refreshTime = 15
+let frameTime = {
+    time: 0
+}
+let frameTimeFolder
+let frameTimeGui
+setTimeout(() => {
+    frameTimeFolder = client.gui.addFolder('frameTime')
+    frameTimeGui = frameTimeFolder.add(frameTime, 'time')
+}, 3000)
 
 function update(time) {
+
     if (!time) {
         if (!startTime) {
             startTime = Date.now()
         }
         time = Date.now() - startTime
     }
+    // Kick off the requestAnimationFrame to call this function
+    // on the next frame
+    requestAnimationFrame(update)
+
+
 
     // Render the device's camera stream on screen first of all.
     // It allows to get the right pose synchronized with the right frame.
@@ -493,23 +539,28 @@ function update(time) {
     // Render our three.js virtual scene
     renderer.clearDepth()
 
-    eventCall.emit('animation', time)
+
+    eventEmitter.emit('animation', time)
+    frameStartTime = Date.now()
+
     stats.update()
 
     if (vrDisplay && vrDisplay['anchors_'] && vrDisplay['anchors_'].length >= 1) {
         vrDisplay['anchors_'].forEach((anchor) => {
             anchorView(anchor)
         })
-
     }
-
-
-
     renderer.render(scene, camera)
 
-    // Kick off the requestAnimationFrame to call this function
-    // on the next frame
-    requestAnimationFrame(update)
+    frameTime.time = Date.now() - frameStartTime
+    if (frameTimeFolder) {
+        // client.log(frameTime.time)
+        if (frameTimeGui) {
+            frameTimeGui.updateDisplay()
+            // frameTimeFolder.remove(frameTimeGui)
+            // frameTimeGui = frameTimeFolder.add(frameTime, 'time')
+        }
+    }
 
     // client.log('develop/', vrDisplay)
 }
@@ -530,25 +581,42 @@ function onWindowResize() {
  * When clicking on the screen, create a cube at the user's
  * current position.
  */
-function onClick() {
+function onClick(e) {
+    let x = e.touches[0].pageX / window.innerWidth
+    let y = e.touches[0].pageY / window.innerHeight
     sound.play('pizz_7')
     // Fetch the pose data from the current frame
-    let pose = vrFrameData.pose
+    // let pose = vrFrameData.pose
 
     // Convert the pose orientation and position into
     // THREE.Quaternion and THREE.Vector3 respectively
-    let ori = new THREE.Quaternion(
-        pose.orientation[0],
-        pose.orientation[1],
-        pose.orientation[2],
-        pose.orientation[3]
-    )
+    // let ori = new THREE.Quaternion(
+    //     pose.orientation[0],
+    //     pose.orientation[1],
+    //     pose.orientation[2],
+    //     pose.orientation[3]
+    // )
+    //
+    // let pos = new THREE.Vector3(
+    //     pose.position[0],
+    //     pose.position[1],
+    //     pose.position[2]
+    // )
+    if (vrDisplay && vrDisplay.hitTest) {
+        let hits = vrDisplay.hitTest(x, y)
 
-    let pos = new THREE.Vector3(
-        pose.position[0],
-        pose.position[1],
-        pose.position[2]
-    )
+        if (hits && hits.length) {
+            let hit = hits[0]
+            let clone = triangle.clone()
+            scene.add(clone)
+
+            THREE.ARUtils.placeObjectAtHit(clone, // The object to place
+                hit, // The VRHit object to move the cube to
+                true, // Whether or not we also apply orientation
+                1); // Easing value from 0 to 1; we want to move
+            // the cube directly to the hit position
+        }
+    }
 
     // let dirMtx = new THREE.Matrix4()
     // dirMtx.makeRotationFromQuaternion(ori)
@@ -559,9 +627,4 @@ function onClick() {
     //
     // // Clone our cube object and place it at the camera's
     // // current position
-    // let clone = cube.clone()
-    // scene.add(clone)
-    // clone.position.copy(pos)
-    // clone.quaternion.copy(ori)
-
 }

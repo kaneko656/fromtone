@@ -227,6 +227,8 @@ socket.on('connect', () => {
     //     dif.text = text
     //     shareData.set('ntp_status', dif)
     // })
+
+    // socket.disconnect()
 })
 
 /**

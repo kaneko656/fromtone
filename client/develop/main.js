@@ -1,5 +1,5 @@
 // サーバ
-const client = require('./webSocket/socketClient.js')
+// const client = require('./webSocket/socketClient.js')
 
 // Sound
 const sound = require('./SyncTone/soundManager.js')
@@ -25,18 +25,21 @@ let audioList = {
     'pizz_melody': 'lib/sound/pizz2_melody.mp3',
     'pizz_7': 'lib/sound/tone/pizz_C.mp3',
 }
-
+require('./webRTC/index.js')
 exports.start = (clientData) => {
-
+    return
     // client.ntp.repeat(60000)
     let updater = client.initRegister(socketRoot, group, clientData)
     client.data = clientData
 
     if(clientData.user == 'debug'){
+
       return
     }
 
-  
+
+
+
     // client.gui = gui
 
     sound.setAudioList(audioList)

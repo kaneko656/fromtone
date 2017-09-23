@@ -1,16 +1,27 @@
-const app = require('./app.js')
+const appjs = require('./app.js')
 const socketio = require('socket.io')
 const ntp = require('./ntp.js')
 const page = require('./../../server-module/page/index.js')
 const localAddress = require('./localAddress.js')
 
-let server = app.initialize(8001)
-let io = socketio.listen(server.server)
-page.init(server.app)
+// WebRTC  peerjs
+const ExpressPeerServer = require('./peer').ExpressPeerServer
+
+let appInit = appjs.initialize(8001)
+let server = appInit.server
+let app = appInit.app
+
+
+page.init(app)
 console.log(localAddress.toURL(8001))
-console.log('ngrok', 'https://ad44ac79.ngrok.io')
+let ngrokID = process.argv[2] || '::'
+console.log('ngrok', 'https://' + ngrokID + '.ngrok.io')
 
+app.use('/peer', ExpressPeerServer(server, {
+    debug: 2
+}))
 
+let io = socketio.listen(server)
 io.sockets.on('connection', (clientSocket) => {
     const develop = require('./develop.js')
 
