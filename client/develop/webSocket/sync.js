@@ -4,6 +4,8 @@
  * @version 1.0.0
  * @module webSocket/sync
  * @see {@link module:webSocket/socketClient}
+ * @see {@link module:webSocket/syncParser}
+ * @see {@link module:webSocket/syncParserReceive}
  */
 
 const Job = require('./cron.js')
@@ -17,10 +19,12 @@ let syncObjectBuffer = []
  * syncObject
  * @typedef {Object} syncObject
  * @property {stirng|number} time
- * @property {Object} [events]
+ * @property {stirng} [identifier]
+ * @property {Object} [events]  buffer: name -> serverにbuffer
  * @property {Object} [types]
- * @property {Object} [position]
  * @property {Object} [data]
+ * @property {string} [clientID] return clientID
+ * @property {boolean} [clientData] if true -> return clientData
  */
 
 let syncObjectTemplate = {
@@ -50,6 +54,7 @@ exports.sendSyncObject = (socket, ntp, socketRoot, syncObject, options = {}) => 
     if (syncObject) {
         // server時刻に補正
         syncObject.time = ntp.toServerTime(syncObject.time)
+
         // 例外
         if (isNaN(syncObject.time)) {
             return
@@ -136,6 +141,7 @@ exports.receiveSyncObject = (socket, ntp, socketRoot, callback = () => {}) => {
             syncObjects.splice(n, 1)
         })
 
+
         // callback
         if (syncObjects.length >= 1) {
 
@@ -201,8 +207,6 @@ exports.getSyncObjectBuffer = (socket, ntp, socketRoot, callback = () => {}) => 
                     })
                 }
             })
-
-
             callback(syncObjects)
         }
     })

@@ -5,8 +5,11 @@
  * @module webSocket/syncParser
  * @see {@link module:webSocket/socketClient}
  * @see {@link module:webSocket/sync}
+ * @see {@link module:webSocket/webRTC}
  */
 
+const webRTC = require('./webRTC')
+const uuid = require('node-uuid')
 
 // exports.~~
 let parseList = ['position']
@@ -32,15 +35,23 @@ exports.position = (client, body = {}) => {
         y: 0,
         z: 0
     }
-    client.sendSyncObject({
+    let sendObj = {
         time: body.time || Date.now(),
-        position: body.position || defaultPosition,
-        rotation: body.rotation || defaultRotation,
-        orientation: body.orientation || {},
+        timestamp: Date.now(),
+        identifier: uuid.v4(),
+        data: {
+            position: body.position || defaultPosition,
+            rotation: body.rotation || defaultRotation,
+            orientation: body.orientation || {}
+        },
         events: {
             buffer: 'position/' + body.id,
             'parse/position': true
         },
         clientData: true
-    })
+    }
+    client.sendSyncObject(sendObj)
+    if(webRTC.isSupport){
+        webRTC.sendToAllConnection(sendObj)
+    }
 }

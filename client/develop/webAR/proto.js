@@ -47,11 +47,18 @@ let deviceMesh = {}
 exports.start = (_client, _sound) => {
     client = _client
     sound = _sound
+
     THREE.ARUtils.getARDisplay().then(function(display) {
         if (display) {
             isAR = true
             vrFrameData = new VRFrameData()
             vrDisplay = display
+
+            var nativeLog = console.log.bind(console) //store native function
+            console.log = function(...arg) { //override
+                nativeLog(arg[0])
+                client.log(arg)
+            }
             init()
             client.log('Device: ' + vrDisplay.displayName)
         } else {
@@ -135,6 +142,17 @@ function init() {
         // client.log(vrFrameData)
     }, 5000)
 
+    canvas.addEventListener('touchmove', (e) => {
+        client.send.position({
+            id: client.data.user,
+            position: {
+                x: e.touches[0].pageX / window.innerWidth,
+                y: e.touches[0].pageY / window.innerHeight,
+                z: 0
+            }
+        })
+    })
+
 }
 
 function initTriangle() {
@@ -194,9 +212,9 @@ function anchorView(anchor) {
 
         scene.add(obj)
         viewAnchorId.push(anchor.identifier)
-        client.log({
-            position: tempAnchorPos
-        })
+        // client.log({
+        //     position: tempAnchorPos
+        // })
 
     }
 }
@@ -223,7 +241,7 @@ function guiView() {
                 item.y = folder.add(position, 'y').step(0.001)
                 item.z = folder.add(position, 'z').step(0.001)
             }
-            client.log(position)
+            // client.log(position)
             position.x = vrFrameData.pose.position[0]
             position.y = vrFrameData.pose.position[1]
             position.z = vrFrameData.pose.position[2]

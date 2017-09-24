@@ -6,9 +6,12 @@
  * @see {@link module:webSocket/socketClient}
  * @see {@link module:webSocket/property}
  * @see {@link module:webSocket/spec}
+ * @see {@link module:webSocket/webRTC}
  */
 
 const uuid = require('node-uuid')
+const webRTC = require('./webRTC/index.js')
+console.log('require webRTC')
 let isLock = false
 let clientListEvent = () => {}
 let addClientEvent = () => {}
@@ -45,17 +48,21 @@ exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {})
     socket.on(socketRoot + 'register/confirm', (response) => {
         console.log('register.js register confirm', response)
         if (response.ok) {
+            webRTC.setMyID(clientID, socket)
             registrationConfirm = true
             property.init(socket, socketRoot)
             spec.init(socket, socketRoot)
         }
     })
 
-    // 初回に現在のリストが送られてくる それ以降の差分はadd, removeで取得
+    // 初回に現在のリストが送られてくる それ以降の差分はadd, removeで取得 {id: data}
     socket.on(socketRoot + 'register/group_client_list', (list) => {
         console.log('register.js list', list)
         if (isLock) {
             return
+        }
+        for (let id in list) {
+            webRTC.setAnotherID(id)
         }
         user = list
         clientListEvent(list)
@@ -68,6 +75,7 @@ exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {})
         }
         for (let id in list) {
             user[id] = list[id]
+            webRTC.setAnotherID(id)
         }
         addClientEvent(list)
     })
@@ -79,6 +87,7 @@ exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {})
         }
         for (let id in list) {
             if (user[id]) {
+                webRTC.removeAnotherID(id)
                 delete user[id]
             }
         }
@@ -106,7 +115,8 @@ exports.init = (socket, connect, disconnect, socketRoot, group, clientData = {})
         socket.emit(socketRoot + 'register', {
             id: clientID,
             group: group,
-            data: clientData
+            data: clientData,
+            type: 'system'
         })
     })
 

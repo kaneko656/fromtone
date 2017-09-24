@@ -8,7 +8,7 @@
 let property = {}
 exports.init = (socket, socketRoot) => {
     socket.on(socketRoot + 'system/property/receive', (prop) => {
-        console.log('system/property/receive', prop)
+        // console.log('system/property/receive', prop)
         for (let key in prop) {
             property[key] = prop[key]
         }
@@ -30,6 +30,6 @@ exports.get = (key, defaultValue = null) => {
 }
 
 exports.set = (key, value) => {
-    console.log('property', key, value)
+    // console.log('property', key, value)
     property[key] = value
 }

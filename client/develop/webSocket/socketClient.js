@@ -9,13 +9,15 @@
  * @see {@link module:webSocket/property}
  */
 
+
 let ntp = require('./ntp-client')
-let register = require('./register')
+// let register = require('./register')
 let sync = require('./sync')
 let call = require('./eventCall')
 let property = require('./property') // server.startTime
 let syncParser = require('./syncParser')
 let syncParserReceive = require('./syncParserReceive')
+require('./webRTC').setNTP(ntp)
 
 let url = 'https://ad44ac79.ngrok.io'
 try {
@@ -52,7 +54,7 @@ exports.ntp = ntp
  * @type register
  */
 
-exports.register = register
+// exports.register = register
 
 /**
  * @see {@link module:webSocket/register} init()
@@ -200,6 +202,9 @@ exports.log = (logData) => {
 let log = exports.log
 let logBuffer = []
 
+
+let register = require('./register')
+exports.register = register
 
 socket.on('connect', () => {
     isConnect = true

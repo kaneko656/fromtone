@@ -82,6 +82,30 @@ exports.initVR = (_client, _sound) => {
 
     hitting()
 
+    document.body.addEventListener('mousemove', (e) => {
+        client.send.position({
+            id: client.data.user,
+            position: {
+                x: e.offsetX / window.innerWidth,
+                y: e.offsetY / window.innerHeight,
+                z: 0
+            }
+        })
+    })
+
+    canvas.addEventListener('touchmove', (e) => {
+        client.log('touchmove')
+        client.send.position({
+            id: client.data.user,
+            position: {
+                x: e.touches[0].pageX / window.innerWidth,
+                y: e.touches[0].pageY / window.innerHeight,
+                z: 0
+            }
+        })
+        client.log('ok')
+    })
+
 }
 
 function hitting() {
@@ -93,7 +117,7 @@ function hitting() {
     });
     var plane = new THREE.Mesh(geometry, material)
     plane.position.set(0, 0, 0)
-    plane.rotation.set(Math.PI/2,0,0)
+    plane.rotation.set(Math.PI / 2, 0, 0)
 
     plane.visible = true
     scene.add(plane)
@@ -101,11 +125,20 @@ function hitting() {
 
 function initMesh() {
 
+
     // VR/AR
     cube = MeshProto.group()
     cube.scale.set(0.05, 0.05, 0.05)
     cube.position.set(0, 0, 0)
     scene.add(cube)
+
+
+    // syncTest
+    let sync = cube.clone()
+    client.receive.position((posData) => {
+        sync.position.set(posData.position.x, posData.position.y, -2)
+    })
+    scene.add(sync)
 
 
     let localTime = Date.now()

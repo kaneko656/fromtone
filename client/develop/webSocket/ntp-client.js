@@ -133,7 +133,7 @@ let smoothing = (obj) => {
                 dateDiff = average_offset
             }
             if (stableCheckNum == stopCheckNum) {
-                console.log('ntp stable', dateDiff)
+                // console.log('ntp stable', dateDiff)
             }
             return
         }

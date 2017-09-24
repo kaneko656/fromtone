@@ -5,27 +5,54 @@
  * @module webSocket/syncParserReceive
  * @see {@link module:webSocket/socketClient}
  * @see {@link module:webSocket/sync}
+ * @see {@link module:webSocket/webRTC}
  */
 
-
-let eventCall = require('./eventCall')
+const events = require('events')
+let eventEmitter = new events.EventEmitter()
 
 // exports.~~
 let parseList = ['position']
 
 // socketでは parse/~~とする
 
+let checkIdentifierList = {}
+let idListNumber = 0
+checkIdentifierList[0] = {}
+checkIdentifierList[1] = {}
+
+let idListSwitch = () => {
+    setTimeout(() => {
+        let lastNumber = idListNumber
+        idListNumber = (idListNumber + 1) % 2
+        checkIdentifierList[lastNumber] = {}
+        idListSwitch()
+    }, 10000)
+}
+
 /**
- * callback({id, position, time})
+ * speakerPositino callback({id, time, position, rotation, orientation}) timeは補正済み
  * @param  {callback} callback [description]
  */
 exports.position = (callback = () => {}) => {
-    eventCall.on('parse/position', (operator, syncObject) => {
+
+    // from sync.js or webRTC
+    eventEmitter.on('parse/position', (syncObject) => {
+        if (syncObject.identifier) {
+            let id = syncObject.identifier
+            let n = idListNumber
+            if (id in checkIdentifierList[n]) {
+                let delay = Date.now() - checkIdentifierList[n][id]
+                return
+            } else {
+                checkIdentifierList[n][id] = Date.now()
+            }
+        }
         callback({
             id: syncObject.clientData.user,
-            position: syncObject.position,
-            rotation: syncObject.rotation,
-            orientation: syncObject.orientation,
+            position: syncObject.data.position || {},
+            rotation: syncObject.data.rotation || {},
+            orientation: syncObject.data.orientation || {},
             time: syncObject.time,
         })
     })
@@ -40,5 +67,5 @@ exports.parseList = () => {
 
 
 exports.emit = (parseKey, syncObject) => {
-    eventCall.emit(parseKey, syncObject)
+    eventEmitter.emit(parseKey, syncObject)
 }
