@@ -55,6 +55,10 @@ let property = require('./../webSocket/property')
 let MeshProto = require('./proto-mesh.js')
 let eventCall = require('./eventCall')
 
+const events = require('events')
+let eventEmitter = new events.EventEmitter()
+
+
 
 // view FPS  in update() write stats.update()
 let Stats = require('./Stats.js')
@@ -66,22 +70,24 @@ let client
 let sound
 let deviceMesh = {}
 
+let common = require('./common')
+
 exports.initVR = (_client, _sound) => {
     client = _client
     sound = _sound
 
-    width = window.innerWidth || 800
-    height = window.innerHeight || 600
+
 
     // step.1 renderer
     renderer = new THREE.WebGLRenderer()
-    // renderer.setPixelRatio(window.devicePixelRatio)
+    renderer.setPixelRatio(window.devicePixelRatio)
     renderer.setSize(width, height)
-    // renderer.autoClear = false
 
+    // DOM
     canvas = renderer.domElement
     document.body.appendChild(canvas)
-
+    width = canvas.width
+    height = canvas.height
 
     // step.2 scene
     scene = new THREE.Scene()
@@ -95,7 +101,7 @@ exports.initVR = (_client, _sound) => {
     controls = new THREE.OrbitControls(camera, canvas)
 
     // step.4 mesh
-    initMesh()
+    // initMesh()
 
 
     // step.5 light
@@ -108,7 +114,37 @@ exports.initVR = (_client, _sound) => {
     canvas.addEventListener('click', onClick, false)
     window.addEventListener('resize', onWindowResize, false)
 
-    hitting()
+    // draw object in another device position
+    client.receive.position((body) => {
+        if (client.data.user == body.id) {
+            return
+        }
+        common.shareARPosition(body, (mesh) => {
+            scene.add(mesh)
+        })
+    })
+
+    document.body.addEventListener('mousemove', (e) => {
+        client.send.position({
+            id: client.data.user,
+            position: {
+                x: e.offsetX / window.innerWidth,
+                y: e.offsetY / window.innerHeight,
+                z: 0
+            }
+        })
+    })
+
+    // canvas.addEventListener('touchmove', (e) => {
+    //     client.send.position({
+    //         id: client.data.user,
+    //         position: {
+    //             x: e.touches[0].pageX / window.innerWidth,
+    //             y: e.touches[0].pageY / window.innerHeight,
+    //             z: 0
+    //         }
+    //     })
+    // })
 
 }
 
@@ -121,7 +157,7 @@ function hitting() {
     });
     var plane = new THREE.Mesh(geometry, material)
     plane.position.set(0, 0, 0)
-    plane.rotation.set(Math.PI/2,0,0)
+    plane.rotation.set(Math.PI / 2, 0, 0)
 
     plane.visible = true
     scene.add(plane)
@@ -129,11 +165,26 @@ function hitting() {
 
 function initMesh() {
 
+
     // VR/AR
     cube = MeshProto.group()
     cube.scale.set(0.05, 0.05, 0.05)
     cube.position.set(0, 0, 0)
-    scene.add(cube)
+    // scene.add(cube)
+
+
+    // syncTest
+    let sync = cube.clone()
+    let syncRTC = cube.clone()
+    client.receive.position((posData) => {
+        if (posData.webRTC) {
+            syncRTC.position.set(posData.position.x / 2, -posData.position.y + 0.5, -2)
+        } else {
+            sync.position.set(posData.position.x / 2 - 1, -posData.position.y + 0.5, -2)
+        }
+    })
+    scene.add(sync)
+    scene.add(syncRTC)
 
 
     let localTime = Date.now()
@@ -142,7 +193,7 @@ function initMesh() {
     setTimeout(() => {
         syncStart = true
     }, 10000)
-    eventCall.on('animation', (operator, time) => {
+    eventEmitter.on('animation', (time) => {
         let st = property.get('startTime', null)
         // syncStart
         if (st &amp;&amp; syncStart) {
@@ -206,29 +257,29 @@ function initMesh() {
 
     // VR/AR
     // device Position
-    client.receive.position((body) => {
-        let id = body.id
-        if (client.data.user == id) {
-            return
-        }
-        if (!deviceMesh[id]) {
-            let mesh = MeshProto.group()
-            mesh.scale.set(0.05, 0.05, 0.03)
-            mesh.position.copy(body.position)
-            scene.add(mesh)
-            deviceMesh[id] = mesh
-        }
-        deviceMesh[id].position.copy(body.position)
-        if (body.orientation) {
-            let quaternion = new THREE.Quaternion(
-                body.orientation[0],
-                body.orientation[1],
-                body.orientation[2],
-                body.orientation[3]
-            )
-            deviceMesh[id].quaternion.copy(quaternion)
-        }
-    })
+    // client.receive.position((body) => {
+    //     let id = body.id
+    //     if (client.data.user == id) {
+    //         return
+    //     }
+    //     if (!deviceMesh[id]) {
+    //         let mesh = MeshProto.group()
+    //         mesh.scale.set(0.05, 0.05, 0.03)
+    //         mesh.position.copy(body.position)
+    //         scene.add(mesh)
+    //         deviceMesh[id] = mesh
+    //     }
+    //     deviceMesh[id].position.copy(body.position)
+    //     if (body.orientation) {
+    //         let quaternion = new THREE.Quaternion(
+    //             body.orientation[0],
+    //             body.orientation[1],
+    //             body.orientation[2],
+    //             body.orientation[3]
+    //         )
+    //         deviceMesh[id].quaternion.copy(quaternion)
+    //     }
+    // })
 
     // only VR
     let center = cube.clone()
@@ -254,7 +305,7 @@ function update(time) {
         }
         time = Date.now() - startTime
     }
-    eventCall.emit('animation', time)
+    eventEmitter.emit('animation', time)
     controls.update()
     stats.update()
 
@@ -370,13 +421,13 @@ function onWindowResize() {
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-soundManager.html">soundManager</a></li><li><a href="module-soundManager_SyncAudio.html">soundManager/SyncAudio</a></li><li><a href="module-soundManager_TimeValue.html">soundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_property.html">webSocket/property</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li><li><a href="module-webSocket_spec.html">webSocket/spec</a></li><li><a href="module-webSocket_sync.html">webSocket/sync</a></li><li><a href="module-webSocket_syncParser.html">webSocket/syncParser</a></li><li><a href="module-webSocket_syncParserReceive.html">webSocket/syncParserReceive</a></li></ul><h3>Classes</h3><ul><li><a href="module-soundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-soundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-soundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#onClick">onClick</a></li><li><a href="global.html#onWindowResize">onWindowResize</a></li><li><a href="global.html#start">start</a></li><li><a href="global.html#startTime">startTime</a></li><li><a href="global.html#Stats">Stats</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-soundManager.html">soundManager</a></li><li><a href="module-soundManager_SyncAudio.html">soundManager/SyncAudio</a></li><li><a href="module-soundManager_TimeValue.html">soundManager/TimeValue</a></li><li><a href="module-View_common.html">View/common</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_property.html">webSocket/property</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li><li><a href="module-webSocket_spec.html">webSocket/spec</a></li><li><a href="module-webSocket_sync.html">webSocket/sync</a></li><li><a href="module-webSocket_syncParser.html">webSocket/syncParser</a></li><li><a href="module-webSocket_syncParserReceive.html">webSocket/syncParserReceive</a></li></ul><h3>Classes</h3><ul><li><a href="module-soundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-soundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-soundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#onClick">onClick</a></li><li><a href="global.html#onWindowResize">onWindowResize</a></li><li><a href="global.html#start">start</a></li><li><a href="global.html#startTime">startTime</a></li><li><a href="global.html#Stats">Stats</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Sun Sep 24 2017 15:55:51 GMT+0900 (JST)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Tue Sep 26 2017 17:48:52 GMT+0900 (JST)
 </footer>
 
 <script> prettyPrint(); </script>

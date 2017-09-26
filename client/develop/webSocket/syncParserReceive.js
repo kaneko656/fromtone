@@ -41,19 +41,30 @@ exports.position = (callback = () => {}) => {
         if (syncObject.identifier) {
             let id = syncObject.identifier
             let n = idListNumber
+            // console.log(id, syncObject.webRTC)
             if (id in checkIdentifierList[n]) {
                 let delay = Date.now() - checkIdentifierList[n][id]
+                // callback({
+                //     id: syncObject.clientData.user,
+                //     position: syncObject.data.position || {},
+                //     rotation: syncObject.data.rotation || {},
+                //     orientation: syncObject.data.orientation || {},
+                //     time: syncObject.time,
+                //     webRTC: syncObject.webRTC
+                // })
                 return
             } else {
                 checkIdentifierList[n][id] = Date.now()
             }
         }
         callback({
-            id: syncObject.clientData.user,
+            // id: syncObject.clientData.user,
+            id: syncObject.data.id,
             position: syncObject.data.position || {},
             rotation: syncObject.data.rotation || {},
             orientation: syncObject.data.orientation || {},
             time: syncObject.time,
+            webRTC: syncObject.webRTC
         })
     })
 }

@@ -26,44 +26,40 @@
     
     <section>
         <article>
-            <pre class="prettyprint source linenums"><code>let vrDisplay
-let vrFrameData
-let vrControls
-let arView
+            <pre class="prettyprint source linenums"><code>const events = require('events')
+let eventEmitter = new events.EventEmitter()
 
-let canvas
-let camera
-let scene
-let renderer
-let cube
-let box, wire, triangle
+// AR/VR
+let vrDisplay, vrFrameData, vrControls, arView
+
+// Three.js
+let canvas, camera, scene, renderer
+
+// size
 let width, height
 
-let colors = [
-    new THREE.Color(0xffffff),
-    new THREE.Color(0xffff00),
-    new THREE.Color(0xff00ff),
-    new THREE.Color(0xff0000),
-    new THREE.Color(0x00ffff),
-    new THREE.Color(0x00ff00),
-    new THREE.Color(0x0000ff),
-    new THREE.Color(0x000000)
-]
 
-let property = require('./../webSocket/property')
+// Geometry 廃止予定
 let MeshProto = require('./proto-mesh.js')
-const events = require('events')
-let eventEmitter = new events.EventEmitter()
+let cube
+let box, wire, triangle
+
+let common = require('./common')
 
 
 // view FPS  in update() write stats.update()
 let Stats = require('./Stats.js')
 let stats = new Stats()
 
-let isAR = false
-let client
-let sound
-let deviceMesh = {}
+// FromTone
+let client, sound
+const property = require('./../webSocket/property')
+
+
+let calib = {
+    position: null,
+    orientation: null
+}
 
 /**
  * Use the `getARDisplay()` utility to leverage the WebVR API
@@ -78,17 +74,16 @@ exports.start = (_client, _sound) => {
 
     THREE.ARUtils.getARDisplay().then(function(display) {
         if (display) {
-            isAR = true
             vrFrameData = new VRFrameData()
             vrDisplay = display
-
             var nativeLog = console.log.bind(console) //store native function
             console.log = function(...arg) { //override
-                nativeLog(arg[0])
+                // nativeLog(arg[0])
                 client.log(arg)
             }
+            console.log('Device: ' + vrDisplay.displayName)
             init()
-            client.log('Device: ' + vrDisplay.displayName)
+
         } else {
             // THREE.ARUtils.displayUnsupportedMessage()
             client.log('This device can not use webAR')
@@ -98,19 +93,29 @@ exports.start = (_client, _sound) => {
 }
 
 function init() {
+
     // Turn on the debugging panel
     // let arDebug = new THREE.ARDebug(vrDisplay)
     // document.body.appendChild(arDebug.getElement())
 
-    // Setup the three.js rendering environment
+    width = window.innerWidth
+    height = window.innerHeight
+
+    // step.1 renderer
     renderer = new THREE.WebGLRenderer({
         alpha: true
     })
     renderer.setPixelRatio(window.devicePixelRatio)
     renderer.setSize(window.innerWidth, window.innerHeight)
-    // renderer.autoClear = false
+    renderer.autoClear = false
+
+    // DOM
     canvas = renderer.domElement
     document.body.appendChild(canvas)
+    width = canvas.width
+    height = canvas.height
+
+    // stat.js
     document.body.appendChild(stats.domElement)
 
     // step.2 scene
@@ -129,6 +134,7 @@ function init() {
     // the projection matrix provided from the device, so that the
     // perspective camera's depth planes and field of view matches
     // the physical camera on the device.
+
     // step.3 camera
     camera = new THREE.ARPerspectiveCamera(
         vrDisplay,
@@ -138,24 +144,110 @@ function init() {
         vrDisplay.depthFar
     )
 
-
     // VRControls is a utility from three.js that applies the device's
     // orientation/position to the perspective camera, keeping our
     // real world and virtual world in sync.
     vrControls = new THREE.VRControls(camera)
 
-
     // step.4 mesh
     // initMesh()
     initTriangle()
     //
-    // // Bind our event handlers
+
     window.addEventListener('resize', onWindowResize, false)
-    canvas.addEventListener('touchstart', onClick, false)
-    // // canvas.addEventListener('click', onClick, false)
+
+    // calibration
+    canvas.addEventListener('touchstart', (e) => {
+        console.log('touch')
+        // client.send.position({
+        //     id: 'clone',
+        //     position: {
+        //         x: e.touches[0].pageX / window.innerWidth,
+        //         y: e.touches[0].pageY / window.innerHeight,
+        //         z: -1
+        //     }
+        // })
+        // vrDisplay.resetPose()
+        let pose = vrFrameData.pose
+        console.log(pose)
+        calib.position = {
+            x: pose.position[0],
+            y: pose.position[1],
+            z: pose.position[2]
+        }
+        // calib.orientation = {
+        //     a: pose.orientation[0],
+        //     b: pose.orientation[1],
+        //     c: pose.orientation[2],
+        //     d: pose.orientation[3]
+        // }
+        console.log('calibration', calib)
+    })
+
+
+    console.log('shareARPosition')
+
+    // send Position
+    if (true) {
+        let lastTime = 0
+        let refreshTime = 10
+        let positionBufferTime = 30
+        eventEmitter.on('animation', () => {
+            if (Date.now() - lastTime &lt; refreshTime) {
+                return
+            }
+            lastTime = Date.now()
+            let pose = vrFrameData.pose
+            let position = {
+                x: pose.position[0] || 0,
+                y: pose.position[1] || 0,
+                z: pose.position[2] || 0
+            }
+            let orientation = pose.orientation
+
+            // calibration
+            if (calib.position) {
+                position.x -= calib.position.x
+                position.y -= calib.position.y
+                position.z -= calib.position.z
+            }
+            
+            // @TODO orientaion -> toration orientaionだと単純に差を取ってもだめ
+            if (calib.orientation) {
+                // orientation[0] -= calib.orientation.a
+                // orientation[1] -= calib.orientation.b
+                // orientation[2] -= calib.orientation.c
+                // orientation[3] -= calib.orientation.d
+            }
+
+            client.send.position({
+                id: client.data.user,
+                time: Date.now() + positionBufferTime,
+                position: position,
+                orientation: orientation
+            })
+        })
+    }
+
+    // draw object in another device position
+    client.receive.position((body) => {
+        if (client.data.user == body.id) {
+            return
+        }
+        common.shareARPosition(body, (mesh) => {
+            scene.add(mesh)
+        })
+    })
+
+
+    // setTimeout(() => {
+    //     console.log('shareARPosition')
+    //
+    // }, 1000)
+
+    // canvas.addEventListener('click', onClick, false)
     //
     // // Kick off the render loop!
-    update()
     //
     // client.log(vrFrameData.pose)
     //
@@ -165,10 +257,19 @@ function init() {
         // hitting()
     }, 500)
 
-    setTimeout(() => {
-        // client.log(vrDisplay)
-        // client.log(vrFrameData)
-    }, 5000)
+
+
+    // canvas.addEventListener('touchmove', (e) => {
+    //     client.send.position({
+    //         id: client.data.user,
+    //         position: {
+    //             x: e.touches[0].pageX / window.innerWidth,
+    //             y: e.touches[0].pageY / window.innerHeight,
+    //             z: 0
+    //         }
+    //     })
+    // })
+    update()
 
 }
 
@@ -245,8 +346,8 @@ function guiView() {
     }
     let folder = null
     let lastTime = 0
-    let refreshTime = 10
-    eventEmitter.on('animation', (operator, time) => {
+    let refreshTime = 1000
+    eventEmitter.on('animation', (time) => {
         if (Date.now() - lastTime &lt; refreshTime) {
             return
         }
@@ -267,7 +368,6 @@ function guiView() {
             item.z.updateDisplay()
         }
     })
-
 }
 
 function hitting() {
@@ -284,55 +384,53 @@ function hitting() {
     plane.rotation.set(Math.PI / 2, 0, 0)
     plane.visible = true
     scene.add(plane)
-    // atHit
-    let pointMesh = []
-    let pointMax = 300
-    for (let i = 0; i &lt; pointMax; i++) {
-        pointMesh[i] = plane.clone()
-        // pointMesh[i].scale.set(0.03, 0.03, 0.03)
-        pointMesh[i].position.set(0, 0, -0.2)
-        pointMesh[i].visible = false
-        scene.add(pointMesh[i])
-    }
+
+    // for (let i = 0; i &lt; pointMax; i++) {
+    //     pointMesh[i] = plane.clone()
+    //     // pointMesh[i].scale.set(0.03, 0.03, 0.03)
+    //     pointMesh[i].position.set(0, 0, -0.2)
+    //     pointMesh[i].visible = false
+    //     scene.add(pointMesh[i])
+    // }
     // 320: 524
 
-    let range = 30
-    let n = 0
     let lastTime = 50
-    let refreshTime = 2500
-    let times = 0
-    let isHit = false
-    eventEmitter.on('animation', (operator, time) => {
+    let refreshTime = 500
+
+    let pointMax = 1000
+    let n = 0
+    let hitTimes = 10
+    let nextObject = null
+    // console.log('hitting')
+    eventEmitter.on('animation', (time) => {
         if (Date.now() - lastTime &lt; refreshTime) {
             return
         }
-        times++
-        if (times > 5) {
+        lastTime = Date.now()
+        if (n > pointMax) {
             return
         }
-        lastTime = Date.now()
 
         // 非同期処理
         setTimeout(() => {
-            n = 0
-            for (let i = 0; i &lt; pointMax; i++) {
-                pointMesh[i].visible = false
-            }
-            // placeHit(0.5, 0.5)
-            let height = window.innerHeight
-            let width = window.innerWidth
-            for (let y = range; y &lt; window.innerHeight; y += range) {
-                for (let x = range; x &lt; window.innerWidth; x += range) {
-                    let hitX = x / width
-                    let hitY = y / height
-                    setTimeout(() => {
-                        if (n > pointMax) {
-                            return
-                        }
-                        if (placeHit(hitX, hitY, n)) {
-                            n++
-                        }
-                    }, 1)
+            for (let i = 0; i &lt; hitTimes; i++) {
+                let hitX = Math.random()
+                let hitY = Math.random()
+                if (n > pointMax) {
+                    return
+                }
+                if (!nextObject) {
+                    nextObject = plane.clone()
+                    nextOjbect.scale.set(0.03, 0.03, 0.03)
+                    object.visible = false
+                }
+                // console.log(hitX,hitY, typeof nextObject, n)
+                if (placeHit(nextObject, hitX, hitY)) {
+                    nextObject.visible = true
+                    nextObject.rotation.x += Math.PI / 2
+                    scene.add(Object.assign(nextObject, {}))
+                    nextObject = null
+                    n++
                 }
             }
         }, 1)
@@ -393,13 +491,10 @@ function hitting() {
                     object.quaternion.slerp(tempQuat, easing);
                 }
             }
-            object.visible = true
-            object.rotation.x += Math.PI / 2
-
         }
     }
 
-    function placeHit(x, y, n = 0) {
+    function placeHit(object, x, y) {
         // client.log({
         //     x: x,
         //     y: y
@@ -410,7 +505,7 @@ function hitting() {
             if (hits &amp;&amp; hits.length) {
                 // client.log(hits)
                 let hit = hits[0]
-                placeObjectAtHit(pointMesh[n], hit, true, 1)
+                placeObjectAtHit(object, hit, true, 1)
 
 
                 // THREE.ARUtils.placeObjectAtHit(pointMesh[n], // The object to place
@@ -425,12 +520,12 @@ function hitting() {
     }
 }
 
+
 function initMesh() {
     cube = MeshProto.group()
     cube.scale.set(0.05, 0.05, 0.05)
     cube.position.set(0, 0, 0)
     scene.add(cube)
-
 
     let localTime = Date.now()
     let syncStart = false
@@ -438,7 +533,7 @@ function initMesh() {
     setTimeout(() => {
         syncStart = true
     }, 10000)
-    eventEmitter.on('animation', (operator, time) => {
+    eventEmitter.on('animation', (time) => {
         let st = property.get('startTime', null)
         // syncStart
         if (st &amp;&amp; syncStart) {
@@ -474,51 +569,6 @@ function initMesh() {
             syncAudio.update(p)
         }
     })
-
-
-
-    eventEmitter.on('animation', (operator, time) => {
-        let pose = vrFrameData.pose
-        let position = {
-            x: pose.position[0] || 0,
-            y: pose.position[1] || 0,
-            z: pose.position[2] || 0
-        }
-        let orientation = pose.orientation
-        client.send.position({
-            id: client.data.user,
-            position: position,
-            orientation: orientation
-        })
-    })
-
-
-
-    // device Position
-    client.receive.position((body) => {
-        let id = body.id
-        if (client.data.user == id) {
-            return
-        }
-        if (!deviceMesh[id]) {
-            let mesh = MeshProto.group()
-            mesh.scale.set(0.05, 0.05, 0.03)
-            mesh.position.copy(body.position)
-            scene.add(mesh)
-            deviceMesh[id] = mesh
-        }
-        deviceMesh[id].position.copy(body.position)
-        if (body.orientation) {
-            let quaternion = new THREE.Quaternion(
-                body.orientation[0],
-                body.orientation[1],
-                body.orientation[2],
-                body.orientation[3]
-            )
-            deviceMesh[id].quaternion.copy(quaternion)
-        }
-    })
-
 }
 
 
@@ -537,9 +587,11 @@ let frameTime = {
 let frameTimeFolder
 let frameTimeGui
 setTimeout(() => {
-    frameTimeFolder = client.gui.addFolder('frameTime')
-    frameTimeGui = frameTimeFolder.add(frameTime, 'time')
-}, 3000)
+    if (client.gui) {
+        frameTimeFolder = client.gui.addFolder('frameTime')
+        frameTimeGui = frameTimeFolder.add(frameTime, 'time')
+    }
+}, 8000)
 
 function update(time) {
 
@@ -549,11 +601,20 @@ function update(time) {
         }
         time = Date.now() - startTime
     }
+
     // Kick off the requestAnimationFrame to call this function
     // on the next frame
-    requestAnimationFrame(update)
+    vrDisplay.requestAnimationFrame(update)
 
+    // From the WebVR API, populate `vrFrameData` with
+    // updated information for the frame
+    vrDisplay.getFrameData(vrFrameData)
 
+    eventEmitter.emit('animation', time)
+    frameStartTime = Date.now()
+
+    // Update our perspective camera's positioning
+    vrControls.update()
 
     // Render the device's camera stream on screen first of all.
     // It allows to get the right pose synchronized with the right frame.
@@ -563,35 +624,30 @@ function update(time) {
     // the near or far planes have updated
     camera.updateProjectionMatrix()
 
-    // From the WebVR API, populate `vrFrameData` with
-    // updated information for the frame
-    vrDisplay.getFrameData(vrFrameData)
-
-    // Update our perspective camera's positioning
-    vrControls.update()
-
 
     // Render our three.js virtual scene
     renderer.clearDepth()
 
+    renderer.render(scene, camera)
 
-    eventEmitter.emit('animation', time)
-    frameStartTime = Date.now()
 
     stats.update()
 
-    if (vrDisplay &amp;&amp; vrDisplay['anchors_'] &amp;&amp; vrDisplay['anchors_'].length >= 1) {
-        vrDisplay['anchors_'].forEach((anchor) => {
-            anchorView(anchor)
-        })
-    }
-    renderer.render(scene, camera)
+
+    // if (vrDisplay &amp;&amp; vrDisplay['anchors_'] &amp;&amp; vrDisplay['anchors_'].length >= 1) {
+    //     setTimeout(() => {
+    //         vrDisplay['anchors_'].forEach((anchor) => {
+    //             anchorView(anchor)
+    //         })
+    //     }, 1)
+    // }
+
 
     frameTime.time = Date.now() - frameStartTime
     if (frameTimeFolder) {
         // client.log(frameTime.time)
         if (frameTimeGui) {
-            frameTimeGui.updateDisplay()
+            //  frameTimeGui.updateDisplay()
             // frameTimeFolder.remove(frameTimeGui)
             // frameTimeGui = frameTimeFolder.add(frameTime, 'time')
         }
@@ -620,6 +676,7 @@ function onClick(e) {
     let x = e.touches[0].pageX / window.innerWidth
     let y = e.touches[0].pageY / window.innerHeight
     sound.play('pizz_7')
+    console.log('click')
     // Fetch the pose data from the current frame
     // let pose = vrFrameData.pose
 
@@ -653,6 +710,15 @@ function onClick(e) {
         }
     }
 
+    client.send.position({
+        id: client.data.user,
+        position: {
+            x: x,
+            y: y,
+            z: -1
+        }
+    })
+
     // let dirMtx = new THREE.Matrix4()
     // dirMtx.makeRotationFromQuaternion(ori)
     //
@@ -673,13 +739,13 @@ function onClick(e) {
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-soundManager.html">soundManager</a></li><li><a href="module-soundManager_SyncAudio.html">soundManager/SyncAudio</a></li><li><a href="module-soundManager_TimeValue.html">soundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_property.html">webSocket/property</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li><li><a href="module-webSocket_spec.html">webSocket/spec</a></li><li><a href="module-webSocket_sync.html">webSocket/sync</a></li><li><a href="module-webSocket_syncParser.html">webSocket/syncParser</a></li><li><a href="module-webSocket_syncParserReceive.html">webSocket/syncParserReceive</a></li></ul><h3>Classes</h3><ul><li><a href="module-soundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-soundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-soundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#onClick">onClick</a></li><li><a href="global.html#onWindowResize">onWindowResize</a></li><li><a href="global.html#start">start</a></li><li><a href="global.html#startTime">startTime</a></li><li><a href="global.html#Stats">Stats</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-soundManager.html">soundManager</a></li><li><a href="module-soundManager_SyncAudio.html">soundManager/SyncAudio</a></li><li><a href="module-soundManager_TimeValue.html">soundManager/TimeValue</a></li><li><a href="module-View_common.html">View/common</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_property.html">webSocket/property</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li><li><a href="module-webSocket_spec.html">webSocket/spec</a></li><li><a href="module-webSocket_sync.html">webSocket/sync</a></li><li><a href="module-webSocket_syncParser.html">webSocket/syncParser</a></li><li><a href="module-webSocket_syncParserReceive.html">webSocket/syncParserReceive</a></li></ul><h3>Classes</h3><ul><li><a href="module-soundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-soundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-soundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#onClick">onClick</a></li><li><a href="global.html#onWindowResize">onWindowResize</a></li><li><a href="global.html#start">start</a></li><li><a href="global.html#startTime">startTime</a></li><li><a href="global.html#Stats">Stats</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Sun Sep 24 2017 15:55:51 GMT+0900 (JST)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Tue Sep 26 2017 17:48:52 GMT+0900 (JST)
 </footer>
 
 <script> prettyPrint(); </script>

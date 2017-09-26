@@ -12,12 +12,16 @@
  * @see {@link module:webSocket/syncParserReceive}
  */
 
+let isUse = false
 
 let host = 'localhost'
 let port = ''
 let path = '/peer'
 let peerServerKey = 'keitalab'
-let PeerClient = Peer
+let PeerClient
+try {
+    PeerClient = Peer
+} catch (e) {}
 try {
     host = require('./../../config.json').socketUrl
 } catch (e) {}
@@ -47,7 +51,7 @@ let createPeer = (id, socket) => {
         port: port,
         path: path,
         key: peerServerKey, // server側で設定したkey
-        debug: 0
+        debug: 1
         // debug Defaults to 0.
         // 0Prints no logs.
         // 1Prints only errors.
@@ -61,6 +65,7 @@ let peers = {}
 
 
 exports.isSupport = null
+let connected = false
 
 
 /**
@@ -68,10 +73,15 @@ exports.isSupport = null
  * @param {string} id [description]
  */
 exports.setMyID = (id, socket) => {
+    if (!isUse) {
+        return
+    }
     myPeer = createPeer(id, socket)
     exports.isSupport = true
     myPeer.on('connection', function(connection) {
         exports.isSupport = true
+        connected = true
+        eventEmitter.emit('connect')
         connection.serialization = 'json'
         connection.on('data', function(data) {
             try {
@@ -96,8 +106,11 @@ exports.setMyID = (id, socket) => {
     myPeer.on('error', (err) => {
         if (err == 'browser-incompatible') {
             exports.isSupport = false
+            connected = false
             console.log('notSupportWebRTC')
         } else {
+            exports.isSupport = false
+            connected = false
             console.log('webRTC myConnection:' + err)
         }
     })
@@ -123,10 +136,24 @@ eventEmitter.on('receive', (syncObject) => {
  * @param {string} id [description]
  */
 exports.setAnotherID = (id) => {
+    if (!isUse) {
+        return
+    }
+    if (!connected || !module.exports.isSupport || !myPeer) {
+        if (!connected) {
+            eventEmitter.on('connect', () => {
+                module.exports.setAnotherID(id)
+            })
+        }
+        return
+    }
     if (id in peers) {
         return
     }
     let connection = myPeer.connect(id)
+    if (!connection) {
+        return
+    }
     let send = (data) => {
         if (connection.open) {
             connection.send(JSON.stringify(data))
@@ -139,13 +166,13 @@ exports.setAnotherID = (id) => {
     // connection.on('open', () => {
     //     eventEmitter.emit(id + '/open')
     // })
-    connection.on('close', () => {
+    peers[id].connection.on('close', () => {
         removeAnotherID(id)
     })
-    connection.on('error', (err) => {
+    peers[id].connection.on('error', (err) => {
         console.log('webRTC anotherConnection:' + err)
     })
-    connection.serialization = 'json'
+    peers[id].connection.serialization = 'json'
 }
 
 
@@ -170,10 +197,15 @@ let removeAnotherID = exports.removeAnotherID
  */
 
 exports.sendToAllConnection = (data) => {
+    if (!isUse) {
+        return
+    }
+    if (!connected || !module.exports.isSupport || !myPeer) {
+        return
+    }
     if (ntp && data.time) {
         data.time = ntp.toServerTime(data.time)
     }
-    console.log('webRTC send')
     for (let key in peers) {
         peers[key].send(data)
     }

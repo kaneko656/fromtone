@@ -22208,7 +22208,7 @@ module.exports = (onTick, callback, start = true) => {
     })
 }
 
-},{"cron":192}],154:[function(require,module,exports){
+},{"cron":191}],154:[function(require,module,exports){
 /**
  * @overview  一つのAudio Bufferに対しての同期再生処理を行うSoundManagerの内部クラス
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -22799,7 +22799,7 @@ let culculateDist = (a, b) => {
 
 },{"./SyncAudio.js":154,"./TimeValue.js":155}],157:[function(require,module,exports){
 module.exports={
-  "socketUrl": "https://374dc499.ngrok.io"
+  "socketUrl": "http://192.168.100.31:8001"
 }
 
 },{}],158:[function(require,module,exports){
@@ -22861,7 +22861,7 @@ function init() {
     }
 }
 
-},{"./../demo-common/prompt.js":146,"./main.js":159,"query-string":233}],159:[function(require,module,exports){
+},{"./../demo-common/prompt.js":146,"./main.js":159,"query-string":232}],159:[function(require,module,exports){
 // サーバ
 const client = require('./webSocket/socketClient.js')
 
@@ -22879,7 +22879,7 @@ let group = 'Serval'
 
 let Job = require('./Job/cron.js')
 
-let proto = require('./webAR/proto.js')
+let webAR = require('./webAR')
 let clientID = ''
 
 let audioList = {
@@ -22897,27 +22897,11 @@ exports.start = (clientData) => {
     let updater = client.initRegister(socketRoot, group, clientData)
     client.data = clientData
 
-    if (clientData.user == 'debug') {
-        return
+
+    let socketConnect = {
+        connect: false
     }
-
-
-    // client.gui = gui
-
-    sound.setAudioList(audioList)
-    sound.finishLoad('pizz_7', () => {
-        sound.play('pizz_7')
-    })
-
-    proto.start(client, sound)
-
-
-    sound.setSpeakerPosition(clientData.user, {})
-
-    // ? 非同期にすると入る
-    setTimeout(() => {
-        client.gui = new dat.GUI() // {width: 300}
-    }, 1)
+    let socketConnectGui
 
     client.connecting((url, thisClientID) => {
         console.log('connecting... ' + url)
@@ -22929,6 +22913,10 @@ exports.start = (clientData) => {
 
     client.connect((url, thisClientID) => {
         console.log('connect: ' + url)
+        socketConnect.connect = true
+        if (socketConnectGui) {
+            socketConnectGui.updateDisplay()
+        }
         if (thisClientID) {
             clientID = thisClientID
             eventListener.emit('setClientID')
@@ -22937,8 +22925,33 @@ exports.start = (clientData) => {
 
     client.disconnect((url, thisClientID) => {
         console.log('disconnect: ' + url)
+        socketConnect.connect = false
+        if (socketConnectGui) {
+            socketConnectGui.updateDisplay()
+        }
     })
 
+    // ? 非同期にすると入る
+    setTimeout(() => {
+        client.gui = new dat.GUI() // {width: 300}
+        socketConnectGui = client.gui.add(socketConnect, 'connect')
+    }, 1)
+
+    if (clientData.user == 'debug') {
+        return
+    }
+
+    // Responsive AR and VR
+    webAR.start(client, sound)
+
+    // client.gui = gui
+
+    sound.setAudioList(audioList)
+    sound.finishLoad('pizz_7', () => {
+        sound.play('pizz_7')
+    })
+
+    sound.setSpeakerPosition(clientData.user, {})
 
     client.receiveSyncObject((syncObjects) => {
         receive(syncObjects)
@@ -22948,17 +22961,19 @@ exports.start = (clientData) => {
         receive(syncObjects)
     })
 
-
     function receive(syncObjects) {
         syncObjects.forEach((syncObject) => {
             // client.log(syncObject)
         })
     }
+
+
+
 }
 
 eventListener.on('setClientID', () => {})
 
-},{"./../connect.js":145,"./Call":152,"./Job/cron.js":153,"./SyncTone/soundManager.js":156,"./webAR/proto.js":167,"./webSocket/socketClient.js":178}],160:[function(require,module,exports){
+},{"./../connect.js":145,"./Call":152,"./Job/cron.js":153,"./SyncTone/soundManager.js":156,"./webAR":164,"./webSocket/socketClient.js":177}],160:[function(require,module,exports){
 /**
  * @author mrdoob / http://mrdoob.com/
  */
@@ -23115,114 +23130,40 @@ if ( typeof module === 'object' ) {
 module.exports = Stats;
 
 },{}],161:[function(require,module,exports){
-arguments[4][147][0].apply(exports,arguments)
-},{"./CallOperator.js":163,"./CallbackChild.js":164,"dup":147}],162:[function(require,module,exports){
-arguments[4][148][0].apply(exports,arguments)
-},{"dup":148}],163:[function(require,module,exports){
-arguments[4][149][0].apply(exports,arguments)
-},{"dup":149}],164:[function(require,module,exports){
-arguments[4][150][0].apply(exports,arguments)
-},{"./CallMeasure.js":162,"./CallOperator.js":163,"dup":150}],165:[function(require,module,exports){
-module.exports = require('./Call.js')()
-
-
-// exports.MultiCall = (...Call) => {
-//     return require('./MultiCall.js')(Call)
-// }
-
-// exports.exCall = () => {
-//     return require('./exCall')()
-// }
-
-},{"./Call.js":161}],166:[function(require,module,exports){
-let geometry = new THREE.Geometry()
-geometry.vertices.push(new THREE.Vector3(0, 0, 1))
-geometry.vertices.push(new THREE.Vector3(1, 0, 0))
-geometry.vertices.push(new THREE.Vector3(0, -1, 0))
-geometry.vertices.push(new THREE.Vector3(-1, 0, 0))
-geometry.vertices.push(new THREE.Vector3(0, 1, 0))
-geometry.vertices.push(new THREE.Vector3(0, 0, -1))
-
-// Face3(a, b, c, normal, color, materialIndex)
-geometry.faces.push(new THREE.Face3(0, 2, 1))
-geometry.faces.push(new THREE.Face3(0, 3, 2))
-geometry.faces.push(new THREE.Face3(0, 4, 3))
-geometry.faces.push(new THREE.Face3(0, 1, 4))
-geometry.faces.push(new THREE.Face3(5, 1, 2))
-geometry.faces.push(new THREE.Face3(5, 2, 3))
-geometry.faces.push(new THREE.Face3(5, 3, 4))
-geometry.faces.push(new THREE.Face3(5, 4, 1))
-
-// 法線ベクトル　自動計算＆セット
-geometry.computeFaceNormals()
-// 滑らかなシェーディング
-geometry.computeVertexNormals()
-
-
-exports.mesh = () => {
-    //八面体のメッシュ作成
-    var material = new THREE.MeshNormalMaterial()
-    //var material = new THREE.MeshPhongMaterial({color: 0x88FFFF})
-    var mesh = new THREE.Mesh(geometry, material)
-    return mesh
-}
-
-exports.meshWire = () => {
-    // //ワイヤーフレームのメッシュ作成
-    var wire = new THREE.MeshBasicMaterial({
-        color: 0x8888cc,
-        wireframe: true
-    })
-    var wireMesh = new THREE.Mesh(geometry, wire)
-    return wireMesh
-}
-
-exports.group = () => {
-    let group = new THREE.Group()
-    group.add(module.exports.mesh())
-    group.add(module.exports.meshWire())
-    return group
-}
-
-},{}],167:[function(require,module,exports){
-let vrDisplay
-let vrFrameData
-let vrControls
-let arView
-
-let canvas
-let camera
-let scene
-let renderer
-let cube
-let box, wire, triangle
-let width, height
-
-let colors = [
-    new THREE.Color(0xffffff),
-    new THREE.Color(0xffff00),
-    new THREE.Color(0xff00ff),
-    new THREE.Color(0xff0000),
-    new THREE.Color(0x00ffff),
-    new THREE.Color(0x00ff00),
-    new THREE.Color(0x0000ff),
-    new THREE.Color(0x000000)
-]
-
-let property = require('./../webSocket/property')
-let MeshProto = require('./proto-mesh.js')
 const events = require('events')
 let eventEmitter = new events.EventEmitter()
+
+// AR/VR
+let vrDisplay, vrFrameData, vrControls, arView
+
+// Three.js
+let canvas, camera, scene, renderer
+
+// size
+let width, height
+
+
+// Geometry 廃止予定
+let MeshProto = require('./proto-mesh.js')
+let cube
+let box, wire, triangle
+
+let common = require('./common')
 
 
 // view FPS  in update() write stats.update()
 let Stats = require('./Stats.js')
 let stats = new Stats()
 
-let isAR = false
-let client
-let sound
-let deviceMesh = {}
+// FromTone
+let client, sound
+const property = require('./../webSocket/property')
+
+
+let calib = {
+    position: null,
+    orientation: null
+}
 
 /**
  * Use the `getARDisplay()` utility to leverage the WebVR API
@@ -23231,45 +23172,43 @@ let deviceMesh = {}
  * browser message.
  */
 
-exports.start = (_client, _sound) => {
+
+exports.init = (_client, _sound, display) => {
     client = _client
     sound = _sound
 
-    THREE.ARUtils.getARDisplay().then(function(display) {
-        if (display) {
-            isAR = true
-            vrFrameData = new VRFrameData()
-            vrDisplay = display
+    vrFrameData = new VRFrameData()
+    vrDisplay = display
+    var nativeLog = console.log.bind(console) //store native function
+    console.log = function(...arg) { //override
+        // nativeLog(arg[0])
+        client.log(arg)
+    }
+    console.log('Device: ' + vrDisplay.displayName)
 
-            var nativeLog = console.log.bind(console) //store native function
-            console.log = function(...arg) { //override
-                nativeLog(arg[0])
-                client.log(arg)
-            }
-            init()
-            client.log('Device: ' + vrDisplay.displayName)
-        } else {
-            // THREE.ARUtils.displayUnsupportedMessage()
-            client.log('This device can not use webAR')
-            require('./protoVR.js').initVR(client, sound)
-        }
-    })
-}
 
-function init() {
     // Turn on the debugging panel
     // let arDebug = new THREE.ARDebug(vrDisplay)
     // document.body.appendChild(arDebug.getElement())
 
-    // Setup the three.js rendering environment
+
+    // step.1 renderer
+    width = window.innerWidth
+    height = window.innerHeight
     renderer = new THREE.WebGLRenderer({
         alpha: true
     })
     renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.setSize(window.innerWidth, window.innerHeight)
-    // renderer.autoClear = false
+    renderer.setSize(width, height)
+    renderer.autoClear = false
+
+    // DOM
     canvas = renderer.domElement
     document.body.appendChild(canvas)
+    width = canvas.width
+    height = canvas.height
+
+    // stat.js
     document.body.appendChild(stats.domElement)
 
     // step.2 scene
@@ -23288,6 +23227,7 @@ function init() {
     // the projection matrix provided from the device, so that the
     // perspective camera's depth planes and field of view matches
     // the physical camera on the device.
+
     // step.3 camera
     camera = new THREE.ARPerspectiveCamera(
         vrDisplay,
@@ -23297,24 +23237,110 @@ function init() {
         vrDisplay.depthFar
     )
 
-
     // VRControls is a utility from three.js that applies the device's
     // orientation/position to the perspective camera, keeping our
     // real world and virtual world in sync.
     vrControls = new THREE.VRControls(camera)
 
-
     // step.4 mesh
     // initMesh()
     initTriangle()
     //
-    // // Bind our event handlers
+
     window.addEventListener('resize', onWindowResize, false)
-    canvas.addEventListener('touchstart', onClick, false)
-    // // canvas.addEventListener('click', onClick, false)
+
+    // calibration
+    canvas.addEventListener('touchstart', (e) => {
+        console.log('touch')
+        // client.send.position({
+        //     id: 'clone',
+        //     position: {
+        //         x: e.touches[0].pageX / window.innerWidth,
+        //         y: e.touches[0].pageY / window.innerHeight,
+        //         z: -1
+        //     }
+        // })
+        // vrDisplay.resetPose()
+        let pose = vrFrameData.pose
+        console.log(pose)
+        calib.position = {
+            x: pose.position[0],
+            y: pose.position[1],
+            z: pose.position[2]
+        }
+        // calib.orientation = {
+        //     a: pose.orientation[0],
+        //     b: pose.orientation[1],
+        //     c: pose.orientation[2],
+        //     d: pose.orientation[3]
+        // }
+        console.log('calibration', calib)
+    })
+
+
+    console.log('shareARPosition')
+
+    // send Position
+    if (true) {
+        let lastTime = 0
+        let refreshTime = 10
+        let positionBufferTime = 30
+        eventEmitter.on('animation', () => {
+            if (Date.now() - lastTime < refreshTime) {
+                return
+            }
+            lastTime = Date.now()
+            let pose = vrFrameData.pose
+            let position = {
+                x: pose.position[0] || 0,
+                y: pose.position[1] || 0,
+                z: pose.position[2] || 0
+            }
+            let orientation = pose.orientation
+
+            // calibration
+            if (calib.position) {
+                position.x -= calib.position.x
+                position.y -= calib.position.y
+                position.z -= calib.position.z
+            }
+
+            // @TODO orientaion -> toration orientaionだと単純に差を取ってもだめ
+            if (calib.orientation) {
+                // orientation[0] -= calib.orientation.a
+                // orientation[1] -= calib.orientation.b
+                // orientation[2] -= calib.orientation.c
+                // orientation[3] -= calib.orientation.d
+            }
+
+            client.send.position({
+                id: client.data.user,
+                time: Date.now() + positionBufferTime,
+                position: position,
+                orientation: orientation
+            })
+        })
+    }
+
+    // draw object in another device position
+    client.receive.position((body) => {
+        if (client.data.user == body.id) {
+            return
+        }
+        common.shareARPosition(body, (mesh) => {
+            scene.add(mesh)
+        })
+    })
+
+
+    // setTimeout(() => {
+    //     console.log('shareARPosition')
+    //
+    // }, 1000)
+
+    // canvas.addEventListener('click', onClick, false)
     //
     // // Kick off the render loop!
-    update()
     //
     // client.log(vrFrameData.pose)
     //
@@ -23324,22 +23350,42 @@ function init() {
         // hitting()
     }, 500)
 
-    setTimeout(() => {
-        // client.log(vrDisplay)
-        // client.log(vrFrameData)
-    }, 5000)
+    // eventEmitter.on('animation', () => {
+    // console.log('f')
+    frameTime()
 
-    canvas.addEventListener('touchmove', (e) => {
-        client.send.position({
-            id: client.data.user,
-            position: {
-                x: e.touches[0].pageX / window.innerWidth,
-                y: e.touches[0].pageY / window.innerHeight,
-                z: 0
-            }
-        })
+
+
+
+
+    // canvas.addEventListener('touchmove', (e) => {
+    //     client.send.position({
+    //         id: client.data.user,
+    //         position: {
+    //             x: e.touches[0].pageX / window.innerWidth,
+    //             y: e.touches[0].pageY / window.innerHeight,
+    //             z: 0
+    //         }
+    //     })
+    // })
+    update()
+
+}
+
+// same cord AR/VR
+function frameTime() {
+    let frameTimeGui
+    let frame = common.frameTime((frameTime) => {
+        if (!frameTimeGui && client.gui) {
+            frameTimeGui = client.gui.addFolder('frameTime').add(frameTime, 'time')
+        }
+        if (frameTimeGui) {
+            frameTimeGui.updateDisplay()
+        }
     })
-
+    eventEmitter.on('animation', () => {
+        frame()
+    })
 }
 
 function initTriangle() {
@@ -23415,8 +23461,8 @@ function guiView() {
     }
     let folder = null
     let lastTime = 0
-    let refreshTime = 10
-    eventEmitter.on('animation', (operator, time) => {
+    let refreshTime = 1000
+    eventEmitter.on('animation', (time) => {
         if (Date.now() - lastTime < refreshTime) {
             return
         }
@@ -23437,7 +23483,6 @@ function guiView() {
             item.z.updateDisplay()
         }
     })
-
 }
 
 function hitting() {
@@ -23454,55 +23499,53 @@ function hitting() {
     plane.rotation.set(Math.PI / 2, 0, 0)
     plane.visible = true
     scene.add(plane)
-    // atHit
-    let pointMesh = []
-    let pointMax = 300
-    for (let i = 0; i < pointMax; i++) {
-        pointMesh[i] = plane.clone()
-        // pointMesh[i].scale.set(0.03, 0.03, 0.03)
-        pointMesh[i].position.set(0, 0, -0.2)
-        pointMesh[i].visible = false
-        scene.add(pointMesh[i])
-    }
+
+    // for (let i = 0; i < pointMax; i++) {
+    //     pointMesh[i] = plane.clone()
+    //     // pointMesh[i].scale.set(0.03, 0.03, 0.03)
+    //     pointMesh[i].position.set(0, 0, -0.2)
+    //     pointMesh[i].visible = false
+    //     scene.add(pointMesh[i])
+    // }
     // 320: 524
 
-    let range = 30
-    let n = 0
     let lastTime = 50
-    let refreshTime = 2500
-    let times = 0
-    let isHit = false
-    eventEmitter.on('animation', (operator, time) => {
+    let refreshTime = 500
+
+    let pointMax = 1000
+    let n = 0
+    let hitTimes = 10
+    let nextObject = null
+    // console.log('hitting')
+    eventEmitter.on('animation', (time) => {
         if (Date.now() - lastTime < refreshTime) {
             return
         }
-        times++
-        if (times > 5) {
+        lastTime = Date.now()
+        if (n > pointMax) {
             return
         }
-        lastTime = Date.now()
 
         // 非同期処理
         setTimeout(() => {
-            n = 0
-            for (let i = 0; i < pointMax; i++) {
-                pointMesh[i].visible = false
-            }
-            // placeHit(0.5, 0.5)
-            let height = window.innerHeight
-            let width = window.innerWidth
-            for (let y = range; y < window.innerHeight; y += range) {
-                for (let x = range; x < window.innerWidth; x += range) {
-                    let hitX = x / width
-                    let hitY = y / height
-                    setTimeout(() => {
-                        if (n > pointMax) {
-                            return
-                        }
-                        if (placeHit(hitX, hitY, n)) {
-                            n++
-                        }
-                    }, 1)
+            for (let i = 0; i < hitTimes; i++) {
+                let hitX = Math.random()
+                let hitY = Math.random()
+                if (n > pointMax) {
+                    return
+                }
+                if (!nextObject) {
+                    nextObject = plane.clone()
+                    nextOjbect.scale.set(0.03, 0.03, 0.03)
+                    object.visible = false
+                }
+                // console.log(hitX,hitY, typeof nextObject, n)
+                if (placeHit(nextObject, hitX, hitY)) {
+                    nextObject.visible = true
+                    nextObject.rotation.x += Math.PI / 2
+                    scene.add(Object.assign(nextObject, {}))
+                    nextObject = null
+                    n++
                 }
             }
         }, 1)
@@ -23563,13 +23606,10 @@ function hitting() {
                     object.quaternion.slerp(tempQuat, easing);
                 }
             }
-            object.visible = true
-            object.rotation.x += Math.PI / 2
-
         }
     }
 
-    function placeHit(x, y, n = 0) {
+    function placeHit(object, x, y) {
         // client.log({
         //     x: x,
         //     y: y
@@ -23580,7 +23620,7 @@ function hitting() {
             if (hits && hits.length) {
                 // client.log(hits)
                 let hit = hits[0]
-                placeObjectAtHit(pointMesh[n], hit, true, 1)
+                placeObjectAtHit(object, hit, true, 1)
 
 
                 // THREE.ARUtils.placeObjectAtHit(pointMesh[n], // The object to place
@@ -23595,135 +23635,51 @@ function hitting() {
     }
 }
 
-function initMesh() {
-    cube = MeshProto.group()
-    cube.scale.set(0.05, 0.05, 0.05)
-    cube.position.set(0, 0, 0)
-    scene.add(cube)
-
-
-    let localTime = Date.now()
-    let syncStart = false
-    let syncAudio
+function frameTime() {
+    let frameTimeFolder
+    let frameTimeGui
     setTimeout(() => {
-        syncStart = true
-    }, 10000)
-    eventEmitter.on('animation', (operator, time) => {
-        let st = property.get('startTime', null)
-        // syncStart
-        if (st && syncStart) {
-            syncStart = false
-            sound.finishLoad('pizz_melody', () => {
-                syncAudio = sound.play('pizz_melody', {
-                    offset: (Date.now() - st) / 1000,
-                    loop: true
-                })
-                syncAudio.applyDBAP(true)
-                syncAudio.finished = () => {
-                    syncAudio = sound.play('pizz_melody', {
-                        startDateTime: st
-                    })
-                }
-            })
+        if (client.gui) {
+            frameTimeFolder = client.gui.addFolder('frameTime')
+            frameTimeGui = frameTimeFolder.add(frameTime, 'time')
         }
+    }, 8000)
 
-        time = Date.now() - (st || localTime)
-        let r = (Math.PI * 2 / 5000) * time
-        let position = {
-            x: Math.cos(r),
-            y: 0,
-            z: Math.sin(r) - 1
-        }
-        cube.rotation.x += 0.01
-        cube.rotation.y = Math.cos(r) * Math.PI
-        cube.position.copy(position)
-
-        if (syncAudio) {
-            let p = {}
-            p[Date.now() + 10] = position
-            syncAudio.update(p)
+    eventEmitter.on('animation', () => {
+        frameTime.time = Date.now() - frameStartTime
+        if (frameTimeFolder) {
+            // client.log(frameTime.time)
+            if (frameTimeGui) {
+                frameTimeGui.updateDisplay()
+                // frameTimeFolder.remove(frameTimeGui)
+                // frameTimeGui = frameTimeFolder.add(frameTime, 'time')
+            }
         }
     })
-
-
-
-    eventEmitter.on('animation', (operator, time) => {
-        let pose = vrFrameData.pose
-        let position = {
-            x: pose.position[0] || 0,
-            y: pose.position[1] || 0,
-            z: pose.position[2] || 0
-        }
-        let orientation = pose.orientation
-        client.send.position({
-            id: client.data.user,
-            position: position,
-            orientation: orientation
-        })
-    })
-
-
-
-    // device Position
-    client.receive.position((body) => {
-        let id = body.id
-        if (client.data.user == id) {
-            return
-        }
-        if (!deviceMesh[id]) {
-            let mesh = MeshProto.group()
-            mesh.scale.set(0.05, 0.05, 0.03)
-            mesh.position.copy(body.position)
-            scene.add(mesh)
-            deviceMesh[id] = mesh
-        }
-        deviceMesh[id].position.copy(body.position)
-        if (body.orientation) {
-            let quaternion = new THREE.Quaternion(
-                body.orientation[0],
-                body.orientation[1],
-                body.orientation[2],
-                body.orientation[3]
-            )
-            deviceMesh[id].quaternion.copy(quaternion)
-        }
-    })
-
 }
-
-
-
-
 /**
  * The render loop, called once per frame. Handles updating
  * our scene and rendering.
  */
-let startTime = null
-let frameStartTime = 0
-let refreshTime = 15
-let frameTime = {
-    time: 0
-}
-let frameTimeFolder
-let frameTimeGui
-setTimeout(() => {
-    frameTimeFolder = client.gui.addFolder('frameTime')
-    frameTimeGui = frameTimeFolder.add(frameTime, 'time')
-}, 3000)
+
+
 
 function update(time) {
 
-    if (!time) {
-        if (!startTime) {
-            startTime = Date.now()
-        }
-        time = Date.now() - startTime
-    }
+
     // Kick off the requestAnimationFrame to call this function
     // on the next frame
-    requestAnimationFrame(update)
+    vrDisplay.requestAnimationFrame(update)
 
+    // From the WebVR API, populate `vrFrameData` with
+    // updated information for the frame
+    vrDisplay.getFrameData(vrFrameData)
 
+    eventEmitter.emit('animation', time)
+    frameStartTime = Date.now()
+
+    // Update our perspective camera's positioning
+    vrControls.update()
 
     // Render the device's camera stream on screen first of all.
     // It allows to get the right pose synchronized with the right frame.
@@ -23733,39 +23689,24 @@ function update(time) {
     // the near or far planes have updated
     camera.updateProjectionMatrix()
 
-    // From the WebVR API, populate `vrFrameData` with
-    // updated information for the frame
-    vrDisplay.getFrameData(vrFrameData)
-
-    // Update our perspective camera's positioning
-    vrControls.update()
-
 
     // Render our three.js virtual scene
     renderer.clearDepth()
 
+    renderer.render(scene, camera)
 
-    eventEmitter.emit('animation', time)
-    frameStartTime = Date.now()
 
     stats.update()
 
-    if (vrDisplay && vrDisplay['anchors_'] && vrDisplay['anchors_'].length >= 1) {
-        vrDisplay['anchors_'].forEach((anchor) => {
-            anchorView(anchor)
-        })
-    }
-    renderer.render(scene, camera)
 
-    frameTime.time = Date.now() - frameStartTime
-    if (frameTimeFolder) {
-        // client.log(frameTime.time)
-        if (frameTimeGui) {
-            frameTimeGui.updateDisplay()
-            // frameTimeFolder.remove(frameTimeGui)
-            // frameTimeGui = frameTimeFolder.add(frameTime, 'time')
-        }
-    }
+    // if (vrDisplay && vrDisplay['anchors_'] && vrDisplay['anchors_'].length >= 1) {
+    //     setTimeout(() => {
+    //         vrDisplay['anchors_'].forEach((anchor) => {
+    //             anchorView(anchor)
+    //         })
+    //     }, 1)
+    // }
+
 
     // client.log('develop/', vrDisplay)
 }
@@ -23790,6 +23731,7 @@ function onClick(e) {
     let x = e.touches[0].pageX / window.innerWidth
     let y = e.touches[0].pageY / window.innerHeight
     sound.play('pizz_7')
+    console.log('click')
     // Fetch the pose data from the current frame
     // let pose = vrFrameData.pose
 
@@ -23823,6 +23765,15 @@ function onClick(e) {
         }
     }
 
+    client.send.position({
+        id: client.data.user,
+        position: {
+            x: x,
+            y: y,
+            z: -1
+        }
+    })
+
     // let dirMtx = new THREE.Matrix4()
     // dirMtx.makeRotationFromQuaternion(ori)
     //
@@ -23834,376 +23785,155 @@ function onClick(e) {
     // // current position
 }
 
-},{"./../webSocket/property":176,"./Stats.js":160,"./proto-mesh.js":166,"./protoVR.js":168,"events":82}],168:[function(require,module,exports){
-let vrDisplay
-let vrFrameData
-let vrControls
-let arView
+},{"./../webSocket/property":175,"./Stats.js":160,"./common":162,"./proto-mesh.js":167,"events":82}],162:[function(require,module,exports){
+/**
+ * @overview ARとVRをレスポンシブ対応して共通に処理する
+ * @module View/common
+ */
 
-let canvas
-let camera
-let scene
-let controls
-let renderer
-let cube
-let box, wire
-let width, height
+let Job = require('./cron')
 
-let colors = [
-    new THREE.Color(0xffffff),
-    new THREE.Color(0xffff00),
-    new THREE.Color(0xff00ff),
-    new THREE.Color(0xff0000),
-    new THREE.Color(0x00ffff),
-    new THREE.Color(0x00ff00),
-    new THREE.Color(0x0000ff),
-    new THREE.Color(0x000000)
-]
+// BoxGeometry or BoxBufferGeometry
+// BoxBufferGeometryの方がGPUにパラメータを渡すコストが減る
+// その代わり，あとでGeometryを変更するのが大変
+// なので静的なオブジェクトに有効（動かすならBufferじゃない）
 
-let property = require('./../webSocket/property')
-let MeshProto = require('./proto-mesh.js')
-let eventCall = require('./eventCall')
-
-
-// view FPS  in update() write stats.update()
-let Stats = require('./Stats.js')
-let stats = new Stats()
-setTimeout(() => {
-    document.body.appendChild(stats.domElement)
-}, 1000)
-let client
-let sound
-let deviceMesh = {}
-
-exports.initVR = (_client, _sound) => {
-    client = _client
-    sound = _sound
-
-    width = window.innerWidth || 800
-    height = window.innerHeight || 600
-
-    // step.1 renderer
-    renderer = new THREE.WebGLRenderer()
-    // renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.setSize(width, height)
-    // renderer.autoClear = false
-
-    canvas = renderer.domElement
-    document.body.appendChild(canvas)
-
-
-    // step.2 scene
-    scene = new THREE.Scene()
-
-    // step.3 camera
-    camera = new THREE.PerspectiveCamera(60, width / height, 0.01, 10000)
-    camera.position.set(0, 0, 0.5)
-    // camera.zoom(2)
-
-    // step.3.1
-    controls = new THREE.OrbitControls(camera, canvas)
-
-    // step.4 mesh
-    initMesh()
-
-
-    // step.5 light
-    const directionalLight = new THREE.DirectionalLight(0xFFFFFF)
-    directionalLight.position.set(0, 0, 0.5)
-    scene.add(directionalLight)
-
-    update()
-
-    canvas.addEventListener('click', onClick, false)
-    window.addEventListener('resize', onWindowResize, false)
-
-    hitting()
-
-    document.body.addEventListener('mousemove', (e) => {
-        client.send.position({
-            id: client.data.user,
-            position: {
-                x: e.offsetX / window.innerWidth,
-                y: e.offsetY / window.innerHeight,
-                z: 0
-            }
-        })
-    })
-
-    canvas.addEventListener('touchmove', (e) => {
-        client.log('touchmove')
-        client.send.position({
-            id: client.data.user,
-            position: {
-                x: e.touches[0].pageX / window.innerWidth,
-                y: e.touches[0].pageY / window.innerHeight,
-                z: 0
-            }
-        })
-        client.log('ok')
-    })
-
-}
-
-function hitting() {
-    // THREE.SceneUtils.traverseHierarchy( object, function ( object ) { object.visible = false; } );
-    var geometry = new THREE.PlaneGeometry(0.1, 0.1) // width, height, widthSegments, heightSegments
-    var material = new THREE.MeshBasicMaterial({
-        color: 0x45ff45,
-        side: THREE.DoubleSide
-    });
-    var plane = new THREE.Mesh(geometry, material)
-    plane.position.set(0, 0, 0)
-    plane.rotation.set(Math.PI / 2, 0, 0)
-
-    plane.visible = true
-    scene.add(plane)
-}
-
-function initMesh() {
-
-
-    // VR/AR
-    cube = MeshProto.group()
-    cube.scale.set(0.05, 0.05, 0.05)
-    cube.position.set(0, 0, 0)
-    scene.add(cube)
-
-
-    // syncTest
-    let sync = cube.clone()
-    client.receive.position((posData) => {
-        sync.position.set(posData.position.x, posData.position.y, -2)
-    })
-    scene.add(sync)
-
-
-    let localTime = Date.now()
-    let syncStart = false
-    let syncAudio
-    setTimeout(() => {
-        syncStart = true
-    }, 10000)
-    eventCall.on('animation', (operator, time) => {
-        let st = property.get('startTime', null)
-        // syncStart
-        if (st && syncStart) {
-            syncStart = false
-            sound.finishLoad('pizz_melody', () => {
-                syncAudio = sound.play('pizz_melody', {
-                    offset: (Date.now() - st) / 1000,
-                    loop: true
-                })
-                syncAudio.applyDBAP(true)
-                syncAudio.finished = () => {
-                    syncAudio = sound.play('pizz_melody', {
-                        startDateTime: st
-                    })
-                }
-            })
-        }
-
-
-        time = Date.now() - (st || localTime)
-        let r = (Math.PI * 2 / 5000) * time
-        let position = {
-            x: Math.cos(r),
-            y: 0,
-            z: Math.sin(r) - 1
-        }
-        cube.rotation.x += 0.01
-        cube.rotation.y = Math.cos(r) * Math.PI
-        cube.position.copy(position)
-
-        // console.log(toScreen(cube.position))
-        // toScreen(cube.position)
-        function toScreen(position) {
-            let widthHalf = window.innerWidth / 2
-            let heightHalf = window.innerWidth / 2
-
-            var sPos = position.clone()
-            sPos.project(camera)
-            sPos.x = (sPos.x * widthHalf) + widthHalf
-            sPos.y = -(sPos.y * heightHalf) + heightHalf
-            sPos.z = 0
-            return sPos
-        }
-
-        if (syncAudio) {
-            let p = {}
-            p[Date.now() + 2] = position
-            syncAudio.update(p)
-        }
-    })
-
-    // only VR  positionを共有しない
-    // client.send.position({
-    //     id: client.data.user,
-    //     position: {
-    //         x: -0.1,
-    //         y: 0,
-    //         z: 0
-    //     }
-    // })
-
-    // VR/AR
-    // device Position
-    client.receive.position((body) => {
-        let id = body.id
-        if (client.data.user == id) {
-            return
-        }
-        if (!deviceMesh[id]) {
-            let mesh = MeshProto.group()
-            mesh.scale.set(0.05, 0.05, 0.03)
-            mesh.position.copy(body.position)
-            scene.add(mesh)
-            deviceMesh[id] = mesh
-        }
-        deviceMesh[id].position.copy(body.position)
-        if (body.orientation) {
-            let quaternion = new THREE.Quaternion(
-                body.orientation[0],
-                body.orientation[1],
-                body.orientation[2],
-                body.orientation[3]
-            )
-            deviceMesh[id].quaternion.copy(quaternion)
-        }
-    })
-
-    // only VR
-    let center = cube.clone()
-    scene.add(center)
-
-    setTimeout(() => {
-        let folder = client.gui.addFolder('position')
-        console.log('folder', folder)
-
-    }, 100)
-
-}
-
-
-
-let startTime = null
-
-function update(time) {
-    time = null
-    if (!time) {
-        if (!startTime) {
-            startTime = Date.now()
-        }
-        time = Date.now() - startTime
-    }
-    eventCall.emit('animation', time)
-    controls.update()
-    stats.update()
-
-    renderer.render(scene, camera)
-
-    requestAnimationFrame(update)
-
-}
-
-function onClick() {
-    // Fetch the pose data from the current frame
-
-    // Convert the pose orientation and position into
-    // THREE.Quaternion and THREE.Vector3 respectively
-    let w = Math.random() - 0.5
-    let h = Math.random() - 0.5
-    let pos = new THREE.Vector3(w, h, -200)
-
-    // Clone our cube object and place it at the camera's
-    // current position
-    let mesh = MeshProto.group()
-    mesh.scale.set(0.05, 0.05, 0.05)
-    mesh.position.set(w, h, -1)
-    scene.add(mesh)
-
-    let x = Math.random() / 10 - 0.05
-    let y = Math.random() / 10 - 0.05
-
-    update()
-
-    function update() {
-        requestAnimationFrame(update)
-        mesh.rotation.x += 0.01 + x
-        mesh.rotation.y += 0.01 + y
-
-        // renderer.render(scene, camera)
-    }
-}
-//
-// let moveAccel = 0
-// let moveVelocity = 0
-// let moveAccelValue = 0.0002
-// let lastTime = 0
-//
-// function keyDown(e) {
-//     // keyCode キーに対応する番号
-//     // shiftKey shiftキーの押下状態
-//     // ctrlKey ctrlキーの押下状態
-//     // altKey altキーの押下状態
-//
-//     // - 左 右　+
-//     // - 下 上　+
-//     // - 奥 前　+
-//
-//     // TODO Controlerを使う
-//
-//     // initial
-//     if (Date.now() - lastTime > 100) {
-//         moveAccel = 0
-//         moveVelocity = 0
-//         if (moveVelocity < 0.001) {
-//             moveVelocity = 0
-//         }
-//     }
-//     lastTime = Date.now()
-//
-//     moveAccel += moveAccelValue
-//     moveVelocity += moveAccel
-//     let moveValue = moveVelocity
-//     // ← Left
-//     if (e.keyCode == 37) {
-//         camera.position.x -= moveValue
-//     }
-//     // ↑ UP
-//     else if (e.keyCode == 38) {
-//         camera.position.z -= moveValue
-//     }
-//     // → Right
-//     else if (e.keyCode == 39) {
-//         camera.position.x += moveValue
-//     }
-//     // ↓ Down
-//     else if (e.keyCode == 40) {
-//         camera.position.z += moveValue
-//     }
-//
-//
-//
-//     console.log(e.keyCode)
-//
-// }
-//
-
+// iPhone8 158.4 mm	78.1 mm	7.5 mm
+let geometry = new THREE.BoxGeometry(0.0781, 0.1584, 0.0075)
+let material = new THREE.MeshBasicMaterial({
+    color: 0xdedee0
+})
+let deviceMesh = new THREE.Mesh(geometry, material)
+let deviceMeshs = {}
 
 /**
- * On window resize, update the perspective camera's aspect ratio,
- * and call `updateProjectionMatrix` so that we can get the latest
- * projection matrix provided from the device
+ * MeshObjectを返す scene.add()はここではしない MeshPositionのアップデートは行う
+ * @param  {object} body positionData, callback{ MeshObject }
  */
-function onWindowResize() {
-    console.log('setRenderer size', window.innerWidth, window.innerHeight)
-    camera.aspect = window.innerWidth / window.innerHeight
-    camera.updateProjectionMatrix()
-    renderer.setSize(window.innerWidth, window.innerHeight)
+
+exports.shareARPosition = (self) => {
+
+    let client = self.client
+    let scene = self.scene
+    // let eventEmitter = self.eventEmitter
+
+    client.receive.position((body) => {
+        // remove my position data
+        if (client.data.user == body.id) {
+            return
+        }
+
+        // not in time
+        if (body.time <= Date.now()) {
+            setPosition(body, (mesh) => {
+                scene.add(mesh)
+            })
+        }
+        // after time
+        else {
+            let date = new Date(body.time)
+            Job(date, () => {
+                setPosition(body, (mesh) => {
+                    scene.add(mesh)
+                })
+            })
+        }
+    })
 }
 
-},{"./../webSocket/property":176,"./Stats.js":160,"./eventCall":165,"./proto-mesh.js":166}],169:[function(require,module,exports){
+function setPosition(body, callback) {
+    let id = body.id
+    if (!deviceMeshs[id]) {
+        deviceMeshs[id] = deviceMesh.clone()
+        callback(deviceMeshs[id])
+    }
+    if (body.position) {
+        deviceMeshs[id].position.copy(body.position)
+    }
+    if (body.orientation) {
+        let quaternion = new THREE.Quaternion(
+            body.orientation[0],
+            body.orientation[1],
+            body.orientation[2],
+            body.orientation[3]
+        )
+        deviceMeshs[id].quaternion.copy(quaternion)
+    }
+}
+
+
+exports.frameTime = (callback) => {
+
+    let lastFrameTime = null
+    let frameTime = {
+        time: 0,
+    }
+    let lastTime = 0
+    let refreshTime = 1000
+    let frame = () => {
+        // frameTime
+        let now = Date.now()
+        if (lastFrameTime) {
+            frameTime.time = Math.max(frameTime.time, now - lastFrameTime)
+        }
+        lastFrameTime = now
+
+        // refresh
+        if (now - lastTime < refreshTime) {
+            return
+        }
+        callback(frameTime)
+        lastTime = now
+        frameTime.time = 0
+    }
+    return frame
+}
+
+
+exports.viewFrameTime = (self) => {
+
+    let common = self.common
+    let client = self.client
+    let eventEmitter = self.eventEmitter
+
+    let frameTimeGui
+    let changeFrameTime = () => {
+        if (!frameTimeGui && client.gui) {
+            frameTimeGui = client.gui.addFolder('frameTime').add(frameTime, 'time')
+        }
+        if (frameTimeGui) {
+            frameTimeGui.updateDisplay()
+        }
+    }
+
+    let lastFrameTime = null
+    let frameTime = {
+        time: 0,
+    }
+
+    let lastTime = 0
+    let refreshTime = 1000
+    eventEmitter.on('animation', () => {
+        // frameTime
+        let now = Date.now()
+        if (lastFrameTime) {
+            frameTime.time = Math.max(frameTime.time, now - lastFrameTime)
+        }
+        lastFrameTime = now
+
+        // refresh
+        if (now - lastTime < refreshTime) {
+            return
+        }
+        changeFrameTime()
+
+        // init
+        lastTime = now
+        frameTime.time = 0
+    })
+}
+
+},{"./cron":163}],163:[function(require,module,exports){
 const CronJob = require('cron').CronJob
 
 // onTick  Dateクラス
@@ -24225,17 +23955,496 @@ module.exports = (onTick, callback, start = true) => {
     })
 }
 
-},{"cron":192}],170:[function(require,module,exports){
+},{"cron":191}],164:[function(require,module,exports){
+const ar = require('./ar.js')
+
+/**
+ * Use the `getARDisplay()` utility to leverage the WebVR API
+ * to see if there are any AR-capable WebVR VRDisplays. Returns
+ * a valid display if found. Otherwise, display the unsupported
+ * browser message.
+ */
+
+/**
+ * AR/VR Responsive
+ * @param  {object} client socketClient
+ * @param  {object} sound  soundManager
+ */
+exports.start = (client, sound) => {
+    THREE.ARUtils.getARDisplay().then(function(display) {
+        if (display) {
+            // ar.init(client, sound, display)
+            require('./mainAR.js').start(client, sound, display)
+        } else {
+            // THREE.ARUtils.displayUnsupportedMessage()
+            console.log('This device can not use webAR')
+            // require('./protoVR.js').initVR(client, sound)
+            require('./mainVR.js').start(client, sound)
+        }
+    })
+}
+
+},{"./ar.js":161,"./mainAR.js":165,"./mainVR.js":166}],165:[function(require,module,exports){
+const events = require('events')
+const Stats = require('./Stats.js')
+
+
+
+
+class AR {
+
+    constructor(client, sound, vrDisplay) {
+        // modules
+        this.stats = new Stats()
+        this.eventEmitter = new events.EventEmitter()
+
+        // AR/VR
+        this.vrDisplay
+        this.vrFrameData
+        this.vrControls
+        this.arView
+
+        // Three.js
+        this.canvas
+        this.camera
+        this.scene
+        this.renderer
+
+        // size
+        this.width
+        this.height
+
+        // calibration
+        this.calibrationData = {
+            position: null,
+            orientation: null,
+            rotation: null
+        }
+
+        // param
+        this.client = client
+        this.sound = sound
+
+        // inner modules
+        this.common = require('./common')
+        this.property = require('./../webSocket/property')
+
+        // method
+        this.init(vrDisplay)
+        this.common.viewFrameTime(this)
+        this.common.shareARPosition(this)
+    }
+
+    init(vrDisplay) {
+        this.vrFrameData = new VRFrameData()
+        this.vrDisplay = vrDisplay
+
+        // step.1 renderer
+        this.width = window.innerWidth
+        this.height = window.innerHeight
+        console.log('s1')
+        this.renderer = new THREE.WebGLRenderer({
+            alpha: true
+        })
+        this.renderer.setPixelRatio(window.devicePixelRatio)
+        this.renderer.setSize(this.width, this.height)
+        this.renderer.autoClear = false
+
+        // DOM
+        this.canvas = this.renderer.domElement
+        document.body.appendChild(this.canvas)
+
+        // stat.js
+        document.body.appendChild(this.stats.domElement)
+
+        // step.2 scene
+        this.scene = new THREE.Scene()
+
+        console.log('f')
+
+        this.arView = new THREE.ARView(this.vrDisplay, this.renderer)
+
+        // step.3 camera
+        this.camera = new THREE.ARPerspectiveCamera(
+            this.vrDisplay,
+            60,
+            this.width / this.height,
+            this.vrDisplay.depthNear,
+            this.vrDisplay.depthFar
+        )
+
+        this.vrControls = new THREE.VRControls(this.camera)
+
+        // step.4 mesh
+        // initTriangle()
+
+        // window.addEventListener('resize', onWindowResize, false)
+
+        this.update()
+        this.sendPosition()
+        this.canvas.addEventListener('touchstart', (e) => {
+            console.log('start')
+            this.calibration()
+        })
+    }
+
+    update() {
+        // Kick off the requestAnimationFrame to call this function
+        // on the next frame
+        this.vrDisplay.requestAnimationFrame(() => {
+            this.update()
+        })
+
+        // From the WebVR API, populate `vrFrameData` with
+        // updated information for the frame
+        this.vrDisplay.getFrameData(this.vrFrameData)
+
+        // Update our perspective camera's positioning
+        this.vrControls.update()
+
+        // Render the device's camera stream on screen first of all.
+        // It allows to get the right pose synchronized with the right frame.
+        this.arView.render()
+
+        // Update our camera projection matrix in the event that
+        // the near or far planes have updated
+        this.camera.updateProjectionMatrix()
+
+        // Render our three.js virtual scene
+        this.renderer.clearDepth()
+
+        this.eventEmitter.emit('animation')
+
+        this.renderer.render(this.scene, this.camera)
+
+        this.stats.update()
+    }
+
+    sendPosition() {
+
+        let client = this.client
+        let calib = this.calibrationData
+        let vrFrameData = this.vrFrameData
+
+        // send Position
+        let lastTime = 0
+        let refreshTime = 10
+        let positionBufferTime = 10
+        this.eventEmitter.on('animation', () => {
+            if (Date.now() - lastTime < refreshTime) {
+                return
+            }
+            lastTime = Date.now()
+            let pose = this.vrFrameData.pose
+            let position = {
+                x: pose.position[0] || 0,
+                y: pose.position[1] || 0,
+                z: pose.position[2] || 0
+            }
+            let orientation = pose.orientation
+
+            if (calib.position) {
+                position.x -= calib.position.x
+                position.y -= calib.position.y
+                position.z -= calib.position.z
+            }
+
+            // @TODO orientaion -> toration orientaionだと単純に差を取ってもだめ
+            if (calib.orientation) {
+                // orientation[0] -= calib.orientation.a
+                // orientation[1] -= calib.orientation.b
+                // orientation[2] -= calib.orientation.c
+                // orientation[3] -= calib.orientation.d
+            }
+
+            client.send.position({
+                id: client.data.user,
+                time: Date.now() + positionBufferTime,
+                position: position,
+                orientation: orientation
+            })
+        })
+    }
+
+    calibration() {
+        console.log('s')
+        let pose = this.vrFrameData.pose
+        let calib = this.calibrationData
+
+        calib.position = {
+            x: pose.position[0],
+            y: pose.position[1],
+            z: pose.position[2] + 0.05
+        }
+        console.log('calibration')
+    }
+
+}
+
+exports.start = (client, sound, vrDisplay) => {
+    let nativeLog = console.log.bind(console) //store native function
+    console.log = function(...arg) { //override
+        // nativeLog(arg[0])
+        client.log(arg)
+    }
+    console.log('Device: ' + vrDisplay.displayName)
+    let ar = new AR(client, sound, vrDisplay)
+}
+
+},{"./../webSocket/property":175,"./Stats.js":160,"./common":162,"events":82}],166:[function(require,module,exports){
+const events = require('events')
+const Stats = require('./Stats.js')
+
+let MeshProto = require('./proto-mesh.js')
+
+
+class VR {
+
+    constructor(client, sound) {
+        // modules
+        this.stats = new Stats()
+        this.eventEmitter = new events.EventEmitter()
+
+        // AR/VR
+        this.vrDisplay
+        this.vrFrameData
+        this.vrControls
+        this.arView
+
+        // Three.js
+        this.canvas
+        this.camera
+        this.scene
+        this.renderer
+
+        // size
+        this.width
+        this.height
+
+        // calibration
+        this.calibration = {
+            position: null,
+            orientation: null,
+            rotation: null
+        }
+
+        // param
+        this.client = client
+        this.sound = sound
+
+        // inner modules
+        this.common = require('./common')
+        this.property = require('./../webSocket/property')
+        this.init()
+    }
+
+    init() {
+
+        // step.1 renderer
+        this.width = window.innerWidth
+        this.height = window.innerHeight
+        console.log('s1')
+        this.renderer = new THREE.WebGLRenderer()
+        this.renderer.setPixelRatio(window.devicePixelRatio)
+        this.renderer.setSize(this.width, this.height)
+        console.log('s1')
+
+        // DOM
+        this.canvas = this.renderer.domElement
+        document.body.appendChild(this.canvas)
+
+        // step.2 scene
+        this.scene = new THREE.Scene()
+
+        // step.3 camera
+        this.camera = new THREE.PerspectiveCamera(60, this.width / this.height, 0.01, 10000)
+        this.camera.position.set(0, 0, 0.5)
+
+
+        this.controls = new THREE.OrbitControls(this.camera, this.canvas)
+
+
+        // step.5 light
+        let directionalLight = new THREE.DirectionalLight(0xFFFFFF)
+        directionalLight.position.set(0, 0, 0.5)
+        this.scene.add(directionalLight)
+
+        console.log('update')
+        this.update()
+        this.common.viewFrameTime(this)
+        this.common.shareARPosition(this)
+        this.canvas.addEventListener('click', () => {
+            this.onClick()
+        })
+
+        // return
+    }
+
+    update() {
+        // console.log(this.eventEmitter)
+        this.controls.update()
+        this.stats.update()
+        this.eventEmitter.emit('animation', {})
+
+
+        this.renderer.render(this.scene, this.camera)
+
+        requestAnimationFrame(() => {
+            this.update()
+        })
+    }
+
+    sendPosition() {
+
+        let client = this.client
+        let calib = this.calibration
+        let vrFrameData = this.vrFrameData
+
+        // send Position
+        let lastTime = 0
+        let refreshTime = 10
+        let positionBufferTime = 30
+        this.eventEmitter.on('animation', () => {
+            if (Date.now() - lastTime < refreshTime) {
+                return
+            }
+            lastTime = Date.now()
+            let pose = this.vrFrameData.pose
+            let position = {
+                x: pose.position[0] || 0,
+                y: pose.position[1] || 0,
+                z: pose.position[2] || 0
+            }
+            let orientation = pose.orientation
+
+
+            if (calib.position) {
+                position.x -= calib.position.x
+                position.y -= calib.position.y
+                position.z -= calib.position.z
+            }
+
+            // @TODO orientaion -> toration orientaionだと単純に差を取ってもだめ
+            if (calib.orientation) {
+                // orientation[0] -= calib.orientation.a
+                // orientation[1] -= calib.orientation.b
+                // orientation[2] -= calib.orientation.c
+                // orientation[3] -= calib.orientation.d
+            }
+
+            client.send.position({
+                id: client.data.user,
+                time: Date.now() + positionBufferTime,
+                position: position,
+                orientation: orientation
+            })
+        })
+    }
+
+    onClick() {
+        // Fetch the pose data from the current frame
+
+        // Convert the pose orientation and position into
+        // THREE.Quaternion and THREE.Vector3 respectively
+        let w = Math.random() - 0.5
+        let h = Math.random() - 0.5
+        let pos = new THREE.Vector3(w, h, -200)
+
+        // Clone our cube object and place it at the camera's
+        // current position
+        let mesh = MeshProto.group()
+        mesh.scale.set(0.05, 0.05, 0.05)
+        mesh.position.set(w, h, -1)
+        this.scene.add(mesh)
+
+        let x = Math.random() / 10 - 0.05
+        let y = Math.random() / 10 - 0.05
+
+        // mesh.rotation.x += 0.01 + x
+        // mesh.rotation.y += 0.01 + y
+
+        // renderer.render(scene, camera)
+
+    }
+}
+
+exports.start = (client, sound) => {
+    let ar = new VR(client, sound)
+}
+
+},{"./../webSocket/property":175,"./Stats.js":160,"./common":162,"./proto-mesh.js":167,"events":82}],167:[function(require,module,exports){
+let geometry = new THREE.Geometry()
+geometry.vertices.push(new THREE.Vector3(0, 0, 1))
+geometry.vertices.push(new THREE.Vector3(1, 0, 0))
+geometry.vertices.push(new THREE.Vector3(0, -1, 0))
+geometry.vertices.push(new THREE.Vector3(-1, 0, 0))
+geometry.vertices.push(new THREE.Vector3(0, 1, 0))
+geometry.vertices.push(new THREE.Vector3(0, 0, -1))
+
+// Face3(a, b, c, normal, color, materialIndex)
+geometry.faces.push(new THREE.Face3(0, 2, 1))
+geometry.faces.push(new THREE.Face3(0, 3, 2))
+geometry.faces.push(new THREE.Face3(0, 4, 3))
+geometry.faces.push(new THREE.Face3(0, 1, 4))
+geometry.faces.push(new THREE.Face3(5, 1, 2))
+geometry.faces.push(new THREE.Face3(5, 2, 3))
+geometry.faces.push(new THREE.Face3(5, 3, 4))
+geometry.faces.push(new THREE.Face3(5, 4, 1))
+
+// 法線ベクトル　自動計算＆セット
+geometry.computeFaceNormals()
+// 滑らかなシェーディング
+geometry.computeVertexNormals()
+
+
+exports.mesh = () => {
+    //八面体のメッシュ作成
+    var material = new THREE.MeshNormalMaterial()
+    //var material = new THREE.MeshPhongMaterial({color: 0x88FFFF})
+    var mesh = new THREE.Mesh(geometry, material)
+    return mesh
+}
+
+exports.meshWire = () => {
+    // //ワイヤーフレームのメッシュ作成
+    var wire = new THREE.MeshBasicMaterial({
+        color: 0x8888cc,
+        wireframe: true
+    })
+    var wireMesh = new THREE.Mesh(geometry, wire)
+    return wireMesh
+}
+
+exports.group = () => {
+    let group = new THREE.Group()
+    group.add(module.exports.mesh())
+    group.add(module.exports.meshWire())
+    return group
+}
+
+},{}],168:[function(require,module,exports){
+arguments[4][163][0].apply(exports,arguments)
+},{"cron":191,"dup":163}],169:[function(require,module,exports){
 arguments[4][147][0].apply(exports,arguments)
-},{"./CallOperator.js":172,"./CallbackChild.js":173,"dup":147}],171:[function(require,module,exports){
+},{"./CallOperator.js":171,"./CallbackChild.js":172,"dup":147}],170:[function(require,module,exports){
 arguments[4][148][0].apply(exports,arguments)
-},{"dup":148}],172:[function(require,module,exports){
+},{"dup":148}],171:[function(require,module,exports){
 arguments[4][149][0].apply(exports,arguments)
-},{"dup":149}],173:[function(require,module,exports){
+},{"dup":149}],172:[function(require,module,exports){
 arguments[4][150][0].apply(exports,arguments)
-},{"./CallMeasure.js":171,"./CallOperator.js":172,"dup":150}],174:[function(require,module,exports){
-arguments[4][165][0].apply(exports,arguments)
-},{"./Call.js":170,"dup":165}],175:[function(require,module,exports){
+},{"./CallMeasure.js":170,"./CallOperator.js":171,"dup":150}],173:[function(require,module,exports){
+module.exports = require('./Call.js')()
+
+
+// exports.MultiCall = (...Call) => {
+//     return require('./MultiCall.js')(Call)
+// }
+
+// exports.exCall = () => {
+//     return require('./exCall')()
+// }
+
+},{"./Call.js":169}],174:[function(require,module,exports){
 /**
  * @overview 時刻同期処理 socketを使用
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -24447,7 +24656,7 @@ let emit = () => {
     }, 300 * 1 + Math.floor((Math.random() * 200)))
 }
 
-},{}],176:[function(require,module,exports){
+},{}],175:[function(require,module,exports){
 /**
  * @overview SystemProperty serverとのやりとりで決定する
  * @module webSocket/property
@@ -24484,7 +24693,7 @@ exports.set = (key, value) => {
     property[key] = value
 }
 
-},{}],177:[function(require,module,exports){
+},{}],176:[function(require,module,exports){
 /**
  * @overview socketを接続 config.json - socketUrl
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -24655,7 +24864,7 @@ exports.updateClientEvent = (callback = () => {}) => {
     updateClientEvent = callback
 }
 
-},{"./property":176,"./spec":179,"./webRTC/index.js":183,"node-uuid":217}],178:[function(require,module,exports){
+},{"./property":175,"./spec":178,"./webRTC/index.js":182,"node-uuid":216}],177:[function(require,module,exports){
 /**
  * @overview このファイルがwebSocket全体のモジュールとなっている
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -24905,7 +25114,7 @@ socket.on('disconnect', () => {
     call.emit('disconnect', url)
 })
 
-},{"./../config.json":157,"./eventCall":174,"./ntp-client":175,"./property":176,"./register":177,"./sync":180,"./syncParser":181,"./syncParserReceive":182,"./webRTC":183,"socket.io-client":221}],179:[function(require,module,exports){
+},{"./../config.json":157,"./eventCall":173,"./ntp-client":174,"./property":175,"./register":176,"./sync":179,"./syncParser":180,"./syncParserReceive":181,"./webRTC":182,"socket.io-client":220}],178:[function(require,module,exports){
 /**
  * @overview SystemProperty 計算能力を簡易的に測って，serverに送る
  * @module webSocket/spec
@@ -24946,7 +25155,7 @@ exports.init = (socket, socketRoot) => {
     }, 500)
 }
 
-},{}],180:[function(require,module,exports){
+},{}],179:[function(require,module,exports){
 /**
  * @overview webSocket経由でデータ共有する処理
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -24959,7 +25168,7 @@ exports.init = (socket, socketRoot) => {
 
 const Job = require('./cron.js')
 const parserReceive = require('./syncParserReceive.js')
-let bufferTime = 33
+let bufferTime = 10
 let lastTime = 0
 let jobTimes = 10
 let syncObjectBuffer = []
@@ -24987,6 +25196,7 @@ let syncObjectTemplate = {
     },
     data: {}
 }
+let sendSoon = false
 
 /**
  * @param  {Object} socket
@@ -25010,6 +25220,14 @@ exports.sendSyncObject = (socket, ntp, socketRoot, syncObject, options = {}) => 
         }
 
         syncObjectBuffer.push(syncObject)
+
+        if (sendSoon) {
+            socket.emit(socketRoot + 'sync/send', {
+                array: syncObjectBuffer
+            })
+            syncObjectBuffer = []
+            return
+        }
 
         // eventsがあればそれまでのbuffer含めてすぐに送る
         // if (Object.keys(syncObject.events).length >= 1) {
@@ -25184,7 +25402,7 @@ let checkSyncObject = (syncObject) => {
     return syncObject
 }
 
-},{"./cron.js":169,"./syncParserReceive.js":182}],181:[function(require,module,exports){
+},{"./cron.js":168,"./syncParserReceive.js":181}],180:[function(require,module,exports){
 /**
  * @overview
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -25227,12 +25445,13 @@ exports.position = (client, body = {}) => {
         timestamp: Date.now(),
         identifier: uuid.v4(),
         data: {
+            id: body.id,
             position: body.position || defaultPosition,
             rotation: body.rotation || defaultRotation,
             orientation: body.orientation || {}
         },
         events: {
-            buffer: 'position/' + body.id,
+            // buffer: 'position/' + body.id,
             'parse/position': true
         },
         clientData: true
@@ -25243,7 +25462,7 @@ exports.position = (client, body = {}) => {
     }
 }
 
-},{"./webRTC":183,"node-uuid":217}],182:[function(require,module,exports){
+},{"./webRTC":182,"node-uuid":216}],181:[function(require,module,exports){
 /**
  * @overview
  * @author {@link https://github.com/kaneko656 Shoma Kaneko}
@@ -25287,19 +25506,30 @@ exports.position = (callback = () => {}) => {
         if (syncObject.identifier) {
             let id = syncObject.identifier
             let n = idListNumber
+            // console.log(id, syncObject.webRTC)
             if (id in checkIdentifierList[n]) {
                 let delay = Date.now() - checkIdentifierList[n][id]
+                // callback({
+                //     id: syncObject.clientData.user,
+                //     position: syncObject.data.position || {},
+                //     rotation: syncObject.data.rotation || {},
+                //     orientation: syncObject.data.orientation || {},
+                //     time: syncObject.time,
+                //     webRTC: syncObject.webRTC
+                // })
                 return
             } else {
                 checkIdentifierList[n][id] = Date.now()
             }
         }
         callback({
-            id: syncObject.clientData.user,
+            // id: syncObject.clientData.user,
+            id: syncObject.data.id,
             position: syncObject.data.position || {},
             rotation: syncObject.data.rotation || {},
             orientation: syncObject.data.orientation || {},
             time: syncObject.time,
+            webRTC: syncObject.webRTC
         })
     })
 }
@@ -25316,7 +25546,7 @@ exports.emit = (parseKey, syncObject) => {
     eventEmitter.emit(parseKey, syncObject)
 }
 
-},{"events":82}],183:[function(require,module,exports){
+},{"events":82}],182:[function(require,module,exports){
 /**
  * @overview webRTC接続
  * <br>接続先　config.json - socketUrl
@@ -25331,12 +25561,16 @@ exports.emit = (parseKey, syncObject) => {
  * @see {@link module:webSocket/syncParserReceive}
  */
 
+let isUse = false
 
 let host = 'localhost'
 let port = ''
 let path = '/peer'
 let peerServerKey = 'keitalab'
-let PeerClient = Peer
+let PeerClient
+try {
+    PeerClient = Peer
+} catch (e) {}
 try {
     host = require('./../../config.json').socketUrl
 } catch (e) {}
@@ -25366,7 +25600,7 @@ let createPeer = (id, socket) => {
         port: port,
         path: path,
         key: peerServerKey, // server側で設定したkey
-        debug: 0
+        debug: 1
         // debug Defaults to 0.
         // 0Prints no logs.
         // 1Prints only errors.
@@ -25380,6 +25614,7 @@ let peers = {}
 
 
 exports.isSupport = null
+let connected = false
 
 
 /**
@@ -25387,10 +25622,15 @@ exports.isSupport = null
  * @param {string} id [description]
  */
 exports.setMyID = (id, socket) => {
+    if (!isUse) {
+        return
+    }
     myPeer = createPeer(id, socket)
     exports.isSupport = true
     myPeer.on('connection', function(connection) {
         exports.isSupport = true
+        connected = true
+        eventEmitter.emit('connect')
         connection.serialization = 'json'
         connection.on('data', function(data) {
             try {
@@ -25415,8 +25655,11 @@ exports.setMyID = (id, socket) => {
     myPeer.on('error', (err) => {
         if (err == 'browser-incompatible') {
             exports.isSupport = false
+            connected = false
             console.log('notSupportWebRTC')
         } else {
+            exports.isSupport = false
+            connected = false
             console.log('webRTC myConnection:' + err)
         }
     })
@@ -25442,10 +25685,24 @@ eventEmitter.on('receive', (syncObject) => {
  * @param {string} id [description]
  */
 exports.setAnotherID = (id) => {
+    if (!isUse) {
+        return
+    }
+    if (!connected || !module.exports.isSupport || !myPeer) {
+        if (!connected) {
+            eventEmitter.on('connect', () => {
+                module.exports.setAnotherID(id)
+            })
+        }
+        return
+    }
     if (id in peers) {
         return
     }
     let connection = myPeer.connect(id)
+    if (!connection) {
+        return
+    }
     let send = (data) => {
         if (connection.open) {
             connection.send(JSON.stringify(data))
@@ -25458,13 +25715,13 @@ exports.setAnotherID = (id) => {
     // connection.on('open', () => {
     //     eventEmitter.emit(id + '/open')
     // })
-    connection.on('close', () => {
+    peers[id].connection.on('close', () => {
         removeAnotherID(id)
     })
-    connection.on('error', (err) => {
+    peers[id].connection.on('error', (err) => {
         console.log('webRTC anotherConnection:' + err)
     })
-    connection.serialization = 'json'
+    peers[id].connection.serialization = 'json'
 }
 
 
@@ -25489,10 +25746,15 @@ let removeAnotherID = exports.removeAnotherID
  */
 
 exports.sendToAllConnection = (data) => {
+    if (!isUse) {
+        return
+    }
+    if (!connected || !module.exports.isSupport || !myPeer) {
+        return
+    }
     if (ntp && data.time) {
         data.time = ntp.toServerTime(data.time)
     }
-    console.log('webRTC send')
     for (let key in peers) {
         peers[key].send(data)
     }
@@ -25508,7 +25770,7 @@ exports.setNTP = (_ntp) => {
     ntp = _ntp
 }
 
-},{"../syncParserReceive":182,"./../../config.json":157,"events":82}],184:[function(require,module,exports){
+},{"../syncParserReceive":181,"./../../config.json":157,"events":82}],183:[function(require,module,exports){
 module.exports = after
 
 function after(count, callback, err_cb) {
@@ -25538,7 +25800,7 @@ function after(count, callback, err_cb) {
 
 function noop() {}
 
-},{}],185:[function(require,module,exports){
+},{}],184:[function(require,module,exports){
 /**
  * An abstraction for slicing an arraybuffer even when
  * ArrayBuffer.prototype.slice is not supported
@@ -25569,7 +25831,7 @@ module.exports = function(arraybuffer, start, end) {
   return result.buffer;
 };
 
-},{}],186:[function(require,module,exports){
+},{}],185:[function(require,module,exports){
 
 /**
  * Expose `Backoff`.
@@ -25656,7 +25918,7 @@ Backoff.prototype.setJitter = function(jitter){
 };
 
 
-},{}],187:[function(require,module,exports){
+},{}],186:[function(require,module,exports){
 /*
  * base64-arraybuffer
  * https://github.com/niklasvh/base64-arraybuffer
@@ -25725,7 +25987,7 @@ Backoff.prototype.setJitter = function(jitter){
   };
 })();
 
-},{}],188:[function(require,module,exports){
+},{}],187:[function(require,module,exports){
 (function (global){
 /**
  * Create a blob builder even when vendor prefixes exist
@@ -25825,7 +26087,7 @@ module.exports = (function() {
 })();
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],189:[function(require,module,exports){
+},{}],188:[function(require,module,exports){
 /**
  * Slice reference.
  */
@@ -25850,7 +26112,7 @@ module.exports = function(obj, fn){
   }
 };
 
-},{}],190:[function(require,module,exports){
+},{}],189:[function(require,module,exports){
 
 /**
  * Expose `Emitter`.
@@ -26015,7 +26277,7 @@ Emitter.prototype.hasListeners = function(event){
   return !! this.listeners(event).length;
 };
 
-},{}],191:[function(require,module,exports){
+},{}],190:[function(require,module,exports){
 
 module.exports = function(a, b){
   var fn = function(){};
@@ -26023,7 +26285,7 @@ module.exports = function(a, b){
   a.prototype = new fn;
   a.prototype.constructor = a;
 };
-},{}],192:[function(require,module,exports){
+},{}],191:[function(require,module,exports){
 (function (root, factory) {
 	if (typeof define === 'function' && define.amd) {
 		define(['moment-timezone'], factory);
@@ -26565,7 +26827,7 @@ return exports;
 
 }));
 
-},{"child_process":44,"moment-timezone":213}],193:[function(require,module,exports){
+},{"child_process":44,"moment-timezone":212}],192:[function(require,module,exports){
 (function (process){
 /**
  * This is the web browser implementation of `debug()`.
@@ -26754,7 +27016,7 @@ function localstorage() {
 }
 
 }).call(this,require('_process'))
-},{"./debug":194,"_process":111}],194:[function(require,module,exports){
+},{"./debug":193,"_process":111}],193:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -26958,11 +27220,11 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":216}],195:[function(require,module,exports){
+},{"ms":215}],194:[function(require,module,exports){
 
 module.exports = require('./lib/index');
 
-},{"./lib/index":196}],196:[function(require,module,exports){
+},{"./lib/index":195}],195:[function(require,module,exports){
 
 module.exports = require('./socket');
 
@@ -26974,7 +27236,7 @@ module.exports = require('./socket');
  */
 module.exports.parser = require('engine.io-parser');
 
-},{"./socket":197,"engine.io-parser":205}],197:[function(require,module,exports){
+},{"./socket":196,"engine.io-parser":204}],196:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -27722,7 +27984,7 @@ Socket.prototype.filterUpgrades = function (upgrades) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./transport":198,"./transports/index":199,"component-emitter":190,"debug":193,"engine.io-parser":205,"indexof":210,"parsejson":218,"parseqs":219,"parseuri":220}],198:[function(require,module,exports){
+},{"./transport":197,"./transports/index":198,"component-emitter":189,"debug":192,"engine.io-parser":204,"indexof":209,"parsejson":217,"parseqs":218,"parseuri":219}],197:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -27881,7 +28143,7 @@ Transport.prototype.onClose = function () {
   this.emit('close');
 };
 
-},{"component-emitter":190,"engine.io-parser":205}],199:[function(require,module,exports){
+},{"component-emitter":189,"engine.io-parser":204}],198:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies
@@ -27938,7 +28200,7 @@ function polling (opts) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling-jsonp":200,"./polling-xhr":201,"./websocket":203,"xmlhttprequest-ssl":204}],200:[function(require,module,exports){
+},{"./polling-jsonp":199,"./polling-xhr":200,"./websocket":202,"xmlhttprequest-ssl":203}],199:[function(require,module,exports){
 (function (global){
 
 /**
@@ -28173,7 +28435,7 @@ JSONPPolling.prototype.doWrite = function (data, fn) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":202,"component-inherit":191}],201:[function(require,module,exports){
+},{"./polling":201,"component-inherit":190}],200:[function(require,module,exports){
 (function (global){
 /**
  * Module requirements.
@@ -28590,7 +28852,7 @@ function unloadHandler () {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./polling":202,"component-emitter":190,"component-inherit":191,"debug":193,"xmlhttprequest-ssl":204}],202:[function(require,module,exports){
+},{"./polling":201,"component-emitter":189,"component-inherit":190,"debug":192,"xmlhttprequest-ssl":203}],201:[function(require,module,exports){
 /**
  * Module dependencies.
  */
@@ -28837,7 +29099,7 @@ Polling.prototype.uri = function () {
   return schema + '://' + (ipv6 ? '[' + this.hostname + ']' : this.hostname) + port + this.path + query;
 };
 
-},{"../transport":198,"component-inherit":191,"debug":193,"engine.io-parser":205,"parseqs":219,"xmlhttprequest-ssl":204,"yeast":230}],203:[function(require,module,exports){
+},{"../transport":197,"component-inherit":190,"debug":192,"engine.io-parser":204,"parseqs":218,"xmlhttprequest-ssl":203,"yeast":229}],202:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -29127,7 +29389,7 @@ WS.prototype.check = function () {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"../transport":198,"component-inherit":191,"debug":193,"engine.io-parser":205,"parseqs":219,"ws":18,"yeast":230}],204:[function(require,module,exports){
+},{"../transport":197,"component-inherit":190,"debug":192,"engine.io-parser":204,"parseqs":218,"ws":18,"yeast":229}],203:[function(require,module,exports){
 (function (global){
 // browser shim for xmlhttprequest module
 
@@ -29168,7 +29430,7 @@ module.exports = function (opts) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"has-cors":209}],205:[function(require,module,exports){
+},{"has-cors":208}],204:[function(require,module,exports){
 (function (global){
 /**
  * Module dependencies.
@@ -29778,7 +30040,7 @@ exports.decodePayloadAsBinary = function (data, binaryType, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./keys":206,"./utf8":207,"after":184,"arraybuffer.slice":185,"base64-arraybuffer":187,"blob":188,"has-binary2":208}],206:[function(require,module,exports){
+},{"./keys":205,"./utf8":206,"after":183,"arraybuffer.slice":184,"base64-arraybuffer":186,"blob":187,"has-binary2":207}],205:[function(require,module,exports){
 
 /**
  * Gets the keys for an object.
@@ -29799,7 +30061,7 @@ module.exports = Object.keys || function keys (obj){
   return arr;
 };
 
-},{}],207:[function(require,module,exports){
+},{}],206:[function(require,module,exports){
 (function (global){
 /*! https://mths.be/utf8js v2.1.2 by @mathias */
 ;(function(root) {
@@ -30058,7 +30320,7 @@ module.exports = Object.keys || function keys (obj){
 }(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],208:[function(require,module,exports){
+},{}],207:[function(require,module,exports){
 (function (global){
 /* global Blob File */
 
@@ -30124,7 +30386,7 @@ function hasBinary (obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"isarray":211}],209:[function(require,module,exports){
+},{"isarray":210}],208:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -30143,11 +30405,11 @@ try {
   module.exports = false;
 }
 
-},{}],210:[function(require,module,exports){
+},{}],209:[function(require,module,exports){
 arguments[4][93][0].apply(exports,arguments)
-},{"dup":93}],211:[function(require,module,exports){
+},{"dup":93}],210:[function(require,module,exports){
 arguments[4][96][0].apply(exports,arguments)
-},{"dup":96}],212:[function(require,module,exports){
+},{"dup":96}],211:[function(require,module,exports){
 module.exports={
 	"version": "2017b",
 	"zones": [
@@ -30748,11 +31010,11 @@ module.exports={
 		"Pacific/Tarawa|Pacific/Wallis"
 	]
 }
-},{}],213:[function(require,module,exports){
+},{}],212:[function(require,module,exports){
 var moment = module.exports = require("./moment-timezone");
 moment.tz.load(require('./data/packed/latest.json'));
 
-},{"./data/packed/latest.json":212,"./moment-timezone":214}],214:[function(require,module,exports){
+},{"./data/packed/latest.json":211,"./moment-timezone":213}],213:[function(require,module,exports){
 //! moment-timezone.js
 //! version : 0.5.13
 //! Copyright (c) JS Foundation and other contributors
@@ -31355,7 +31617,7 @@ moment.tz.load(require('./data/packed/latest.json'));
 	return moment;
 }));
 
-},{"moment":215}],215:[function(require,module,exports){
+},{"moment":214}],214:[function(require,module,exports){
 //! moment.js
 //! version : 2.18.1
 //! authors : Tim Wood, Iskren Chernev, Moment.js contributors
@@ -35820,7 +36082,7 @@ return hooks;
 
 })));
 
-},{}],216:[function(require,module,exports){
+},{}],215:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -35974,7 +36236,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],217:[function(require,module,exports){
+},{}],216:[function(require,module,exports){
 (function (Buffer){
 //     uuid.js
 //
@@ -36250,7 +36512,7 @@ function plural(ms, n, name) {
 })('undefined' !== typeof window ? window : null);
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":46,"crypto":55}],218:[function(require,module,exports){
+},{"buffer":46,"crypto":55}],217:[function(require,module,exports){
 (function (global){
 /**
  * JSON parse.
@@ -36285,7 +36547,7 @@ module.exports = function parsejson(data) {
   }
 };
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],219:[function(require,module,exports){
+},{}],218:[function(require,module,exports){
 /**
  * Compiles a querystring
  * Returns string representation of the object
@@ -36324,7 +36586,7 @@ exports.decode = function(qs){
   return qry;
 };
 
-},{}],220:[function(require,module,exports){
+},{}],219:[function(require,module,exports){
 /**
  * Parses an URI
  *
@@ -36365,7 +36627,7 @@ module.exports = function parseuri(str) {
     return uri;
 };
 
-},{}],221:[function(require,module,exports){
+},{}],220:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -36461,7 +36723,7 @@ exports.connect = lookup;
 exports.Manager = require('./manager');
 exports.Socket = require('./socket');
 
-},{"./manager":222,"./socket":224,"./url":225,"debug":193,"socket.io-parser":227}],222:[function(require,module,exports){
+},{"./manager":221,"./socket":223,"./url":224,"debug":192,"socket.io-parser":226}],221:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -37036,7 +37298,7 @@ Manager.prototype.onreconnect = function () {
   this.emitAll('reconnect', attempt);
 };
 
-},{"./on":223,"./socket":224,"backo2":186,"component-bind":189,"component-emitter":190,"debug":193,"engine.io-client":195,"indexof":210,"socket.io-parser":227}],223:[function(require,module,exports){
+},{"./on":222,"./socket":223,"backo2":185,"component-bind":188,"component-emitter":189,"debug":192,"engine.io-client":194,"indexof":209,"socket.io-parser":226}],222:[function(require,module,exports){
 
 /**
  * Module exports.
@@ -37062,7 +37324,7 @@ function on (obj, ev, fn) {
   };
 }
 
-},{}],224:[function(require,module,exports){
+},{}],223:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -37482,7 +37744,7 @@ Socket.prototype.compress = function (compress) {
   return this;
 };
 
-},{"./on":223,"component-bind":189,"component-emitter":190,"debug":193,"parseqs":219,"socket.io-parser":227,"to-array":229}],225:[function(require,module,exports){
+},{"./on":222,"component-bind":188,"component-emitter":189,"debug":192,"parseqs":218,"socket.io-parser":226,"to-array":228}],224:[function(require,module,exports){
 (function (global){
 
 /**
@@ -37561,7 +37823,7 @@ function url (uri, loc) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"debug":193,"parseuri":220}],226:[function(require,module,exports){
+},{"debug":192,"parseuri":219}],225:[function(require,module,exports){
 (function (global){
 /*global Blob,File*/
 
@@ -37706,7 +37968,7 @@ exports.removeBlobs = function(data, callback) {
 };
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./is-buffer":228,"isarray":211}],227:[function(require,module,exports){
+},{"./is-buffer":227,"isarray":210}],226:[function(require,module,exports){
 
 /**
  * Module dependencies.
@@ -38108,7 +38370,7 @@ function error() {
   };
 }
 
-},{"./binary":226,"./is-buffer":228,"component-emitter":190,"debug":193,"has-binary2":208}],228:[function(require,module,exports){
+},{"./binary":225,"./is-buffer":227,"component-emitter":189,"debug":192,"has-binary2":207}],227:[function(require,module,exports){
 (function (global){
 
 module.exports = isBuf;
@@ -38125,7 +38387,7 @@ function isBuf(obj) {
 }
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],229:[function(require,module,exports){
+},{}],228:[function(require,module,exports){
 module.exports = toArray
 
 function toArray(list, index) {
@@ -38140,7 +38402,7 @@ function toArray(list, index) {
     return array
 }
 
-},{}],230:[function(require,module,exports){
+},{}],229:[function(require,module,exports){
 'use strict';
 
 var alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_'.split('')
@@ -38210,7 +38472,7 @@ yeast.encode = encode;
 yeast.decode = decode;
 module.exports = yeast;
 
-},{}],231:[function(require,module,exports){
+},{}],230:[function(require,module,exports){
 'use strict';
 var token = '%[a-f0-9]{2}';
 var singleMatcher = new RegExp(token, 'gi');
@@ -38306,7 +38568,7 @@ module.exports = function (encodedURI) {
 	}
 };
 
-},{}],232:[function(require,module,exports){
+},{}],231:[function(require,module,exports){
 /*
 object-assign
 (c) Sindre Sorhus
@@ -38398,7 +38660,7 @@ module.exports = shouldUseNative() ? Object.assign : function (target, source) {
 	return to;
 };
 
-},{}],233:[function(require,module,exports){
+},{}],232:[function(require,module,exports){
 'use strict';
 var strictUriEncode = require('strict-uri-encode');
 var objectAssign = require('object-assign');
@@ -38606,7 +38868,7 @@ exports.stringify = function (obj, opts) {
 	}).join('&') : '';
 };
 
-},{"decode-uri-component":231,"object-assign":232,"strict-uri-encode":234}],234:[function(require,module,exports){
+},{"decode-uri-component":230,"object-assign":231,"strict-uri-encode":233}],233:[function(require,module,exports){
 'use strict';
 module.exports = function (str) {
 	return encodeURIComponent(str).replace(/[!'()*]/g, function (c) {

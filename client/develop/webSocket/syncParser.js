@@ -40,12 +40,13 @@ exports.position = (client, body = {}) => {
         timestamp: Date.now(),
         identifier: uuid.v4(),
         data: {
+            id: body.id,
             position: body.position || defaultPosition,
             rotation: body.rotation || defaultRotation,
             orientation: body.orientation || {}
         },
         events: {
-            buffer: 'position/' + body.id,
+            // buffer: 'position/' + body.id,
             'parse/position': true
         },
         clientData: true

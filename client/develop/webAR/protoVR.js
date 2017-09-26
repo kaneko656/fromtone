@@ -27,6 +27,10 @@ let property = require('./../webSocket/property')
 let MeshProto = require('./proto-mesh.js')
 let eventCall = require('./eventCall')
 
+const events = require('events')
+let eventEmitter = new events.EventEmitter()
+
+
 
 // view FPS  in update() write stats.update()
 let Stats = require('./Stats.js')
@@ -38,19 +42,22 @@ let client
 let sound
 let deviceMesh = {}
 
+let common = require('./common')
+
+let self = this
+
 exports.initVR = (_client, _sound) => {
     client = _client
     sound = _sound
 
-    width = window.innerWidth || 800
-    height = window.innerHeight || 600
-
     // step.1 renderer
+    width = window.innerWidth
+    height = window.innerHeight
     renderer = new THREE.WebGLRenderer()
-    // renderer.setPixelRatio(window.devicePixelRatio)
+    renderer.setPixelRatio(window.devicePixelRatio)
     renderer.setSize(width, height)
-    // renderer.autoClear = false
 
+    // DOM
     canvas = renderer.domElement
     document.body.appendChild(canvas)
 
@@ -67,7 +74,7 @@ exports.initVR = (_client, _sound) => {
     controls = new THREE.OrbitControls(camera, canvas)
 
     // step.4 mesh
-    initMesh()
+    // initMesh()
 
 
     // step.5 light
@@ -80,7 +87,15 @@ exports.initVR = (_client, _sound) => {
     canvas.addEventListener('click', onClick, false)
     window.addEventListener('resize', onWindowResize, false)
 
-    hitting()
+    // draw object in another device position
+    client.receive.position((body) => {
+        if (client.data.user == body.id) {
+            return
+        }
+        common.shareARPosition(body, (mesh) => {
+            scene.add(mesh)
+        })
+    })
 
     document.body.addEventListener('mousemove', (e) => {
         client.send.position({
@@ -93,19 +108,36 @@ exports.initVR = (_client, _sound) => {
         })
     })
 
-    canvas.addEventListener('touchmove', (e) => {
-        client.log('touchmove')
-        client.send.position({
-            id: client.data.user,
-            position: {
-                x: e.touches[0].pageX / window.innerWidth,
-                y: e.touches[0].pageY / window.innerHeight,
-                z: 0
-            }
-        })
-        client.log('ok')
-    })
+    frameTime()
 
+
+    // canvas.addEventListener('touchmove', (e) => {
+    //     client.send.position({
+    //         id: client.data.user,
+    //         position: {
+    //             x: e.touches[0].pageX / window.innerWidth,
+    //             y: e.touches[0].pageY / window.innerHeight,
+    //             z: 0
+    //         }
+    //     })
+    // })
+
+}
+
+// same cord AR/VR
+function frameTime() {
+    let frameTimeGui
+    let frame = common.frameTime((frameTime) => {
+        if (!frameTimeGui && client.gui) {
+            frameTimeGui = client.gui.addFolder('frameTime').add(frameTime, 'time')
+        }
+        if (frameTimeGui) {
+            frameTimeGui.updateDisplay()
+        }
+    })
+    eventEmitter.on('animation', () => {
+        frame()
+    })
 }
 
 function hitting() {
@@ -114,7 +146,7 @@ function hitting() {
     var material = new THREE.MeshBasicMaterial({
         color: 0x45ff45,
         side: THREE.DoubleSide
-    });
+    })
     var plane = new THREE.Mesh(geometry, material)
     plane.position.set(0, 0, 0)
     plane.rotation.set(Math.PI / 2, 0, 0)
@@ -132,13 +164,21 @@ function initMesh() {
     cube.position.set(0, 0, 0)
     scene.add(cube)
 
+    return
+
 
     // syncTest
     let sync = cube.clone()
+    let syncRTC = cube.clone()
     client.receive.position((posData) => {
-        sync.position.set(posData.position.x, posData.position.y, -2)
+        if (posData.webRTC) {
+            syncRTC.position.set(posData.position.x / 2, -posData.position.y + 0.5, -2)
+        } else {
+            sync.position.set(posData.position.x / 2 - 1, -posData.position.y + 0.5, -2)
+        }
     })
     scene.add(sync)
+    scene.add(syncRTC)
 
 
     let localTime = Date.now()
@@ -147,7 +187,7 @@ function initMesh() {
     setTimeout(() => {
         syncStart = true
     }, 10000)
-    eventCall.on('animation', (operator, time) => {
+    eventEmitter.on('animation', (time) => {
         let st = property.get('startTime', null)
         // syncStart
         if (st && syncStart) {
@@ -211,29 +251,29 @@ function initMesh() {
 
     // VR/AR
     // device Position
-    client.receive.position((body) => {
-        let id = body.id
-        if (client.data.user == id) {
-            return
-        }
-        if (!deviceMesh[id]) {
-            let mesh = MeshProto.group()
-            mesh.scale.set(0.05, 0.05, 0.03)
-            mesh.position.copy(body.position)
-            scene.add(mesh)
-            deviceMesh[id] = mesh
-        }
-        deviceMesh[id].position.copy(body.position)
-        if (body.orientation) {
-            let quaternion = new THREE.Quaternion(
-                body.orientation[0],
-                body.orientation[1],
-                body.orientation[2],
-                body.orientation[3]
-            )
-            deviceMesh[id].quaternion.copy(quaternion)
-        }
-    })
+    // client.receive.position((body) => {
+    //     let id = body.id
+    //     if (client.data.user == id) {
+    //         return
+    //     }
+    //     if (!deviceMesh[id]) {
+    //         let mesh = MeshProto.group()
+    //         mesh.scale.set(0.05, 0.05, 0.03)
+    //         mesh.position.copy(body.position)
+    //         scene.add(mesh)
+    //         deviceMesh[id] = mesh
+    //     }
+    //     deviceMesh[id].position.copy(body.position)
+    //     if (body.orientation) {
+    //         let quaternion = new THREE.Quaternion(
+    //             body.orientation[0],
+    //             body.orientation[1],
+    //             body.orientation[2],
+    //             body.orientation[3]
+    //         )
+    //         deviceMesh[id].quaternion.copy(quaternion)
+    //     }
+    // })
 
     // only VR
     let center = cube.clone()
@@ -248,25 +288,14 @@ function initMesh() {
 }
 
 
-
-let startTime = null
-
 function update(time) {
-    time = null
-    if (!time) {
-        if (!startTime) {
-            startTime = Date.now()
-        }
-        time = Date.now() - startTime
-    }
-    eventCall.emit('animation', time)
+    eventEmitter.emit('animation', time)
     controls.update()
     stats.update()
 
     renderer.render(scene, camera)
 
     requestAnimationFrame(update)
-
 }
 
 function onClick() {

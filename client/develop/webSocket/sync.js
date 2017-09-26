@@ -10,7 +10,7 @@
 
 const Job = require('./cron.js')
 const parserReceive = require('./syncParserReceive.js')
-let bufferTime = 33
+let bufferTime = 10
 let lastTime = 0
 let jobTimes = 10
 let syncObjectBuffer = []
@@ -38,6 +38,7 @@ let syncObjectTemplate = {
     },
     data: {}
 }
+let sendSoon = false
 
 /**
  * @param  {Object} socket
@@ -61,6 +62,14 @@ exports.sendSyncObject = (socket, ntp, socketRoot, syncObject, options = {}) => 
         }
 
         syncObjectBuffer.push(syncObject)
+
+        if (sendSoon) {
+            socket.emit(socketRoot + 'sync/send', {
+                array: syncObjectBuffer
+            })
+            syncObjectBuffer = []
+            return
+        }
 
         // eventsがあればそれまでのbuffer含めてすぐに送る
         // if (Object.keys(syncObject.events).length >= 1) {

@@ -38,8 +38,7 @@
 
 const Job = require('./cron.js')
 const parserReceive = require('./syncParserReceive.js')
-const webRTC = require('./webRTC')
-let bufferTime = 33
+let bufferTime = 10
 let lastTime = 0
 let jobTimes = 10
 let syncObjectBuffer = []
@@ -48,11 +47,12 @@ let syncObjectBuffer = []
  * syncObject
  * @typedef {Object} syncObject
  * @property {stirng|number} time
- * @property {stirng|number} [timestamp]
- * @property {Object} [events]
+ * @property {stirng} [identifier]
+ * @property {Object} [events]  buffer: name -> serverにbuffer
  * @property {Object} [types]
- * @property {Object} [position]
  * @property {Object} [data]
+ * @property {string} [clientID] return clientID
+ * @property {boolean} [clientData] if true -> return clientData
  */
 
 let syncObjectTemplate = {
@@ -66,6 +66,7 @@ let syncObjectTemplate = {
     },
     data: {}
 }
+let sendSoon = false
 
 /**
  * @param  {Object} socket
@@ -82,15 +83,21 @@ exports.sendSyncObject = (socket, ntp, socketRoot, syncObject, options = {}) => 
     if (syncObject) {
         // server時刻に補正
         syncObject.time = ntp.toServerTime(syncObject.time)
-        if(syncObject.timestamp){
-            syncObject.timestamp = ntp.toServerTime(syncObject.timestamp)
-        }
+
         // 例外
         if (isNaN(syncObject.time)) {
             return
         }
 
         syncObjectBuffer.push(syncObject)
+
+        if (sendSoon) {
+            socket.emit(socketRoot + 'sync/send', {
+                array: syncObjectBuffer
+            })
+            syncObjectBuffer = []
+            return
+        }
 
         // eventsがあればそれまでのbuffer含めてすぐに送る
         // if (Object.keys(syncObject.events).length >= 1) {
@@ -171,6 +178,7 @@ exports.receiveSyncObject = (socket, ntp, socketRoot, callback = () => {}) => {
             syncObjects.splice(n, 1)
         })
 
+
         // callback
         if (syncObjects.length >= 1) {
 
@@ -236,8 +244,6 @@ exports.getSyncObjectBuffer = (socket, ntp, socketRoot, callback = () => {}) => 
                     })
                 }
             })
-
-
             callback(syncObjects)
         }
     })
@@ -275,13 +281,13 @@ let checkSyncObject = (syncObject) => {
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-soundManager.html">soundManager</a></li><li><a href="module-soundManager_SyncAudio.html">soundManager/SyncAudio</a></li><li><a href="module-soundManager_TimeValue.html">soundManager/TimeValue</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_property.html">webSocket/property</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li><li><a href="module-webSocket_spec.html">webSocket/spec</a></li><li><a href="module-webSocket_sync.html">webSocket/sync</a></li><li><a href="module-webSocket_syncParser.html">webSocket/syncParser</a></li><li><a href="module-webSocket_syncParserReceive.html">webSocket/syncParserReceive</a></li></ul><h3>Classes</h3><ul><li><a href="module-soundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-soundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-soundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#onClick">onClick</a></li><li><a href="global.html#onWindowResize">onWindowResize</a></li><li><a href="global.html#start">start</a></li><li><a href="global.html#startTime">startTime</a></li><li><a href="global.html#Stats">Stats</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-server_register.html">server/register</a></li><li><a href="module-soundManager.html">soundManager</a></li><li><a href="module-soundManager_SyncAudio.html">soundManager/SyncAudio</a></li><li><a href="module-soundManager_TimeValue.html">soundManager/TimeValue</a></li><li><a href="module-View_common.html">View/common</a></li><li><a href="module-webSocket_ntpClient.html">webSocket/ntpClient</a></li><li><a href="module-webSocket_property.html">webSocket/property</a></li><li><a href="module-webSocket_register.html">webSocket/register</a></li><li><a href="module-webSocket_socketClient.html">webSocket/socketClient</a></li><li><a href="module-webSocket_spec.html">webSocket/spec</a></li><li><a href="module-webSocket_sync.html">webSocket/sync</a></li><li><a href="module-webSocket_syncParser.html">webSocket/syncParser</a></li><li><a href="module-webSocket_syncParserReceive.html">webSocket/syncParserReceive</a></li></ul><h3>Classes</h3><ul><li><a href="module-soundManager.play-AudioSyncController.html">AudioSyncController</a></li><li><a href="module-soundManager_SyncAudio-SyncAudio.html">SyncAudio</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html">TimeValue</a></li></ul><h3>Events</h3><ul><li><a href="module-soundManager_SyncAudio-SyncAudio.html#event:finished">finished</a></li><li><a href="module-soundManager_TimeValue-TimeValue.html#event:updateEvent">updateEvent</a></li></ul><h3>Global</h3><ul><li><a href="global.html#onClick">onClick</a></li><li><a href="global.html#onWindowResize">onWindowResize</a></li><li><a href="global.html#start">start</a></li><li><a href="global.html#startTime">startTime</a></li><li><a href="global.html#Stats">Stats</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Sun Sep 24 2017 15:55:51 GMT+0900 (JST)
+    Documentation generated by <a href="https://github.com/jsdoc3/jsdoc">JSDoc 3.4.3</a> on Tue Sep 26 2017 17:48:52 GMT+0900 (JST)
 </footer>
 
 <script> prettyPrint(); </script>

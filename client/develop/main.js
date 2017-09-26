@@ -15,7 +15,7 @@ let group = 'Serval'
 
 let Job = require('./Job/cron.js')
 
-let proto = require('./webAR/proto.js')
+let webAR = require('./webAR')
 let clientID = ''
 
 let audioList = {
@@ -33,27 +33,11 @@ exports.start = (clientData) => {
     let updater = client.initRegister(socketRoot, group, clientData)
     client.data = clientData
 
-    if (clientData.user == 'debug') {
-        return
+
+    let socketConnect = {
+        connect: false
     }
-
-
-    // client.gui = gui
-
-    sound.setAudioList(audioList)
-    sound.finishLoad('pizz_7', () => {
-        sound.play('pizz_7')
-    })
-
-    proto.start(client, sound)
-
-
-    sound.setSpeakerPosition(clientData.user, {})
-
-    // ? 非同期にすると入る
-    setTimeout(() => {
-        client.gui = new dat.GUI() // {width: 300}
-    }, 1)
+    let socketConnectGui
 
     client.connecting((url, thisClientID) => {
         console.log('connecting... ' + url)
@@ -65,6 +49,10 @@ exports.start = (clientData) => {
 
     client.connect((url, thisClientID) => {
         console.log('connect: ' + url)
+        socketConnect.connect = true
+        if (socketConnectGui) {
+            socketConnectGui.updateDisplay()
+        }
         if (thisClientID) {
             clientID = thisClientID
             eventListener.emit('setClientID')
@@ -73,8 +61,33 @@ exports.start = (clientData) => {
 
     client.disconnect((url, thisClientID) => {
         console.log('disconnect: ' + url)
+        socketConnect.connect = false
+        if (socketConnectGui) {
+            socketConnectGui.updateDisplay()
+        }
     })
 
+    // ? 非同期にすると入る
+    setTimeout(() => {
+        client.gui = new dat.GUI() // {width: 300}
+        socketConnectGui = client.gui.add(socketConnect, 'connect')
+    }, 1)
+
+    if (clientData.user == 'debug') {
+        return
+    }
+
+    // Responsive AR and VR
+    webAR.start(client, sound)
+
+    // client.gui = gui
+
+    sound.setAudioList(audioList)
+    sound.finishLoad('pizz_7', () => {
+        sound.play('pizz_7')
+    })
+
+    sound.setSpeakerPosition(clientData.user, {})
 
     client.receiveSyncObject((syncObjects) => {
         receive(syncObjects)
@@ -84,12 +97,14 @@ exports.start = (clientData) => {
         receive(syncObjects)
     })
 
-
     function receive(syncObjects) {
         syncObjects.forEach((syncObject) => {
             // client.log(syncObject)
         })
     }
+
+
+
 }
 
 eventListener.on('setClientID', () => {})

@@ -15,11 +15,11 @@ let app = appInit.app
 page.init(app)
 console.log(localAddress.toURL(8001))
 let ngrokID = process.argv[2] || '::'
-console.log('ngrok', 'https://' + ngrokID + '.ngrok.io')
+console.log('ngrok', 'http://' + ngrokID + '.ngrok.io')
 
-app.use('/peer', ExpressPeerServer(server, {
-    debug: 2
-}))
+// app.use('/peer', ExpressPeerServer(server, {
+//     debug: 2
+// }))
 
 let io = socketio.listen(server)
 io.sockets.on('connection', (clientSocket) => {
