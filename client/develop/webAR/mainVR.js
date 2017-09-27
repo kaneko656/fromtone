@@ -83,6 +83,11 @@ class VR {
             this.onClick()
         })
 
+        let t = this.common.transGUI(this, null, (trans) => {
+            // console.log(trans)
+            // console.log(t)
+        })
+
         // return
     }
 

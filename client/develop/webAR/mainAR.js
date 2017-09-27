@@ -33,6 +33,7 @@ class AR {
             orientation: null,
             rotation: null
         }
+        this.trans
 
         // param
         this.client = client
@@ -94,6 +95,11 @@ class AR {
         // window.addEventListener('resize', onWindowResize, false)
 
         this.update()
+        this.trans = this.common.transGUI(this, {
+          x: -0.0,
+          y: -0.0,
+          z: 0.0
+        }, (trans) => {})
         this.sendPosition()
         this.canvas.addEventListener('touchstart', (e) => {
             console.log('start')
@@ -138,6 +144,7 @@ class AR {
         let client = this.client
         let calib = this.calibrationData
         let vrFrameData = this.vrFrameData
+        let trans = this.trans
 
         // send Position
         let lastTime = 0
@@ -160,6 +167,11 @@ class AR {
                 position.x -= calib.position.x
                 position.y -= calib.position.y
                 position.z -= calib.position.z
+            }
+            if(trans){
+              position.x += trans.x
+              position.y += trans.y
+              position.z += trans.z
             }
 
             // @TODO orientaion -> toration orientaionだと単純に差を取ってもだめ

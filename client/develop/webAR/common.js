@@ -144,3 +144,42 @@ exports.viewFrameTime = (self) => {
         frameTime.time = 0
     })
 }
+
+exports.transGUI = (self, initPos = {}, callback = () => {}) => {
+
+    let common = self.common
+    let client = self.client
+    let eventEmitter = self.eventEmitter
+
+    let trans = {
+        x: (initPos && initPos.x) || 0,
+        y: (initPos && initPos.y) || 0,
+        z: (initPos && initPos.z) || 0
+    }
+    let transFolder
+    let transX
+    let transY
+    let transZ
+
+    let set = () => {
+        transFolder = client.gui.addFolder('trans')
+        transX = transFolder.add(trans, 'x', -0.1, 0.1).step(0.001).onChange(call)
+        transY = transFolder.add(trans, 'y', -0.1, 0.1).step(0.001).onChange(call)
+        transZ = transFolder.add(trans, 'z', -0.1, 0.1).step(0.001).onChange(call)
+    }
+
+    let call = () => {
+        callback(trans)
+    }
+
+    if (client.gui) {
+        set()
+    } else {
+        setTimeout(() => {
+            if (client.gui) {
+                set()
+            }
+        }, 3000)
+    }
+    return trans
+}
